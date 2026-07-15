@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
 import AccountButton from "../account/AccountButton";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
+import { createClient } from "../../lib/supabase/client";
 
 type CrewMember = {
   id: string;
@@ -591,6 +592,7 @@ export default function StudioPage() {
   const [hasDialogueStage, setHasDialogueStage] = useState(false);
   const [hasSummaryStage, setHasSummaryStage] = useState(false);
   const [resetMenuOpen, setResetMenuOpen] = useState(false);
+  const [authGateOpen, setAuthGateOpen] = useState(false);
 
   const isModalOpen = activeRole !== null;
   const activeConfig = activeRole ? roleConfigs[activeRole] : null;
@@ -793,6 +795,12 @@ export default function StudioPage() {
       return;
     }
 
+    const { data } = await createClient().auth.getUser();
+    if (!data.user?.email_confirmed_at) {
+      setAuthGateOpen(true);
+      return;
+    }
+
     const storedReferences = await Promise.all(
       references.map(
         ({ file }) =>
@@ -835,6 +843,11 @@ export default function StudioPage() {
 
   async function skipDiscussion() {
     if (!selectedSecondDirector || !selectedScreenwriter || !notes.trim() || isSkippingDiscussion) return;
+    const { data } = await createClient().auth.getUser();
+    if (!data.user?.email_confirmed_at) {
+      setAuthGateOpen(true);
+      return;
+    }
     const secondDirector = selectedSecondDirector;
     const screenwriter = selectedScreenwriter;
     setIsSkippingDiscussion(true);
@@ -1091,6 +1104,20 @@ export default function StudioPage() {
           </div>
         </section>
       </section>
+
+      {authGateOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 p-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Create an account to continue">
+          <button type="button" aria-label="Close" onClick={() => setAuthGateOpen(false)} className="absolute inset-0 cursor-default" />
+          <section className="relative z-10 w-full max-w-md rounded-[28px] border border-white/10 bg-[#0A0A0A] p-7 shadow-2xl sm:p-9">
+            <button type="button" onClick={() => setAuthGateOpen(false)} aria-label="Close" className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-lg text-white/45 hover:text-white">×</button>
+            <p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">SAVE YOUR CREATIVE SESSION</p>
+            <h2 className="mt-4 pr-8 text-3xl font-black tracking-[-0.04em] text-white">CREATE AN ACCOUNT TO START.</h2>
+            <p className="mt-4 text-sm leading-6 text-white/45">Your team, conversation, references and project document will be securely connected to your account.</p>
+            <a href="/account?mode=sign-up&next=/studio" className="mt-7 flex h-12 w-full items-center justify-center rounded-full bg-[#FFDF00] text-[10px] font-black text-black">CREATE ACCOUNT</a>
+            <a href="/account?mode=sign-in&next=/studio" className="mt-3 flex h-11 w-full items-center justify-center rounded-full border border-white/12 text-[10px] font-black text-white/60">I ALREADY HAVE AN ACCOUNT</a>
+          </section>
+        </div>
+      )}
 
       {activeConfig && (
         <div

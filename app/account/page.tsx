@@ -29,7 +29,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     try { createClient().auth.getUser().then(({ data }) => { setUserEmail(data.user?.email ?? ""); setName(String(data.user?.user_metadata.full_name ?? "")); setAvatarUrl(String(data.user?.user_metadata.avatar_url ?? "")); }); } catch { /* shown on submit */ }
-    const confirmation = new URLSearchParams(window.location.search).get("confirmation");
+    const search = new URLSearchParams(window.location.search);
+    const requestedMode = search.get("mode");
+    if (requestedMode === "sign-up" || requestedMode === "sign-in") queueMicrotask(() => setMode(requestedMode));
+    const confirmation = search.get("confirmation");
     if (confirmation) queueMicrotask(() => setMessage(confirmation === "success" ? "EMAIL CONFIRMED. YOUR ACCOUNT IS READY." : "EMAIL CONFIRMATION FAILED OR EXPIRED."));
   }, []);
 
