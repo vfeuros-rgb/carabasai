@@ -22,6 +22,8 @@ export default function ResetPasswordPage() {
         const query = new URLSearchParams(window.location.search);
         const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const confirmationStatus = query.get("confirmation");
+        const tokenHash = query.get("token_hash");
+        const recoveryType = query.get("type");
         const code = query.get("code");
         const accessToken = fragment.get("access_token");
         const refreshToken = fragment.get("refresh_token");
@@ -39,6 +41,21 @@ export default function ResetPasswordPage() {
         if (confirmationStatus === "failed") {
           await supabase.auth.signOut({ scope: "local" });
           throw new Error("Recovery verification failed.");
+        }
+
+        if (tokenHash && recoveryType === "recovery") {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+          if (error) throw error;
+          window.clearTimeout(timeout);
+          if (active) {
+            setSessionReady(true);
+            setMessage("");
+            window.history.replaceState({}, "", "/account/reset-password");
+          }
+          return;
         }
 
         if (code) {
