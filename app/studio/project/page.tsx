@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { currentAIProvider } from "../AIProviderSwitch";
 import { useEffect, useState } from "react";
+import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
@@ -104,7 +105,7 @@ export default function ProjectPage() {
     setResolvingQuestion(question.id);
     setError("");
     try {
-      const response = await fetch("/api/project-document", {
+      const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -151,7 +152,7 @@ export default function ProjectPage() {
     setResolvingQuestion("all");
     setError("");
     try {
-      const response = await fetch("/api/project-document", {
+      const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

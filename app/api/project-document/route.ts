@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AiAccessError, authenticateAiRequest, consumeAiQuota } from "../../../lib/ai-access";
 
 type NotebookNote = {
   author: "secondDirector" | "screenwriter";
@@ -8,6 +9,16 @@ type NotebookNote = {
 };
 
 export async function POST(request: Request) {
+  let access;
+  try {
+    access = await authenticateAiRequest(request);
+  } catch (error) {
+    const accessError = error instanceof AiAccessError ? error : new AiAccessError("AUTHENTICATION FAILED.", 401);
+    return NextResponse.json(
+      { error: accessError.message, ...accessError.details },
+      { status: accessError.status, headers: accessError.details?.retryAfter ? { "Retry-After": String(accessError.details.retryAfter) } : undefined }
+    );
+  }
   const body = await request.json() as {
     provider?: "anthropic" | "openai";
     brief?: string;
@@ -25,6 +36,16 @@ export async function POST(request: Request) {
   const acceptedNotes = (body.notes ?? []).filter((note) => note.accepted);
   if (!body.brief || (acceptedNotes.length === 0 && !body.skipDiscussion)) {
     return NextResponse.json({ error: "SELECT AT LEAST ONE NOTE BEFORE CONTINUING." }, { status: 400 });
+  }
+
+  try {
+    await consumeAiQuota(access.supabase, "project-document");
+  } catch (error) {
+    const accessError = error instanceof AiAccessError ? error : new AiAccessError("USAGE LIMIT CHECK FAILED.", 503);
+    return NextResponse.json(
+      { error: accessError.message, ...accessError.details },
+      { status: accessError.status, headers: accessError.details?.retryAfter ? { "Retry-After": String(accessError.details.retryAfter) } : undefined }
+    );
   }
 
   const input = `PROJECT BRIEF:\n${body.brief}\n\nAPPROVED NOTES:\n${acceptedNotes.map((note) => `- ${note.title}: ${note.detail}`).join("\n")}\n\nCREATIVE TEAM:\nSecond Director: ${body.team?.secondDirector ?? "Unknown"}\nScreenwriter: ${body.team?.screenwriter ?? "Unknown"}\n\nEXISTING DOCUMENT (preserve and revise, never restart):\n${body.existingDocument ? JSON.stringify(body.existingDocument) : "NONE, CREATE THE FIRST VERSION"}\n\nQUESTION THE TEAM MUST DECIDE NOW:\n${body.teamDecisionQuestion ?? "NONE"}\n\nRECENT CONVERSATION:\n${(body.messages ?? []).slice(-30).map((message) => `${message.speaker ?? message.role}: ${message.content}`).join("\n")}`;

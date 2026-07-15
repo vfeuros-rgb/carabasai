@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AiAccessError, authenticateAiRequest, consumeAiQuota } from "../../../lib/ai-access";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -87,6 +88,16 @@ ${outputInfluence}
 }
 
 export async function POST(request: Request) {
+  let access;
+  try {
+    access = await authenticateAiRequest(request);
+  } catch (error) {
+    const accessError = error instanceof AiAccessError ? error : new AiAccessError("AUTHENTICATION FAILED.", 401);
+    return NextResponse.json(
+      { error: accessError.message, ...accessError.details },
+      { status: accessError.status, headers: accessError.details?.retryAfter ? { "Retry-After": String(accessError.details.retryAfter) } : undefined }
+    );
+  }
   const body = (await request.json()) as {
     provider?: "anthropic" | "openai";
     session?: CreativeSession;
@@ -123,6 +134,16 @@ export async function POST(request: Request) {
 
   if (enabledAgents.length === 0) {
     return NextResponse.json({ error: "CONNECT AT LEAST ONE AGENT." }, { status: 400 });
+  }
+
+  try {
+    await consumeAiQuota(access.supabase, "creative-room");
+  } catch (error) {
+    const accessError = error instanceof AiAccessError ? error : new AiAccessError("USAGE LIMIT CHECK FAILED.", 503);
+    return NextResponse.json(
+      { error: accessError.message, ...accessError.details },
+      { status: accessError.status, headers: accessError.details?.retryAfter ? { "Retry-After": String(accessError.details.retryAfter) } : undefined }
+    );
   }
 
   const references = session.references.length

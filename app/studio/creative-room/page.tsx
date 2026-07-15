@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
+import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -92,7 +93,7 @@ async function requestProjectDocument(payload: unknown) {
   let lastError = "COULD NOT BUILD PROJECT DOCUMENT.";
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const response = await fetch("/api/project-document", {
+      const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...(payload as object), provider: currentAIProvider() }),
@@ -319,7 +320,7 @@ export default function CreativeRoomPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/creative-room", {
+      const response = await authenticatedFetch("/api/creative-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

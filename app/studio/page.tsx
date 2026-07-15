@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
 import AccountButton from "../account/AccountButton";
+import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type CrewMember = {
   id: string;
@@ -846,7 +847,7 @@ export default function StudioPage() {
         reader.readAsDataURL(file);
       })));
       const creativeSession = { id: createId(), startedAt: Date.now(), title: notes.trim().slice(0, 42), notes: notes.trim(), secondDirector, screenwriter, references: storedReferences, notebook: [], messages: [] };
-      const response = await fetch("/api/project-document", {
+      const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: currentAIProvider(), brief: creativeSession.notes, notes: [], messages: [], team: { secondDirector: secondDirector.name, screenwriter: screenwriter.name }, skipDiscussion: true }),
