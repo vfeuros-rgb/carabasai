@@ -1,0 +1,44 @@
+"use client";
+
+import Script from "next/script";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (element: HTMLElement, options: { sitekey: string; theme: string; size: "flexible"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+      remove: (id: string) => void;
+    };
+  }
+}
+
+export default function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetRef = useRef<string | null>(null);
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
+  const [verified, setVerified] = useState(false);
+
+  const render = useCallback(() => {
+    if (!window.turnstile || !containerRef.current || widgetRef.current) return;
+    widgetRef.current = window.turnstile.render(containerRef.current, {
+      sitekey: siteKey,
+      theme: "dark",
+      size: "flexible",
+      callback: (token) => { setVerified(true); onToken(token); },
+      "expired-callback": () => { setVerified(false); onToken(""); },
+      "error-callback": () => { setVerified(false); onToken(""); },
+    });
+  }, [onToken, siteKey]);
+
+  useEffect(() => {
+    render();
+    const retry = window.setInterval(render, 300);
+    return () => {
+      window.clearInterval(retry);
+      if (widgetRef.current && window.turnstile) window.turnstile.remove(widgetRef.current);
+      widgetRef.current = null;
+    };
+  }, [render]);
+
+  return <div className="w-full rounded-[14px] border border-white/10 bg-black/20 p-3"><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={render} onReady={render} /><div className="flex w-full justify-center"><div ref={containerRef} className="min-h-[65px] w-full [&>div]:mx-auto [&>div]:max-w-full" /></div><p className={`mt-2 px-1 text-[9px] font-black ${verified ? "text-emerald-300" : "text-white/30"}`}>{verified ? "SECURITY CHECK COMPLETED" : "SECURITY CHECK"}</p></div>;
+}

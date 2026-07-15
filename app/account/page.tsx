@@ -1,0 +1,154 @@
+"use client";
+
+import Link from "next/link";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { createClient } from "../../lib/supabase/client";
+import TurnstileWidget from "./TurnstileWidget";
+
+type Mode = "sign-in" | "sign-up";
+
+export default function AccountPage() {
+  const [mode, setMode] = useState<Mode>("sign-in");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [accepted, setAccepted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [message, setMessage] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [captchaVersion, setCaptchaVersion] = useState(0);
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [recoveryCooldown, setRecoveryCooldown] = useState(0);
+
+  const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
+
+  useEffect(() => {
+    try { createClient().auth.getUser().then(({ data }) => { setUserEmail(data.user?.email ?? ""); setName(String(data.user?.user_metadata.full_name ?? "")); setAvatarUrl(String(data.user?.user_metadata.avatar_url ?? "")); }); } catch { /* shown on submit */ }
+    const confirmation = new URLSearchParams(window.location.search).get("confirmation");
+    if (confirmation) queueMicrotask(() => setMessage(confirmation === "success" ? "EMAIL CONFIRMED. YOUR ACCOUNT IS READY." : "EMAIL CONFIRMATION FAILED OR EXPIRED."));
+  }, []);
+
+  useEffect(() => {
+    if (recoveryCooldown <= 0) return;
+    const timer = window.setInterval(() => setRecoveryCooldown((current) => Math.max(0, current - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [recoveryCooldown]);
+
+  function changeMode(next: Mode) {
+    setMode(next); setMessage(""); setCaptchaToken(""); setPasswordConfirmation("");
+  }
+
+  async function authenticate(event: FormEvent) {
+    event.preventDefault();
+    if (!captchaToken) { setMessage("COMPLETE THE SECURITY CHECK."); return; }
+    if (mode === "sign-up" && !accepted) { setMessage("ACCEPT THE TERMS TO CONTINUE."); return; }
+    if (mode === "sign-up" && password !== passwordConfirmation) { setMessage("PASSWORDS DO NOT MATCH."); return; }
+    setLoading(true); setMessage(mode === "sign-in" ? "SIGNING IN..." : "CREATING ACCOUNT...");
+    try {
+      const supabase = createClient();
+      const result = mode === "sign-in"
+        ? await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { full_name: name.trim(), terms_accepted_at: new Date().toISOString() },
+              captchaToken,
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+          });
+      if (result.error) throw result.error;
+      if (mode === "sign-up" && !result.data.session) {
+        setAwaitingConfirmation(true);
+        setMessage("");
+      } else {
+        setUserEmail(result.data.user?.email ?? email);
+        setMessage("ACCOUNT CONNECTED.");
+        if (mode === "sign-in") {
+          window.location.assign("/studio");
+        }
+      }
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : "COULD NOT CONNECT ACCOUNT.";
+      setMessage(/rate limit|too many/i.test(rawMessage) ? "EMAIL SENDING LIMIT REACHED FOR THIS PROJECT. A DIFFERENT EMAIL WILL NOT BYPASS IT. WAIT ABOUT AN HOUR OR CONNECT CUSTOM SMTP." : rawMessage);
+      setCaptchaToken("");
+      setCaptchaVersion((current) => current + 1);
+    }
+    finally { setLoading(false); }
+  }
+
+  async function signOut() { await createClient().auth.signOut(); setUserEmail(""); setMessage("SIGNED OUT."); }
+
+  async function sendRecovery(event: FormEvent) {
+    event.preventDefault(); setLoading(true); setMessage("");
+    if (!captchaToken) { setMessage("COMPLETE THE SECURITY CHECK."); setLoading(false); return; }
+    if (recoveryCooldown > 0) { setLoading(false); return; }
+    const redirectTo = `${window.location.origin}/account/reset-password`;
+    const { error } = await createClient().auth.resetPasswordForEmail(email, { redirectTo, captchaToken });
+    if (error) {
+      const rateLimited = /rate limit|too many/i.test(error.message);
+      setMessage(rateLimited ? "EMAIL SERVICE IS TEMPORARILY BUSY. PLEASE TRY AGAIN LATER." : error.message);
+      if (rateLimited) setRecoveryCooldown(60);
+      setCaptchaToken("");
+      setCaptchaVersion((current) => current + 1);
+    } else {
+      setRecoverySent(true);
+      setRecoveryCooldown(60);
+      setMessage("");
+      setCaptchaToken("");
+      setCaptchaVersion((current) => current + 1);
+    }
+    setLoading(false);
+  }
+
+  async function saveAvatar(nextAvatar: string) {
+    setLoading(true); setMessage("");
+    const { error } = await createClient().auth.updateUser({ data: { avatar_url: nextAvatar } });
+    if (error) setMessage(error.message); else { setAvatarUrl(nextAvatar); setMessage("AVATAR UPDATED."); }
+    setLoading(false);
+  }
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) { setMessage("CHOOSE AN IMAGE UP TO 5 MB."); return; }
+    setLoading(true); setMessage("");
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) { setMessage("SIGN IN FIRST."); setLoading(false); return; }
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${userData.user.id}/avatar-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (uploadError) { setMessage(uploadError.message); setLoading(false); return; }
+    const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    await saveAvatar(publicUrl);
+  }
+
+  if (recoveryMode && !userEmail) return <main className="flex min-h-screen items-center justify-center bg-[#050505] p-5 text-white">{recoverySent && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-md rounded-[28px] border border-[#FFDF00]/25 bg-[#0A0A0A] p-7 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFDF00] text-2xl text-black">✓</div><p className="mt-6 text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">RECOVERY EMAIL SENT</p><h2 className="mt-3 text-2xl font-black">CHECK YOUR INBOX.</h2><p className="mt-4 text-sm leading-6 text-white/50">We sent a password recovery link to <span className="font-bold text-white/80">{email}</span>.</p><p className="mt-5 text-[10px] font-black text-white/35">NEW LINK AVAILABLE IN <span className="text-[#FFDF00]">{recoveryCooldown}s</span></p><button type="button" onClick={() => window.location.assign("/studio")} className="mt-7 h-11 w-full rounded-full bg-[#FFDF00] text-[10px] font-black text-black">OK</button><button type="button" disabled={recoveryCooldown > 0 || loading} onClick={() => setRecoverySent(false)} className="mt-3 h-10 w-full rounded-full border border-white/10 text-[9px] font-black text-white/45 disabled:opacity-25">{recoveryCooldown > 0 ? `RESEND IN ${recoveryCooldown}s` : "REQUEST ANOTHER LINK"}</button></section></div>}<section className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/[0.025] p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">PASSWORD RECOVERY</p><h1 className="mt-4 text-3xl font-black">RESET YOUR PASSWORD.</h1><p className="mt-4 text-sm leading-6 text-white/40">We will send a secure recovery link to your email.</p><form onSubmit={sendRecovery} className="mt-7 space-y-3"><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="EMAIL" autoComplete="email" className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" /><TurnstileWidget key={`recovery-${captchaVersion}`} onToken={setCaptchaToken} /><button disabled={loading || !captchaToken || recoveryCooldown > 0} className="h-12 w-full rounded-full bg-[#FFDF00] text-[10px] font-black text-black disabled:opacity-30">{loading ? "PLEASE WAIT..." : recoveryCooldown > 0 ? `RESEND IN ${recoveryCooldown}s` : !captchaToken ? "COMPLETE SECURITY CHECK" : "SEND RECOVERY LINK"}</button></form>{message && <p className="mt-5 text-[10px] leading-5 text-white/55">{message}</p>}<button type="button" onClick={() => { setRecoveryMode(false); setCaptchaToken(""); setMessage(""); }} className="mt-7 text-[10px] font-black text-white/40">← BACK TO SIGN IN</button></section></main>;
+
+  return <main className="flex min-h-screen items-center justify-center bg-[#050505] p-5 text-white">{awaitingConfirmation && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-md rounded-[28px] border border-[#FFDF00]/25 bg-[#0A0A0A] p-7 text-center shadow-2xl"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFDF00] text-2xl text-black">✉</div><p className="mt-6 text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">CONFIRM YOUR EMAIL</p><h2 className="mt-3 text-2xl font-black">CHECK YOUR INBOX.</h2><p className="mt-4 text-sm leading-6 text-white/50">We sent a confirmation link to <span className="font-bold text-white/80">{email}</span>. Open the email and follow the link to activate your account.</p><p className="mt-4 text-[10px] leading-5 text-white/30">If this email already has an account, sign in or use password recovery instead.</p><button type="button" onClick={() => { setAwaitingConfirmation(false); setMode("sign-in"); }} className="mt-7 h-11 w-full rounded-full border border-white/15 text-[10px] font-black text-white/65">BACK TO SIGN IN</button></section></div>}<section className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/[0.025] p-6 sm:p-8">
+    <p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">CARABASAI ACCOUNT</p>
+    <h1 className="mt-4 text-3xl font-black tracking-[-0.04em]">{mode === "sign-up" ? "CREATE YOUR ACCOUNT." : "WELCOME BACK."}</h1>
+    <p className="mt-4 text-sm leading-6 text-white/40">Keep sessions, references, generated images and video outside this browser.</p>
+    {userEmail ? <div className="mt-8 rounded-[18px] border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-5"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/35 bg-black/40 text-2xl">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div><div><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">CONNECTED</p><p className="mt-1 text-base font-black text-white/85">{name || "Carabasai creator"}</p><p className="mt-1 text-xs text-white/45">{userEmail}</p></div></div><p className="mt-6 text-[9px] font-black tracking-[0.12em] text-white/35">CHOOSE AVATAR</p><div className="mt-3 grid grid-cols-6 gap-2">{presetAvatars.map((avatar) => <button key={avatar} type="button" onClick={() => saveAvatar(avatar)} className="aspect-square rounded-full border border-white/10 bg-black/30 text-lg hover:border-[#FFDF00]/50">{avatar}</button>)}</div><label className="mt-4 flex cursor-pointer items-center justify-center rounded-full border border-white/15 px-5 py-3 text-[10px] font-black hover:border-[#FFDF00]/40"><input type="file" accept="image/*" onChange={uploadAvatar} className="hidden" />UPLOAD YOUR IMAGE</label><button type="button" onClick={signOut} className="mt-3 w-full rounded-full border border-white/10 px-5 py-3 text-[10px] font-black text-white/45">SIGN OUT</button></div> : <>
+      <div className="mt-7 grid grid-cols-2 rounded-full border border-white/10 bg-black/25 p-1"><button type="button" onClick={() => changeMode("sign-in")} className={`rounded-full py-2.5 text-[9px] font-black ${mode === "sign-in" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>SIGN IN</button><button type="button" onClick={() => changeMode("sign-up")} className={`rounded-full py-2.5 text-[9px] font-black ${mode === "sign-up" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>CREATE ACCOUNT</button></div>
+      <form onSubmit={authenticate} className="mt-5 space-y-3">
+        {mode === "sign-up" && <input type="text" required value={name} onChange={(event) => setName(event.target.value)} placeholder="YOUR NAME" autoComplete="name" className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" />}
+        <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="EMAIL" autoComplete="email" className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" />
+        <input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="PASSWORD" autoComplete={mode === "sign-up" ? "new-password" : "current-password"} className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" />
+        {mode === "sign-up" && <input type="password" required minLength={8} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} placeholder="REPEAT PASSWORD" autoComplete="new-password" className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" />}
+        {mode === "sign-up" && <label className="flex cursor-pointer items-start gap-3 py-2 text-[10px] leading-5 text-white/45"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-1 accent-[#FFDF00]" /><span>By registering, you agree to the <Link href="/terms" target="_blank" className="text-white/75 underline">Terms of Use</Link> and <Link href="/privacy" target="_blank" className="text-white/75 underline">Privacy Policy</Link>.</span></label>}
+        <TurnstileWidget key={`${mode}-${captchaVersion}`} onToken={(token) => { setCaptchaToken(token); if (token) setMessage(""); }} />
+        <button type="submit" disabled={loading || !captchaToken} className="h-12 w-full rounded-full bg-[#FFDF00] text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-30">{loading ? "PLEASE WAIT..." : !captchaToken ? "COMPLETE SECURITY CHECK" : mode === "sign-up" ? "CREATE ACCOUNT" : "SIGN IN"}</button>
+      </form>
+      <p className="mt-5 text-center text-[10px] text-white/35">{mode === "sign-up" ? "Already have an account? " : "New to Carabasai? "}<button type="button" onClick={() => changeMode(mode === "sign-up" ? "sign-in" : "sign-up")} className="font-black text-[#FFDF00]">{mode === "sign-up" ? "Sign in" : "Create account"}</button></p>
+      {mode === "sign-in" && <button type="button" onClick={() => { setCaptchaToken(""); setCaptchaVersion((current) => current + 1); setRecoveryMode(true); setMessage(""); }} className="mt-4 w-full text-center text-[10px] font-black text-white/45 hover:text-[#FFDF00]">FORGOT PASSWORD?</button>}
+    </>}
+    {message && <p className="mt-5 text-[10px] leading-5 text-white/50">{message}</p>}
+    <Link href="/studio" className="mt-8 inline-flex text-[10px] font-black text-white/35 hover:text-[#FFDF00]">← BACK TO STUDIO</Link>
+  </section></main>;
+}
