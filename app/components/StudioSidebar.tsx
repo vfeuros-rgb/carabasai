@@ -14,6 +14,7 @@ export default function StudioSidebar() {
   const [width, setWidth] = useState(260);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [sessions, setSessions] = useState<SavedSession[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -31,6 +32,7 @@ export default function StudioSidebar() {
       setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
       setHistoryOpen(localStorage.getItem("carabasaiSharedHistoryOpen") !== "false");
       setSessions(getCachedProjects<SavedSession>());
+      try { setActiveProjectId((JSON.parse(sessionStorage.getItem("carabasaiCreativeSession") ?? "null") as SavedSession | null)?.id ?? null); } catch { setActiveProjectId(null); }
     };
     queueMicrotask(restore);
     window.addEventListener("carabasai-sidebar-change", restore);
@@ -96,6 +98,7 @@ export default function StudioSidebar() {
 
   function openSession(session: SavedSession) {
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(session));
+    setActiveProjectId(session.id ?? null);
     router.push(session.projectDocument ? "/studio/project" : session.messages?.length ? "/studio/creative-room" : "/studio");
   }
 
@@ -158,14 +161,15 @@ export default function StudioSidebar() {
       {historyOpen && <div className="mt-2 max-h-[42vh] space-y-2 overflow-x-hidden overflow-y-auto">{sessions.length ? sessions.map((session) => {
         const key = session.id ?? String(session.startedAt ?? session.notes);
         const swiped = swipedId === key;
+        const selected = Boolean(session.id && session.id === activeProjectId);
         return <div key={key} className="relative overflow-hidden rounded-lg bg-red-950/40">
           <button type="button" onClick={() => void remove(session)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-base text-red-400 md:hidden" aria-label="Delete project">⌫</button>
           <div
-            className={`relative flex min-h-10 items-center gap-1 rounded-lg border border-white/8 bg-[#0B0B0B] px-2 transition-transform md:translate-x-0 ${swiped ? "-translate-x-16" : "translate-x-0"}`}
+            className={`relative flex min-h-10 items-center gap-1 rounded-lg border px-2 transition-all md:translate-x-0 ${selected ? "border-[#FFDF00]/60 bg-[#FFDF00]/10 shadow-[inset_3px_0_0_#FFDF00]" : "border-white/8 bg-[#0B0B0B]"} ${swiped ? "-translate-x-16" : "translate-x-0"}`}
             onTouchStart={(event) => { const touch = event.touches[0]; itemSwipe.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
             onTouchEnd={(event) => { const start = itemSwipe.current; const touch = event.changedTouches[0]; if (start?.id === key && start.x - touch.clientX > 45 && Math.abs(touch.clientY - start.y) < 45) setSwipedId(key); else if (start?.id === key && touch.clientX - start.x > 35) setSwipedId(null); itemSwipe.current = null; }}
           >
-            {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className="min-w-0 flex-1 truncate py-2 text-left text-[9px] text-white/50 hover:text-white">{session.title || session.notes || "UNTITLED SESSION"}</button>}
+            {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className={`min-w-0 flex-1 truncate py-2 text-left text-[9px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}>{session.title || session.notes || "UNTITLED SESSION"}</button>}
             <button type="button" onClick={() => setActionMenuId((current) => current === key ? null : key)} className="h-7 w-7 shrink-0 text-base leading-none text-white/35 hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
           </div>
           {actionMenuId === key && <div className="relative z-10 grid gap-1 border-t border-white/8 bg-[#0D0D0D] p-1.5">
