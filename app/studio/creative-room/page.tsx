@@ -8,6 +8,7 @@ import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
+import { deleteProject, getCachedProjects, saveProjects, syncProjects } from "../../../lib/project-store";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -216,13 +217,12 @@ export default function CreativeRoomPage() {
         delete restoredSession.draftQuestion;
         sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(restoredSession));
       }
-      const storedHistory = JSON.parse(
-        localStorage.getItem("carabasaiSessionHistory") ?? "[]"
-      ) as CreativeSession[];
+      const storedHistory = getCachedProjects<CreativeSession>();
       setSessionHistory([
         restoredSession,
         ...storedHistory.filter((item) => item.id !== restoredSession.id),
       ].slice(0, 20));
+      void syncProjects<CreativeSession>().then(setSessionHistory).catch(console.error);
       const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
       if (savedWidth >= 220 && savedWidth <= 480) setHistoryWidth(savedWidth);
       setHistoryCollapsed(localStorage.getItem("carabasaiHistoryCollapsed") === "true");
@@ -239,10 +239,10 @@ export default function CreativeRoomPage() {
       "carabasaiCreativeSession",
       JSON.stringify(savedSession)
     );
-    const history = (JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as CreativeSession[])
+    const history = getCachedProjects<CreativeSession>()
       .filter((item) => item.id !== session.id);
     const nextHistory = [savedSession, ...history].slice(0, 20);
-    localStorage.setItem("carabasaiSessionHistory", JSON.stringify(nextHistory));
+    saveProjects(nextHistory);
   }, [messages, notebook, session]);
 
   function openSavedSession(saved: CreativeSession) {
@@ -268,7 +268,8 @@ export default function CreativeRoomPage() {
         ? current.filter((item) => item.id !== id)
         : current.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item);
       const sorted = [...updated].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify(sorted));
+      saveProjects(sorted);
+      if (action === "delete") void deleteProject(id);
       return sorted;
     });
     if (id === session?.id && action === "delete") {
@@ -281,7 +282,7 @@ export default function CreativeRoomPage() {
     if (!id || !editingTitle.trim()) return;
     setSessionHistory((current) => {
       const updated = current.map((item) => item.id === id ? { ...item, title: editingTitle.trim() } : item);
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify(updated));
+      saveProjects(updated);
       return updated;
     });
     if (id === session?.id) setSession((current) => current ? { ...current, title: editingTitle.trim() } : current);
@@ -490,8 +491,8 @@ export default function CreativeRoomPage() {
       });
       const completedSession = { ...session, notebook, messages, projectDocument: data };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
-      const history = (JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as CreativeSession[]).filter((item) => item.id !== session.id);
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify([completedSession, ...history].slice(0, 20)));
+      const history = getCachedProjects<CreativeSession>().filter((item) => item.id !== session.id);
+      saveProjects([completedSession, ...history].slice(0, 20));
       router.push("/studio/project");
     } catch (documentError) {
       setDocumentBuildFailed(true);

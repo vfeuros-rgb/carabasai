@@ -7,6 +7,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 import StudioSidebar from "../components/StudioSidebar";
 import WorkflowNav from "../components/WorkflowNav";
 import { createClient } from "../../lib/supabase/client";
+import { deleteProject, getCachedProjects, saveProjects, syncProjects } from "../../lib/project-store";
 
 type CrewMember = {
   id: string;
@@ -606,9 +607,8 @@ export default function StudioPage() {
   useEffect(() => {
     // Session history is restored once from browser-only storage after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSessionHistory(
-      JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as SavedSession[]
-    );
+    setSessionHistory(getCachedProjects<SavedSession>());
+    void syncProjects<SavedSession>().then(setSessionHistory).catch(console.error);
     const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
     if (savedWidth >= 220 && savedWidth <= 480) setHistoryWidth(savedWidth);
     const active = sessionStorage.getItem("carabasaiCreativeSession");
@@ -676,7 +676,8 @@ export default function StudioPage() {
         ? current.filter((item) => item.id !== id)
         : current.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item);
       const sorted = [...updated].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify(sorted));
+      saveProjects(sorted);
+      if (action === "delete") void deleteProject(id);
       return sorted;
     });
   }
@@ -685,7 +686,7 @@ export default function StudioPage() {
     if (!id || !editingTitle.trim()) return;
     setSessionHistory((current) => {
       const updated = current.map((item) => item.id === id ? { ...item, title: editingTitle.trim() } : item);
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify(updated));
+      saveProjects(updated);
       return updated;
     });
     setEditingSessionId(null);
@@ -823,11 +824,8 @@ export default function StudioPage() {
       "carabasaiCreativeSession",
       JSON.stringify(creativeSession)
     );
-    const history = JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as unknown[];
-    localStorage.setItem(
-      "carabasaiSessionHistory",
-      JSON.stringify([creativeSession, ...history].slice(0, 20))
-    );
+    const history = getCachedProjects();
+    saveProjects([creativeSession, ...history].slice(0, 20));
 
     router.push("/studio/creative-room");
   }
@@ -860,8 +858,8 @@ export default function StudioPage() {
       if (!response.ok) throw new Error(document.error ?? "COULD NOT BUILD PROJECT DOCUMENT.");
       const completedSession = { ...creativeSession, projectDocument: document };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
-      const history = JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as unknown[];
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify([completedSession, ...history].slice(0, 20)));
+      const history = getCachedProjects();
+      saveProjects([completedSession, ...history].slice(0, 20));
       router.push("/studio/project");
     } catch (skipError) {
       setReferenceError(skipError instanceof Error ? skipError.message : "COULD NOT BUILD PROJECT DOCUMENT.");

@@ -5,6 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
+import { getCachedProjects, syncProjects } from "../../lib/project-store";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown };
@@ -47,7 +48,8 @@ export default function AccountPage() {
     if (requestedMode === "sign-up" || requestedMode === "sign-in") queueMicrotask(() => setMode(requestedMode));
     const confirmation = search.get("confirmation");
     if (confirmation) queueMicrotask(() => setMessage(confirmation === "success" ? "EMAIL CONFIRMED. YOUR ACCOUNT IS READY." : "EMAIL CONFIRMATION FAILED OR EXPIRED."));
-    queueMicrotask(() => setAccountSessions(JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as AccountSession[]));
+    queueMicrotask(() => setAccountSessions(getCachedProjects<AccountSession>()));
+    void syncProjects<AccountSession>().then(setAccountSessions).catch(console.error);
   }, []);
 
   useEffect(() => {

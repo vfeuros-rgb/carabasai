@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
+import { getCachedProjects, saveProjects } from "../../../lib/project-store";
 
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
@@ -64,8 +65,8 @@ export default function ProjectPage() {
     if (!session) return;
     const updated: ProjectSession = { ...session, projectDocument: nextDocument };
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
-    const history = (JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as ProjectSession[]).filter((item) => item.id !== session.id);
-    localStorage.setItem("carabasaiSessionHistory", JSON.stringify([updated, ...history].slice(0, 20)));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
   }
 
@@ -136,8 +137,8 @@ export default function ProjectPage() {
       const changedSection = (revised.sections as ProjectSection[]).find((item) => item.points.some((point) => newPoints.includes(point)));
       const updated: ProjectSession = { ...activeSession, projectDocument: revised };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
-      const history = (JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as ProjectSession[]).filter((item) => item.id !== activeSession.id);
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify([updated, ...history].slice(0, 20)));
+      const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== activeSession.id);
+      saveProjects([updated, ...history].slice(0, 20));
       setSession(updated);
       setHighlightedPoints(newPoints);
       setActiveSection(changedSection?.id ?? revised.sections[0]?.id ?? "");
@@ -177,8 +178,8 @@ export default function ProjectPage() {
       const changedSection = (revised.sections as ProjectSection[]).find((item) => item.points.some((point) => newPoints.includes(point)));
       const updated: ProjectSession = { ...activeSession, projectDocument: revised };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
-      const history = (JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as ProjectSession[]).filter((item) => item.id !== activeSession.id);
-      localStorage.setItem("carabasaiSessionHistory", JSON.stringify([updated, ...history].slice(0, 20)));
+      const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== activeSession.id);
+      saveProjects([updated, ...history].slice(0, 20));
       setSession(updated);
       setHighlightedPoints(newPoints);
       setActiveSection(changedSection?.id ?? revised.sections[0]?.id ?? "");

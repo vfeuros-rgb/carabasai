@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PointerEvent, useEffect, useState } from "react";
+import { getCachedProjects, projectChangeEvent, syncProjects } from "../../lib/project-store";
 
 type SavedSession = { id?: string; title?: string; notes?: string; startedAt?: number; projectDocument?: unknown; messages?: unknown[] };
 
@@ -19,12 +20,14 @@ export default function StudioSidebar() {
       const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
       setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
       setHistoryOpen(localStorage.getItem("carabasaiSharedHistoryOpen") !== "false");
-      setSessions(JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as SavedSession[]);
+      setSessions(getCachedProjects<SavedSession>());
     };
     queueMicrotask(restore);
     window.addEventListener("carabasai-sidebar-change", restore);
     window.addEventListener("storage", restore);
-    return () => { window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); };
+    window.addEventListener(projectChangeEvent, restore);
+    void syncProjects<SavedSession>().then(setSessions).catch(console.error);
+    return () => { window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); window.removeEventListener(projectChangeEvent, restore); };
   }, []);
 
   function resize(event: PointerEvent<HTMLButtonElement>) {
