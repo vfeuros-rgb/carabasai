@@ -82,19 +82,33 @@ export default function StudioSidebar() {
 
   useEffect(() => {
     const start = (event: globalThis.TouchEvent) => {
+      if (mobileOpen || event.touches.length !== 1) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], [data-disable-menu-swipe]")) return;
       const touch = event.touches[0];
-      if (touch.clientX <= 90) menuSwipe.current = { x: touch.clientX, y: touch.clientY };
+      menuSwipe.current = { x: touch.clientX, y: touch.clientY };
     };
-    const end = (event: globalThis.TouchEvent) => {
+    const move = (event: globalThis.TouchEvent) => {
       const origin = menuSwipe.current;
-      const touch = event.changedTouches[0];
-      if (origin && touch.clientX - origin.x > 18 && Math.abs(touch.clientY - origin.y) < 90) setMobileOpen(true);
+      const touch = event.touches[0];
+      if (!origin || !touch) return;
+      const horizontal = touch.clientX - origin.x;
+      const vertical = Math.abs(touch.clientY - origin.y);
+      if (horizontal > 34 && vertical < 50) {
+        setMobileOpen(true);
+        menuSwipe.current = null;
+      } else if (horizontal < -12 || vertical > 70) {
+        menuSwipe.current = null;
+      }
+    };
+    const end = () => {
       menuSwipe.current = null;
     };
     document.addEventListener("touchstart", start, { passive: true });
+    document.addEventListener("touchmove", move, { passive: true });
     document.addEventListener("touchend", end, { passive: true });
-    return () => { document.removeEventListener("touchstart", start); document.removeEventListener("touchend", end); };
-  }, []);
+    return () => { document.removeEventListener("touchstart", start); document.removeEventListener("touchmove", move); document.removeEventListener("touchend", end); };
+  }, [mobileOpen]);
 
   function openSession(session: SavedSession) {
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(session));
@@ -135,13 +149,6 @@ export default function StudioSidebar() {
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item = "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
   return <>
-  {!mobileOpen && <div
-    className="fixed bottom-0 left-3 top-14 z-[65] w-16 touch-pan-y md:hidden"
-    aria-hidden="true"
-    onTouchStart={(event) => { const touch = event.touches[0]; menuSwipe.current = { x: touch.clientX, y: touch.clientY }; }}
-    onTouchMove={(event) => { const origin = menuSwipe.current; const touch = event.touches[0]; if (origin && touch.clientX - origin.x > 18 && Math.abs(touch.clientY - origin.y) < 90) { setMobileOpen(true); menuSwipe.current = null; } }}
-    onTouchEnd={() => { menuSwipe.current = null; }}
-  />}
   <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex h-14 items-center justify-between px-4 md:hidden">
     <button type="button" onClick={() => setMobileOpen(true)} className="pointer-events-auto flex h-8 w-8 items-center justify-center" aria-label="Open navigation">
       <Image src="/logo-carabasai.svg" alt="Open Carabasai Studio menu" width={28} height={28} className="h-7 w-7 object-contain" priority />
