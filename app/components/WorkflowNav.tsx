@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ACTIVE_PROJECT_KEY, deleteProject } from "../../lib/project-store";
 
 type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown };
@@ -10,11 +10,29 @@ type SessionProgress = { id?: string; title?: string; notes?: string; messages?:
 export default function WorkflowNav() {
   const pathname = usePathname();
   const [progress, setProgress] = useState<SessionProgress>({});
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const projectMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("carabasaiCreativeSession");
     queueMicrotask(() => setProgress(raw ? JSON.parse(raw) as SessionProgress : {}));
   }, [pathname]);
+
+  useEffect(() => {
+    if (!projectMenuOpen) return;
+    const closeMenu = (event: PointerEvent) => {
+      if (!projectMenuRef.current?.contains(event.target as Node)) setProjectMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProjectMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [projectMenuOpen]);
 
   const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("project") ? "summary" : "";
   const steps = [
@@ -27,6 +45,7 @@ export default function WorkflowNav() {
     if (!progress.id) return;
     const name = progress.title || progress.notes || "UNTITLED PROJECT";
     if (!window.confirm(`DELETE “${name}”? THIS CANNOT BE UNDONE.`)) return;
+    setProjectMenuOpen(false);
     await deleteProject(progress.id);
     sessionStorage.removeItem("carabasaiCreativeSession");
     localStorage.removeItem(ACTIVE_PROJECT_KEY);
@@ -34,6 +53,7 @@ export default function WorkflowNav() {
   }
 
   function startNewProject() {
+    setProjectMenuOpen(false);
     sessionStorage.removeItem("carabasaiCreativeSession");
     localStorage.removeItem(ACTIVE_PROJECT_KEY);
     window.dispatchEvent(new Event("carabasai-sidebar-change"));
@@ -42,10 +62,12 @@ export default function WorkflowNav() {
 
   return <nav aria-label="Project workflow" className="relative z-[60] mx-auto mb-7 flex w-full max-w-7xl items-center gap-2 border-b border-white/8 pb-4 text-[9px] font-black tracking-[0.12em]">
     <div className="flex min-w-0 flex-wrap items-center gap-2">{steps.map((step, index) => <span key={step.id} className="flex items-center gap-2">{index > 0 && <span className="text-white/18">/</span>}{step.id === "setup" ? <button type="button" onClick={() => window.location.assign("/studio")} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</button> : <Link href={step.href} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</Link>}</span>)}</div>
-    {progress.id && <div className="ml-auto flex shrink-0 items-center gap-3">
-      <button type="button" onClick={startNewProject} className="text-[8px] text-white/35 transition hover:text-[#FFDF00]">NEW PROJECT +</button>
-      <span className="text-white/10">/</span>
-      <button type="button" onClick={() => void removeCurrentProject()} className="text-[8px] text-red-300/35 transition hover:text-red-300">DELETE PROJECT</button>
+    {progress.id && <div ref={projectMenuRef} className="relative ml-auto shrink-0">
+      <button type="button" onClick={() => setProjectMenuOpen((current) => !current)} aria-expanded={projectMenuOpen} aria-haspopup="menu" aria-label="Project actions" className={`flex h-8 w-8 items-center justify-center rounded-full border text-base leading-none transition ${projectMenuOpen ? "border-[#FFDF00]/40 text-[#FFDF00]" : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"}`}>⋮</button>
+      {projectMenuOpen && <div role="menu" className="absolute right-0 top-10 z-[80] w-44 rounded-[14px] border border-white/10 bg-[#111] p-1.5 shadow-2xl">
+        <button type="button" role="menuitem" onClick={startNewProject} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[8px] font-black tracking-[0.1em] text-white/60 hover:bg-white/5 hover:text-[#FFDF00]">NEW PROJECT <span>＋</span></button>
+        <button type="button" role="menuitem" onClick={() => void removeCurrentProject()} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[8px] font-black tracking-[0.1em] text-red-300/60 hover:bg-red-500/5 hover:text-red-300">DELETE PROJECT <span>⌫</span></button>
+      </div>}
     </div>}
   </nav>;
 }
