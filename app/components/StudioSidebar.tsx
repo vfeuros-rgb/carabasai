@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { PointerEvent, useEffect, useState } from "react";
 import { getCachedProjects, projectChangeEvent, syncProjects } from "../../lib/project-store";
@@ -57,7 +58,12 @@ export default function StudioSidebar() {
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item = "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
   return <>
-  <button type="button" onClick={() => setMobileOpen(true)} className="fixed left-4 top-4 z-[70] flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#0B0B0B]/95 shadow-xl md:hidden" aria-label="Open navigation"><span className="h-px w-4 bg-[#FFDF00]"/><span className="h-px w-4 bg-[#FFDF00]"/><span className="h-px w-4 bg-[#FFDF00]"/></button>
+  <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex h-14 items-center justify-between px-4 md:hidden">
+    <button type="button" onClick={() => setMobileOpen(true)} className="pointer-events-auto flex h-8 w-8 items-center justify-center" aria-label="Open navigation">
+      <Image src="/logo-carabasai.svg" alt="Open Carabasai Studio menu" width={28} height={28} className="h-7 w-7 object-contain" priority />
+    </button>
+    <span className="text-[8px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</span>
+  </div>
   {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[75] bg-black/75 backdrop-blur-sm md:hidden" aria-label="Close navigation" />}
   <aside className={`fixed bottom-0 left-0 top-0 z-[80] flex max-w-[88vw] flex-col border-r border-white/10 bg-[#080808] p-5 text-white transition-transform duration-200 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ width }}>
     <button type="button" onClick={() => setMobileOpen(false)} className="absolute right-4 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 md:hidden" aria-label="Close navigation">×</button>
