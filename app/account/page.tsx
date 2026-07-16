@@ -6,7 +6,7 @@ import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -29,6 +29,7 @@ export default function AccountPage() {
   const [historyOpen, setHistoryOpen] = useState(true);
   const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
   const [authReady, setAuthReady] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
 
@@ -188,27 +189,15 @@ export default function AccountPage() {
     </aside>
 
     <section className="min-h-screen pl-[260px]">
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
-        <header className="flex items-center justify-between border-b border-white/10 pb-6">
-          <div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ACCOUNT HOME</p><h1 className="mt-2 text-2xl font-black tracking-[-0.04em] sm:text-3xl">YOUR CREATIVE SPACE.</h1></div>
-          <Link href="/studio" className="rounded-full border border-white/12 px-4 py-2.5 text-[9px] font-black text-white/45 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">OPEN STUDIO</Link>
-        </header>
+      <div className="mx-auto w-full max-w-[1500px] px-8 py-10 lg:px-14">
+        <header><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">{name || "CREATOR"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-4xl">WELCOME BACK TO YOUR STUDIO.</h1><p className="mt-3 text-sm text-white/35">{accountSessions.length} active {accountSessions.length === 1 ? "project" : "projects"} in your workspace.</p></header>
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
-          <section className="rounded-[26px] border border-white/10 bg-white/[0.025] p-6 sm:p-8">
-            <div className="flex items-center gap-5">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/35 bg-black/40 text-3xl">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div>
-              <div className="min-w-0"><p className="text-[9px] font-black tracking-[0.14em] text-emerald-300">CONNECTED</p><h2 className="mt-2 truncate text-xl font-black sm:text-2xl">{name || "Carabasai creator"}</h2><p className="mt-1 truncate text-xs text-white/40">{userEmail}</p></div>
-            </div>
-            <div className="mt-8 border-t border-white/10 pt-6"><p className="text-[9px] font-black tracking-[0.12em] text-white/35">CHOOSE AVATAR</p><div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">{presetAvatars.map((avatar) => <button key={avatar} type="button" onClick={() => saveAvatar(avatar)} className="aspect-square rounded-full border border-white/10 bg-black/30 text-xl hover:border-[#FFDF00]/50">{avatar}</button>)}</div><label className="mt-5 flex cursor-pointer items-center justify-center rounded-full border border-white/15 px-5 py-3 text-[10px] font-black hover:border-[#FFDF00]/40"><input type="file" accept="image/*" onChange={uploadAvatar} className="hidden" />UPLOAD YOUR IMAGE</label></div>
-          </section>
-          <div className="space-y-5">
-            <section className="rounded-[24px] border border-white/10 bg-white/[0.025] p-6"><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">MEMBERSHIP</p><p className="mt-4 text-lg font-black">CREATOR ACCOUNT</p><p className="mt-2 text-xs leading-5 text-white/35">Your sessions, references and generated assets can be connected to this account.</p></section>
-            <section className="rounded-[24px] border border-white/10 bg-white/[0.025] p-6"><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">WORKSPACE</p><p className="mt-4 text-lg font-black">CARABASAI STUDIO</p><Link href="/studio" className="mt-5 flex h-11 items-center justify-between rounded-[12px] border border-white/10 px-4 text-[9px] font-black text-white/55">CONTINUE CREATING <span className="text-[#FFDF00]">→</span></Link></section>
-          </div>
-        </div>
+        <section className="mt-12"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">PRODUCTION WALL</h2><button className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/50">OPEN WALL ↗</button></div><div className="relative h-[290px] overflow-hidden rounded-[24px] border border-white/10 bg-[url('/studio-bg.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-black/60"/><div className="absolute bottom-7 left-7"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">YOUR VISUAL WORKSPACE</p><p className="mt-2 max-w-md text-sm text-white/55">Images, videos, references and generated frames will live here.</p></div></div></section>
+
+        <section className="mt-10"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => { const progress = project.projectDocument ? 70 : project.messages?.length ? 45 : project.notes ? 20 : 10; const image = project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl; return <Link key={project.id ?? project.startedAt ?? index} href="/studio" className="overflow-hidden rounded-[20px] border border-white/10 bg-[#0B0B0B] transition hover:-translate-y-1 hover:border-[#FFDF00]/30"><div className="h-36 bg-cover bg-center" style={{backgroundImage:`url(${image || "/studio-bg.jpeg"})`}}/><div className="p-5"><p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p><h3 className="mt-3 truncate text-lg font-black">{project.title || project.notes || "UNTITLED PROJECT"}</h3><div className="mt-5 flex items-center justify-between text-[9px] text-white/35"><span>PRODUCTION</span><span>{progress}%</span></div><div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{width:`${progress}%`}}/></div></div></Link>})}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
+      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[82vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{accountSessions.map((project) => <Link key={project.id ?? project.startedAt ?? project.notes} href="/studio" className="rounded-[16px] border border-white/10 p-5 hover:border-[#FFDF00]/30"><p className="truncate font-black">{project.title || project.notes}</p><p className="mt-2 text-[9px] text-white/30">{project.startedAt ? new Date(project.startedAt).toLocaleString("en-GB") : "ACTIVE PROJECT"}</p></Link>)}</div></div></div>}
     </section>
   </main>;
 
