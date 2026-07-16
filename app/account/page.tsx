@@ -198,7 +198,7 @@ export default function AccountPage() {
           </div>
         </button>
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
-          {project.favorite && <span className="text-sm text-[#FFDF00]" aria-label="Favorite project">★</span>}
+          {project.favorite && <button type="button" onClick={(event) => { event.stopPropagation(); toggleProjectFavorite(project); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-sm text-[#FFDF00] backdrop-blur-sm hover:text-white" title="Remove from favorites" aria-label="Remove project from favorites">★</button>}
           <button type="button" onClick={() => { setDeleteSwipeId(null); setFavoriteSwipeId(null); setProjectActionId((current) => current === key ? null : key); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-lg text-white/65 backdrop-blur-sm hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
         </div>
         {projectActionId === key && <div className="absolute right-3 top-12 z-20 w-44 rounded-[13px] border border-white/10 bg-[#111] p-1.5 shadow-2xl">

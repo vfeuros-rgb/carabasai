@@ -222,7 +222,7 @@ export default function StudioSidebar() {
             }}
           >
             {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className={`min-w-0 flex-1 truncate py-2 text-left text-[9px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}>{session.title || session.notes || "UNTITLED SESSION"}</button>}
-            {session.favorite && <span className="shrink-0 text-xs text-[#FFDF00]" title="Favorite project" aria-label="Favorite project">★</span>}
+            {session.favorite && <button type="button" onClick={(event) => { event.stopPropagation(); toggleFavorite(session); }} className="flex h-7 w-7 shrink-0 items-center justify-center text-xs text-[#FFDF00] hover:text-white" title="Remove from favorites" aria-label="Remove project from favorites">★</button>}
             <button type="button" onClick={() => { setSwipedId(null); setFavoriteSwipedId(null); setActionMenuId((current) => current === key ? null : key); }} className="h-7 w-7 shrink-0 text-base leading-none text-white/35 hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
           </div>
           {actionMenuId === key && <div className="relative z-10 grid gap-1 border-t border-white/8 bg-[#0D0D0D] p-1.5">
