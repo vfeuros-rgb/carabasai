@@ -50,11 +50,12 @@ export default function StudioSidebar() {
   }
 
   const accountActive = pathname.startsWith("/account");
+  const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item = "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
   return <aside className="fixed bottom-0 left-0 top-0 z-[60] flex flex-col border-r border-white/10 bg-[#080808] p-5 text-white" style={{ width }}>
     <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
     <nav className="mt-6 grid gap-2">
-      <Link href="/studio" className={`${item} ${!accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>STUDIO HOME <span>⌂</span></Link>
+      <Link href="/studio" className={`${item} ${homeActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>STUDIO HOME <span>⌂</span></Link>
       <Link href="/account" className={`${item} ${accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>MY ACCOUNT <span>○</span></Link>
       <a href="mailto:info@carabasai.com" className={`${item} border-white/10 bg-white/[0.025] text-white/65`}>HELP DESK <span className="text-[#FFDF00]">?</span></a>
     </nav>

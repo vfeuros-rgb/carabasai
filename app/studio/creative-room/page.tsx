@@ -640,22 +640,7 @@ export default function CreativeRoomPage() {
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
       )}
-      <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5 pr-14">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#FFDF00]">
-            CARABASAI STUDIO
-          </p>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
-            CREATIVE ROOM / LIVE SESSION
-          </p>
-        </div>
-        <nav className="flex items-center gap-2 text-[8px] font-black tracking-[0.08em] sm:text-[9px] sm:tracking-[0.1em]">
-          <Link href="/studio" className="text-white/40">CREW SETUP</Link><span className="text-white/20">/</span><span className="text-[#FFDF00]">DIALOGUE</span>
-          {Boolean(session.projectDocument) && <><span className="text-white/20">/</span><Link href="/studio/project" className="text-white/40">SUMMARY</Link></>}
-        </nav>
-      </header>
-
-      <div className="mx-auto mt-6 grid w-full max-w-7xl gap-5 lg:grid-cols-[320px_1fr]">
+      <div className="mx-auto grid w-full max-w-7xl gap-5 lg:grid-cols-[320px_1fr]">
         <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
           {agents.map(([agent, member], index) => (
             <div

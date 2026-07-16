@@ -928,7 +928,7 @@ export default function StudioPage() {
         </p>
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
+      <header className="hidden">
         <span />
         <div className="flex items-center gap-2 text-[9px] font-black tracking-[0.1em]">
           <span className="text-[#FFDF00]">CREW SETUP</span>

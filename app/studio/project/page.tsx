@@ -191,12 +191,7 @@ export default function ProjectPage() {
   return (
     <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
       <StudioSidebar />
-      <header className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
-        <div><p className="text-xs font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p><p className="mt-2 text-[9px] tracking-[0.16em] text-white/30">PROJECT DOCUMENT / DEVELOPMENT COMPLETE</p></div>
-        <nav className="flex items-center gap-2 text-[9px] font-black tracking-[0.1em]"><Link href="/studio" className="text-white/40">CREW SETUP</Link><span className="text-white/20">/</span><Link href="/studio/creative-room" className="text-white/40">DIALOGUE</Link><span className="text-white/20">/</span><span className="text-[#FFDF00]">SUMMARY</span></nav>
-      </header>
-
-      <div className="mx-auto mt-8 grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
           <div className="p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">DIRECTOR + SCREENWRITER DOCUMENT</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
           <div className="flex gap-2 overflow-x-auto border-y border-white/10 p-3 sm:px-6">
