@@ -178,6 +178,7 @@ export default function CreativeRoomPage() {
   const [error, setError] = useState("");
   const [typingAgent, setTypingAgent] = useState<AgentId | null>(null);
   const [notebook, setNotebook] = useState<NotebookNote[]>([]);
+  const [mobileNotebookOpen, setMobileNotebookOpen] = useState(false);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [enabledAgents, setEnabledAgents] =
@@ -694,7 +695,7 @@ export default function CreativeRoomPage() {
             </div>
           ))}
 
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
+          <div className="hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:block">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
@@ -950,6 +951,16 @@ export default function CreativeRoomPage() {
               >
                 +
               </button>
+              <button
+                type="button"
+                onClick={() => setMobileNotebookOpen(true)}
+                aria-label="Open project notebook"
+                aria-expanded={mobileNotebookOpen}
+                className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm transition lg:hidden ${mobileNotebookOpen ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 text-white/45 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]"}`}
+              >
+                ▤
+                {notebook.length > 0 && <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FFDF00] px-1 text-[7px] font-black text-black">{notebook.filter((note) => note.accepted).length}/{notebook.length}</span>}
+              </button>
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -966,6 +977,36 @@ export default function CreativeRoomPage() {
               </button>
             </div>
           </form>
+          {mobileNotebookOpen && <>
+            <button type="button" onClick={() => setMobileNotebookOpen(false)} className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-[2px] lg:hidden" aria-label="Close project notebook" />
+            <section className="fixed bottom-24 left-3 right-3 z-[95] max-h-[58vh] overflow-hidden rounded-[22px] border border-[#FFDF00]/25 bg-[#0B0B0B] shadow-[0_-20px_60px_rgba(0,0,0,0.75)] lg:hidden" aria-label="Project notebook">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+                <div>
+                  <p className="text-[10px] font-black tracking-[0.15em] text-[#FFDF00]">PROJECT NOTEBOOK</p>
+                  <p className="mt-1 text-[8px] uppercase text-white/30">SELECT IDEAS TO MOVE FORWARD</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black text-white/35">{notebook.filter((note) => note.accepted).length}/{notebook.length}</span>
+                  <button type="button" onClick={() => setMobileNotebookOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-sm text-white/55" aria-label="Close notebook">×</button>
+                </div>
+              </div>
+              <div className="max-h-[calc(58vh-72px)] space-y-2 overflow-y-auto p-3">
+                {notebook.length === 0 ? <p className="p-4 text-[9px] uppercase leading-5 text-white/25">USEFUL DECISIONS WILL APPEAR HERE DURING THE CONVERSATION.</p> : notebook.map((note) => {
+                  const author = session[note.author];
+                  return <button key={note.id} type="button" onClick={() => toggleNote(note.id)} className={`w-full rounded-[15px] border p-3 text-left transition ${note.accepted ? "border-[#FFDF00]/40 bg-[#FFDF00]/8" : "border-white/10 bg-white/[0.025]"}`}>
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] ${note.accepted ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/20 text-transparent"}`}>✓</span>
+                      <div className="min-w-0">
+                        <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/30">{author.name}</p>
+                        <p className="mt-1 text-[10px] font-black uppercase leading-5 text-white/80">{note.title}</p>
+                        <p className="mt-1 text-[9px] leading-5 text-white/40">{note.detail}</p>
+                      </div>
+                    </div>
+                  </button>;
+                })}
+              </div>
+            </section>
+          </>}
         </section>
       </div>
     </main>
