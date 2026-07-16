@@ -18,8 +18,10 @@ export default function StudioSidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [mobileBrandVisible, setMobileBrandVisible] = useState(true);
   const menuSwipe = useRef<{ x: number; y: number } | null>(null);
   const itemSwipe = useRef<{ x: number; y: number; id: string } | null>(null);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     const restore = () => {
@@ -53,6 +55,20 @@ export default function StudioSidebar() {
   }
 
   useEffect(() => { document.documentElement.style.setProperty("--studio-sidebar-width", `${width}px`); }, [width]);
+
+  useEffect(() => {
+    lastScrollY.current = window.scrollY;
+    const handleScroll = () => {
+      const current = window.scrollY;
+      const difference = current - lastScrollY.current;
+      if (current < 20) setMobileBrandVisible(true);
+      else if (difference > 6) setMobileBrandVisible(false);
+      else if (difference < -6) setMobileBrandVisible(true);
+      lastScrollY.current = current;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const start = (event: globalThis.TouchEvent) => {
@@ -111,7 +127,7 @@ export default function StudioSidebar() {
     <button type="button" onClick={() => setMobileOpen(true)} className="pointer-events-auto flex h-8 w-8 items-center justify-center" aria-label="Open navigation">
       <Image src="/logo-carabasai.svg" alt="Open Carabasai Studio menu" width={28} height={28} className="h-7 w-7 object-contain" priority />
     </button>
-    <span className="text-[8px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</span>
+    <span className={`text-[8px] font-black tracking-[0.2em] text-[#FFDF00] transition-all duration-200 ${mobileBrandVisible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"}`}>CARABASAI STUDIO</span>
   </div>
   {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[75] bg-black/75 backdrop-blur-sm md:hidden" aria-label="Close navigation" />}
   <aside className={`fixed bottom-0 left-0 top-0 z-[80] flex max-w-[88vw] flex-col border-r border-white/10 bg-[#080808] p-5 text-white transition-transform duration-200 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ width }}>
