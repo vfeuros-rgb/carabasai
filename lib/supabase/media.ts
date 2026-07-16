@@ -1,7 +1,7 @@
 import * as tus from "tus-js-client";
 import { createClient } from "./client";
 
-export type MediaKind = "references" | "chat-attachments" | "generated-images" | "generated-videos" | "exports";
+export type MediaKind = "references" | "chat-attachments" | "generated-images" | "generated-videos" | "project-covers" | "exports";
 const BUCKET = "carabasai-media";
 
 function safeName(name: string) {

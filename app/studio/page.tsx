@@ -9,6 +9,7 @@ import WorkflowNav from "../components/WorkflowNav";
 import { createClient } from "../../lib/supabase/client";
 import { deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 import { platformConfirm } from "../../lib/platform-dialog";
+import { uploadProjectMedia } from "../../lib/supabase/media";
 
 type CrewMember = {
   id: string;
@@ -825,8 +826,37 @@ export default function StudioPage() {
     );
     const history = getCachedProjects();
     saveProjects([creativeSession, ...history].slice(0, 20));
+    void generateProjectCover(creativeSession);
 
     router.push("/studio/creative-room");
+  }
+
+  async function generateProjectCover(session: { id: string; notes: string; secondDirector: CrewMember; screenwriter: CrewMember }) {
+    try {
+      const response = await authenticatedFetch("/api/project-cover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brief: session.notes,
+          director: session.secondDirector.name,
+          screenwriter: session.screenwriter.name,
+        }),
+      });
+      if (!response.ok) throw new Error("Cover generation failed");
+      const blob = await response.blob();
+      const file = new File([blob], `${session.id}-cover.jpg`, { type: "image/jpeg" });
+      const uploaded = await uploadProjectMedia(file, session.id, "project-covers");
+      const history = getCachedProjects();
+      const updated = history.map((project) => project.id === session.id ? { ...project, coverPath: uploaded.path } : project);
+      saveProjects(updated);
+      const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
+      if (activeRaw) {
+        const active = JSON.parse(activeRaw) as typeof session & { coverPath?: string };
+        if (active.id === session.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({ ...active, coverPath: uploaded.path }));
+      }
+    } catch (error) {
+      console.error("Project cover generation failed", error);
+    }
   }
 
   async function skipDiscussion() {
@@ -859,6 +889,7 @@ export default function StudioPage() {
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
       const history = getCachedProjects();
       saveProjects([completedSession, ...history].slice(0, 20));
+      void generateProjectCover(creativeSession);
       router.push("/studio/project");
     } catch (skipError) {
       setReferenceError(skipError instanceof Error ? skipError.message : "COULD NOT BUILD PROJECT DOCUMENT.");

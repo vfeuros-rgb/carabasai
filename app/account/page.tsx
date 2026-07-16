@@ -7,9 +7,10 @@ import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
 import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 import { platformConfirm, platformPrompt } from "../../lib/platform-dialog";
+import { createMediaUrl } from "../../lib/supabase/media";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -31,6 +32,7 @@ export default function AccountPage() {
   const [recoveryCode, setRecoveryCode] = useState("");
   const [historyOpen, setHistoryOpen] = useState(true);
   const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
+  const [projectCoverUrls, setProjectCoverUrls] = useState<Record<string, string>>({});
   const [authReady, setAuthReady] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projectActionId, setProjectActionId] = useState<string | null>(null);
@@ -74,6 +76,23 @@ export default function AccountPage() {
     const timer = window.setInterval(() => setRecoveryCooldown((current) => Math.max(0, current - 1)), 1000);
     return () => window.clearInterval(timer);
   }, [recoveryCooldown]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const covers = accountSessions.filter((project) => project.id && project.coverPath);
+    if (!covers.length) return;
+    void Promise.all(covers.map(async (project) => {
+      try {
+        const url = await createMediaUrl(project.coverPath!, 60 * 60 * 6);
+        return [project.id!, url] as const;
+      } catch {
+        return null;
+      }
+    })).then((entries) => {
+      if (!cancelled) setProjectCoverUrls(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
+    });
+    return () => { cancelled = true; };
+  }, [accountSessions]);
 
   function changeMode(next: Mode) {
     setMode(next); setMessage(""); setCaptchaToken(""); setPasswordConfirmation("");
@@ -170,7 +189,7 @@ export default function AccountPage() {
     const deleteRevealed = deleteSwipeId === key;
     const favoriteRevealed = favoriteSwipeId === key;
     const progress = project.projectDocument || project.stage === "summary" ? 70 : project.messages?.length || project.stage === "dialogue" ? 45 : project.notes ? 20 : 10;
-    const image = project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
+    const image = (project.id ? projectCoverUrls[project.id] : undefined) || project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
     return <div key={key} className={`relative min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
       {favoriteRevealed && <button type="button" onClick={() => toggleProjectFavorite(project)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-xl text-[#FFDF00] md:hidden" aria-label="Add project to favorites">★</button>}
       {deleteRevealed && <button type="button" onClick={() => void removeAccountProject(project)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-lg text-red-400 md:hidden" aria-label="Delete project">⌫</button>}
