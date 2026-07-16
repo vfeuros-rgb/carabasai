@@ -17,6 +17,23 @@ type BillingItem = {
   source: "live" | "estimated" | "manual"; href: string;
 };
 
+async function exchangeRates() {
+  const fallback = { usdPerEur: 1.1405, rubPerEur: 88.9097, asOf: "16 Jul 2026" };
+  try {
+    const [ecb, cbr] = await Promise.all([
+      fetch("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", { next: { revalidate: 21600 } }).then((response) => response.text()),
+      fetch("https://www.cbr.ru/scripts/XML_daily.asp", { next: { revalidate: 21600 } }).then((response) => response.text()),
+    ]);
+    const usd = Number(ecb.match(/currency=['\"]USD['\"] rate=['\"]([0-9.]+)['\"]/)?.[1]);
+    const eurBlock = cbr.match(/<Valute[^>]*>\s*<NumCode>978<\/NumCode>[\s\S]*?<\/Valute>/)?.[0] ?? "";
+    const nominal = Number(eurBlock.match(/<Nominal>([0-9]+)<\/Nominal>/)?.[1] ?? 1);
+    const rub = Number((eurBlock.match(/<Value>([0-9,]+)<\/Value>/)?.[1] ?? "").replace(",", ".")) / nominal;
+    return { usdPerEur: usd > 0 ? usd : fallback.usdPerEur, rubPerEur: rub > 0 ? rub : fallback.rubPerEur, asOf: new Date().toLocaleDateString("en-GB", { timeZone: "Europe/Berlin" }) };
+  } catch {
+    return fallback;
+  }
+}
+
 function envMoney(name: string, fallback = 0) {
   const value = Number(process.env[name] ?? fallback);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
@@ -24,6 +41,10 @@ function envMoney(name: string, fallback = 0) {
 
 function money(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: value % 1 ? 2 : 0 }).format(value);
+}
+
+function euro(value: number) {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
 }
 
 async function checkEndpoint(url: string, init: RequestInit) {
@@ -42,6 +63,7 @@ function bytes(value: number) {
 
 export default async function AdminControlRoom() {
   const { user, supabase } = await requireAdmin();
+  const rates = await exchangeRates();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
@@ -87,25 +109,32 @@ export default async function AdminControlRoom() {
 
   const cloudflareBaseMonthly = envMoney("CLOUDFLARE_WORKERS_MONTHLY_USD", 5);
   const cloudflareUsageMonth = envMoney("CLOUDFLARE_AI_USAGE_MONTH_USD");
-  const anthropicUsageMonth = envMoney("ANTHROPIC_USAGE_MONTH_USD");
-  const openAiUsageMonth = envMoney("OPENAI_USAGE_MONTH_USD");
+  const anthropicUsageMonth = envMoney("ANTHROPIC_USAGE_MONTH_USD", 5);
+  const openAiUsageMonth = envMoney("OPENAI_USAGE_MONTH_USD", 5);
   const supabaseMonthly = envMoney("SUPABASE_MONTHLY_USD");
   const vercelMonthly = envMoney("VERCEL_MONTHLY_USD");
-  const godaddyAnnual = envMoney("GODADDY_DOMAIN_ANNUAL_USD") + envMoney("GODADDY_EMAIL_ANNUAL_USD");
+  const godaddyAnnualEur = envMoney("GODADDY_CARABASAI_ANNUAL_EUR", 21.99) + envMoney("GODADDY_FLORIANI_ANNUAL_EUR", 21.99);
+  const tildaAnnualRub = envMoney("TILDA_BUSINESS_ANNUAL_RUB", 12_000);
+  const godaddyAnnual = godaddyAnnualEur * rates.usdPerEur;
+  const tildaAnnualUsd = (tildaAnnualRub / rates.rubPerEur) * rates.usdPerEur;
   const billing: BillingItem[] = [
     { name: "Cloudflare Workers AI", purpose: "Project cover generation", cadence: "monthly", monthlyUsd: cloudflareBaseMonthly + cloudflareUsageMonth, annualUsd: (cloudflareBaseMonthly + cloudflareUsageMonth) * 12, allowance: "10,000 neurons / day included", consumed: `≈ ${estimatedNeuronsToday.toLocaleString("en-US")} neurons today · ${coversThisMonth} covers this month`, remaining: `≈ ${estimatedNeuronsRemaining.toLocaleString("en-US")} neurons today`, source: "estimated", href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai" },
     { name: "Anthropic", purpose: "Claude dialogue and documents", cadence: "usage", monthlyUsd: anthropicUsageMonth, annualUsd: anthropicUsageMonth * 12, allowance: "Usage-based API", consumed: `${providerCounts.anthropic ?? 0} projects · ${money(anthropicUsageMonth)} entered`, remaining: "Balance needs an Admin API connection", source: anthropicUsageMonth ? "manual" : "estimated", href: "https://console.anthropic.com/settings/billing" },
     { name: "OpenAI", purpose: "GPT dialogue and documents", cadence: "usage", monthlyUsd: openAiUsageMonth, annualUsd: openAiUsageMonth * 12, allowance: "Prepaid / usage-based API", consumed: `${providerCounts.openai ?? 0} projects · ${money(openAiUsageMonth)} entered`, remaining: "Balance needs an organization Admin key", source: openAiUsageMonth ? "manual" : "estimated", href: "https://platform.openai.com/usage" },
     { name: "Supabase", purpose: "Auth, database and media", cadence: supabaseMonthly ? "monthly" : "free", monthlyUsd: supabaseMonthly, annualUsd: supabaseMonthly * 12, allowance: supabaseMonthly ? "Paid plan" : "Free development plan", consumed: `${projects.length} projects · ${bytes(totalMediaBytes)}`, remaining: "Exact quotas in Supabase Usage", source: "manual", href: "https://supabase.com/dashboard" },
     { name: "Vercel", purpose: "Hosting and deployments", cadence: vercelMonthly ? "monthly" : "free", monthlyUsd: vercelMonthly, annualUsd: vercelMonthly * 12, allowance: vercelMonthly ? "Paid hosting plan" : "Hobby plan", consumed: process.env.VERCEL_ENV ?? "Production", remaining: "Usage API pending", source: "manual", href: "https://vercel.com/carabasai/carabasai-wq8s" },
-    { name: "GoDaddy", purpose: "Domain and business email", cadence: "annual", monthlyUsd: godaddyAnnual / 12, annualUsd: godaddyAnnual, allowance: "Annual renewal", consumed: godaddyAnnual ? `${money(godaddyAnnual)} / year entered` : "Renewal cost not entered", remaining: "Enter domain and mailbox renewal values", source: "manual", href: "https://account.godaddy.com/products" },
+    { name: "GoDaddy · carabasai.com", purpose: "Carabasai domain and business email", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 31 Jan 2027", consumed: "€21.99 / year", remaining: "Renew by 31 Jan 2027", source: "manual", href: "https://account.godaddy.com/products" },
+    { name: "GoDaddy · Floriani", purpose: "Other website on the same account", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 20 Apr 2027", consumed: "€21.99 / year", remaining: "Renew by 20 Apr 2027", source: "manual", href: "https://account.godaddy.com/products" },
+    { name: "Tilda Business", purpose: "Website builder subscription", cadence: "annual", monthlyUsd: tildaAnnualUsd / 12, annualUsd: tildaAnnualUsd, allowance: "Paid through 13 Oct 2027", consumed: "₽12,000 / year", remaining: "Renew by 13 Oct 2027", source: "manual", href: "https://tilda.cc/identity/plan/" },
     { name: "Cloudflare Turnstile", purpose: "Bot protection", cadence: "free", monthlyUsd: 0, annualUsd: 0, allowance: "Free", consumed: "Registration and recovery", remaining: "No subscription payment", source: "live", href: "https://dash.cloudflare.com/?to=/:account/turnstile" },
   ];
-  const fixedMonthly = cloudflareBaseMonthly + supabaseMonthly + vercelMonthly + godaddyAnnual / 12;
+  const fixedMonthly = cloudflareBaseMonthly + supabaseMonthly + vercelMonthly + godaddyAnnual / 12 + tildaAnnualUsd / 12;
   const variableMonthly = cloudflareUsageMonth + anthropicUsageMonth + openAiUsageMonth;
   const monthlyTotal = fixedMonthly + variableMonthly;
-  const annualCommitted = cloudflareBaseMonthly * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual;
+  const annualCommitted = cloudflareBaseMonthly * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual + tildaAnnualUsd;
   const annualProjection = monthlyTotal * 12;
+  const monthlyTotalEur = monthlyTotal / rates.usdPerEur;
+  const annualProjectionEur = annualProjection / rates.usdPerEur;
 
   const services: Service[] = [
     {
@@ -217,6 +246,24 @@ export default async function AdminControlRoom() {
                 <p className="mt-3 text-2xl font-black">{value}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-4 grid gap-4 rounded-3xl border border-[#FFDF00]/30 bg-[#FFDF00]/[0.055] p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ALL SUBSCRIPTIONS · EUR</p>
+              <h3 className="mt-2 text-xl font-black">Your complete payment picture</h3>
+              <p className="mt-2 text-[10px] leading-5 text-white/40">Cloudflare $5/mo · Claude $5/mo · GPT $5/mo · GoDaddy €43.98/yr · Tilda ₽12,000/yr</p>
+              <p className="mt-2 text-[9px] text-white/25">Rate {rates.asOf}: €1 = ${rates.usdPerEur.toFixed(4)} · €1 = ₽{rates.rubPerEur.toFixed(4)}. Provider invoices remain the source of truth.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-36 rounded-2xl border border-white/10 bg-black/25 p-4">
+                <p className="text-[8px] font-black tracking-[0.14em] text-white/35">PER MONTH</p>
+                <p className="mt-2 text-2xl font-black text-[#FFDF00]">{euro(monthlyTotalEur)}</p>
+              </div>
+              <div className="min-w-36 rounded-2xl border border-white/10 bg-black/25 p-4">
+                <p className="text-[8px] font-black tracking-[0.14em] text-white/35">PER YEAR</p>
+                <p className="mt-2 text-2xl font-black text-[#FFDF00]">{euro(annualProjectionEur)}</p>
+              </div>
+            </div>
           </div>
           <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0A0A0A]">
             <div className="hidden grid-cols-[1.25fr_.8fr_.7fr_.7fr_1.5fr_1.1fr] gap-4 border-b border-white/10 px-6 py-4 text-[8px] font-black tracking-[0.15em] text-white/25 lg:grid">
