@@ -68,7 +68,7 @@ export default function StudioSidebar() {
         if (current - scrollDirectionStart.current > 18) setMobileBrandVisible(false);
         if (lastScrollY.current < scrollDirectionStart.current) scrollDirectionStart.current = lastScrollY.current;
       } else if (difference < 0) {
-        if (scrollDirectionStart.current - current > 48) setMobileBrandVisible(true);
+        if (scrollDirectionStart.current - current > 96) setMobileBrandVisible(true);
         if (lastScrollY.current > scrollDirectionStart.current) scrollDirectionStart.current = lastScrollY.current;
       }
       lastScrollY.current = current;
@@ -130,6 +130,13 @@ export default function StudioSidebar() {
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item = "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
   return <>
+  {!mobileOpen && <div
+    className="fixed bottom-0 left-3 top-14 z-[65] w-16 touch-pan-y md:hidden"
+    aria-hidden="true"
+    onTouchStart={(event) => { const touch = event.touches[0]; menuSwipe.current = { x: touch.clientX, y: touch.clientY }; }}
+    onTouchMove={(event) => { const origin = menuSwipe.current; const touch = event.touches[0]; if (origin && touch.clientX - origin.x > 38 && Math.abs(touch.clientY - origin.y) < 90) { setMobileOpen(true); menuSwipe.current = null; } }}
+    onTouchEnd={() => { menuSwipe.current = null; }}
+  />}
   <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex h-14 items-center justify-between px-4 md:hidden">
     <button type="button" onClick={() => setMobileOpen(true)} className="pointer-events-auto flex h-8 w-8 items-center justify-center" aria-label="Open navigation">
       <Image src="/logo-carabasai.svg" alt="Open Carabasai Studio menu" width={28} height={28} className="h-7 w-7 object-contain" priority />
