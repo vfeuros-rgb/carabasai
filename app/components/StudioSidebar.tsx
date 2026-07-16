@@ -14,6 +14,7 @@ export default function StudioSidebar() {
   const router = useRouter();
   const [width, setWidth] = useState(260);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function StudioSidebar() {
       const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
       setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
       setHistoryOpen(localStorage.getItem("carabasaiSharedHistoryOpen") !== "false");
+      setAccountMenuOpen(localStorage.getItem("carabasaiAccountMenuOpen") === "true" || window.location.pathname.startsWith("/account/"));
       setSessions(getCachedProjects<SavedSession>());
       try { setActiveProjectId((JSON.parse(sessionStorage.getItem("carabasaiCreativeSession") ?? "null") as SavedSession | null)?.id ?? localStorage.getItem(ACTIVE_PROJECT_KEY)); } catch { setActiveProjectId(localStorage.getItem(ACTIVE_PROJECT_KEY)); }
     };
@@ -202,7 +204,12 @@ export default function StudioSidebar() {
     <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
     <nav className="mt-6 grid gap-2">
       <Link href="/studio" className={`${item} ${homeActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>STUDIO HOME <span>⌂</span></Link>
-      <Link href="/account" className={`${item} ${accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>MY ACCOUNT <span>○</span></Link>
+      <button type="button" onClick={() => { const next = !accountMenuOpen; setAccountMenuOpen(next); localStorage.setItem("carabasaiAccountMenuOpen", String(next)); }} className={`${item} ${accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>MY ACCOUNT <span className={`transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}>⌄</span></button>
+      {accountMenuOpen && <div className="grid gap-1.5 pl-3">
+        <Link href="/account/settings" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/settings" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>SETTINGS <span>⚙</span></Link>
+        <Link href="/account/subscription" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/subscription" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>SUBSCRIPTION <span>◇</span></Link>
+        <Link href="/account/credits" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/credits" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>BUY CREDITS <span>＋</span></Link>
+      </div>}
       <a href="mailto:info@carabasai.com" className={`${item} border-white/10 bg-white/[0.025] text-white/65`}>HELP DESK <span className="text-[#FFDF00]">?</span></a>
     </nav>
     <div className="mt-auto border-t border-white/10 pt-4">
