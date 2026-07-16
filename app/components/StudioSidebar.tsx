@@ -88,7 +88,7 @@ export default function StudioSidebar() {
     const end = (event: globalThis.TouchEvent) => {
       const origin = menuSwipe.current;
       const touch = event.changedTouches[0];
-      if (origin && touch.clientX - origin.x > 42 && Math.abs(touch.clientY - origin.y) < 90) setMobileOpen(true);
+      if (origin && touch.clientX - origin.x > 18 && Math.abs(touch.clientY - origin.y) < 90) setMobileOpen(true);
       menuSwipe.current = null;
     };
     document.addEventListener("touchstart", start, { passive: true });
@@ -139,7 +139,7 @@ export default function StudioSidebar() {
     className="fixed bottom-0 left-3 top-14 z-[65] w-16 touch-pan-y md:hidden"
     aria-hidden="true"
     onTouchStart={(event) => { const touch = event.touches[0]; menuSwipe.current = { x: touch.clientX, y: touch.clientY }; }}
-    onTouchMove={(event) => { const origin = menuSwipe.current; const touch = event.touches[0]; if (origin && touch.clientX - origin.x > 38 && Math.abs(touch.clientY - origin.y) < 90) { setMobileOpen(true); menuSwipe.current = null; } }}
+    onTouchMove={(event) => { const origin = menuSwipe.current; const touch = event.touches[0]; if (origin && touch.clientX - origin.x > 18 && Math.abs(touch.clientY - origin.y) < 90) { setMobileOpen(true); menuSwipe.current = null; } }}
     onTouchEnd={() => { menuSwipe.current = null; }}
   />}
   <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex h-14 items-center justify-between px-4 md:hidden">
