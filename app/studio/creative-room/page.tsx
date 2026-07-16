@@ -649,8 +649,8 @@ export default function CreativeRoomPage() {
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
       )}
-      <div className="mx-auto grid w-full max-w-7xl gap-5 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+      <div className="mx-auto grid h-[calc(100dvh-10rem)] w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-3 md:h-[calc(100dvh-5.5rem)] lg:grid-cols-[320px_1fr] lg:grid-rows-1 lg:gap-5">
+        <aside className="hidden space-y-4 lg:block lg:max-h-full lg:self-start lg:overflow-y-auto lg:pr-1">
           {agents.map(([agent, member], index) => (
             <div
               key={member.name}
@@ -788,7 +788,29 @@ export default function CreativeRoomPage() {
           </div>
         </aside>
 
-        <section className="flex h-[calc(100dvh-6.25rem)] min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025] md:h-[calc(100dvh-2.5rem)]">
+        <section className="grid grid-cols-2 gap-2 lg:hidden" aria-label="Conversation participants">
+          {agents.map(([agent, member], index) => (
+            <button
+              key={member.name}
+              type="button"
+              role="switch"
+              aria-checked={enabledAgents[agent]}
+              onClick={() => toggleAgent(agent)}
+              className={`flex min-w-0 items-center gap-2 rounded-[16px] border px-2.5 py-2 text-left transition ${enabledAgents[agent] ? "border-[#FFDF00]/30 bg-[#FFDF00]/6" : "border-white/8 bg-white/[0.02] opacity-45"}`}
+            >
+              <div className="scale-[0.72]">
+                <Portrait member={member} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[7px] font-black tracking-[0.1em] text-[#FFDF00]">{index === 0 ? "DIRECTOR" : "WRITER"}</p>
+                <p className="mt-0.5 truncate text-[9px] font-black">{member.name}</p>
+              </div>
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] ${enabledAgents[agent] ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/20 text-transparent"}`}>✓</span>
+            </button>
+          ))}
+        </section>
+
+        <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] sm:rounded-[28px]">
           <div className="flex flex-col gap-5 border-b border-white/10 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">CREATIVE DEVELOPMENT</p>
