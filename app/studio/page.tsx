@@ -832,6 +832,11 @@ export default function StudioPage() {
       saveProjects([creativeSession, ...history].slice(0, 20));
       localStorage.setItem(ACTIVE_PROJECT_KEY, creativeSession.id);
 
+      // Generate the project identity while the start button is visibly busy.
+      // Awaiting the request also prevents the browser navigation from
+      // cancelling it before Cloudflare returns the cover.
+      await generateProjectCover(creativeSession);
+
       // Use a hard navigation here so the newly persisted session is always
       // restored by the creative room, even if a client transition is stale.
       window.location.assign("/studio/creative-room");
@@ -854,16 +859,26 @@ export default function StudioPage() {
           screenwriter: session.screenwriter.name,
         }),
       });
-      const payload = await response.json() as { coverPath?: string; coverModel?: string; error?: string };
+      const payload = await response.json() as { coverPath?: string; coverModel?: string; title?: string; error?: string };
       if (!response.ok || !payload.coverPath) throw new Error(payload.error || "Cover generation failed");
       const history = getCachedProjects();
-      const coverModel = payload.coverModel ?? "flux-2-dev-21x9-v2";
-      const updated = history.map((project) => project.id === session.id ? { ...project, coverPath: payload.coverPath, coverModel } : project);
+      const coverModel = payload.coverModel ?? "flux-2-dev-16x9-v3";
+      const updated = history.map((project) => project.id === session.id ? {
+        ...project,
+        ...(payload.title ? { title: payload.title } : {}),
+        coverPath: payload.coverPath,
+        coverModel,
+      } : project);
       saveProjects(updated);
       const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
       if (activeRaw) {
-        const active = JSON.parse(activeRaw) as typeof session & { coverPath?: string; coverModel?: string };
-        if (active.id === session.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({ ...active, coverPath: payload.coverPath, coverModel }));
+        const active = JSON.parse(activeRaw) as typeof session & { coverPath?: string; coverModel?: string; title?: string };
+        if (active.id === session.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({
+          ...active,
+          ...(payload.title ? { title: payload.title } : {}),
+          coverPath: payload.coverPath,
+          coverModel,
+        }));
       }
     } catch (error) {
       console.error("Project cover generation failed", error);
