@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 
 export const runtime = "nodejs";
-const COVER_MODEL = "flux-2-dev-v1";
+const COVER_MODEL = "flux-2-dev-21x9-v2";
 
 export async function POST(request: Request) {
   let access;
@@ -28,18 +28,20 @@ export async function POST(request: Request) {
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
   const prompt = [
-    "Create a cinematic key art image for a film project in a landscape 16:9 composition.",
+    "Create a cinematic key art image for a film project in an ultra-wide 21:9 composition.",
     `The image must clearly and literally depict this exact project concept: ${brief}.`,
     "Identify the central character, action, location and genre directly from that concept. Do not replace them with a generic movie studio, camera equipment, abstract scenery or an unrelated portrait.",
     "Show one decisive story moment with a clear focal subject and visual storytelling that makes the premise immediately recognizable.",
     "Professional film still, specific production design, controlled dramatic lighting, coherent anatomy, believable environment.",
-    "No typography, no captions, no logos, no watermark, no UI, no collage.",
+    "The image must contain absolutely no text of any kind. No letters, words, numbers, titles, subtitles, captions, signs, labels, logos, brands, watermarks, credits, UI elements or typographic symbols anywhere in the image.",
+    "If the scene naturally contains a sign, screen, package, document or poster, keep its surface blank and without readable marks.",
+    "Single cinematic frame only, no poster layout, no title treatment, no borders and no collage.",
   ].filter(Boolean).join(" ");
 
   const form = new FormData();
   form.append("prompt", prompt);
   form.append("steps", "20");
-  form.append("width", "1024");
+  form.append("width", "1344");
   form.append("height", "576");
 
   const cloudflareResponse = await fetch(

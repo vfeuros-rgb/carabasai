@@ -845,7 +845,7 @@ export default function StudioPage() {
       const payload = await response.json() as { coverPath?: string; coverModel?: string; error?: string };
       if (!response.ok || !payload.coverPath) throw new Error(payload.error || "Cover generation failed");
       const history = getCachedProjects();
-      const coverModel = payload.coverModel ?? "flux-2-dev-v1";
+      const coverModel = payload.coverModel ?? "flux-2-dev-21x9-v2";
       const updated = history.map((project) => project.id === session.id ? { ...project, coverPath: payload.coverPath, coverModel } : project);
       saveProjects(updated);
       const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");

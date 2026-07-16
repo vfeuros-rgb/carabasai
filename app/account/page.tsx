@@ -12,7 +12,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
-const CURRENT_COVER_MODEL = "flux-2-dev-v1";
+const CURRENT_COVER_MODEL = "flux-2-dev-21x9-v2";
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
