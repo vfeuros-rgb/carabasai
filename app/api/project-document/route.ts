@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await consumeAiQuota(access.supabase, "project-document");
+    await consumeAiQuota(access.supabase, "project-document", access.user);
   } catch (error) {
     const accessError = error instanceof AiAccessError ? error : new AiAccessError("USAGE LIMIT CHECK FAILED.", 503);
     return NextResponse.json(

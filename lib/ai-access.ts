@@ -46,8 +46,25 @@ export async function authenticateAiRequest(request: Request): Promise<Authentic
 
 export async function consumeAiQuota(
   supabase: SupabaseClient,
-  action: "creative-room" | "project-document"
+  action: "creative-room" | "project-document",
+  user?: User
 ) {
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  const userEmail = user?.email?.trim().toLowerCase();
+
+  if (userEmail && adminEmails.includes(userEmail)) {
+    return {
+      allowed: true,
+      daily_remaining: null,
+      minute_remaining: null,
+      retry_after_seconds: 0,
+      unlimited: true,
+    };
+  }
+
   const { data, error } = await supabase.rpc("consume_ai_request", { p_action: action });
   if (error) {
     console.error("AI quota check failed", error.message);
@@ -77,4 +94,3 @@ export async function consumeAiQuota(
   }
   return result;
 }
-
