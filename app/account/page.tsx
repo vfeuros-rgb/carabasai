@@ -12,7 +12,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
-const CURRENT_COVER_MODEL = "flux-2-dev-21x9-v2";
+const CURRENT_COVER_MODEL = "flux-2-dev-16x9-v3";
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -126,10 +126,15 @@ export default function AccountPage() {
         screenwriter: project.screenwriter?.name,
       }),
     }).then(async (response) => {
-      const payload = await response.json() as { coverPath?: string; coverModel?: string; error?: string };
+      const payload = await response.json() as { coverPath?: string; coverModel?: string; title?: string; error?: string };
       if (!response.ok || !payload.coverPath) throw new Error(payload.error || "PROJECT COVER COULD NOT BE GENERATED.");
       const next = getCachedProjects<AccountSession>().map((item) =>
-        item.id === project.id ? { ...item, coverPath: payload.coverPath, coverModel: payload.coverModel ?? CURRENT_COVER_MODEL } : item
+        item.id === project.id ? {
+          ...item,
+          ...(payload.title ? { title: payload.title } : {}),
+          coverPath: payload.coverPath,
+          coverModel: payload.coverModel ?? CURRENT_COVER_MODEL,
+        } : item
       );
       saveProjects(next);
       setAccountSessions(next);
@@ -197,6 +202,14 @@ export default function AccountPage() {
     window.location.assign(destination);
   }
 
+  function openProjectStage(project: AccountSession, stage: "crew" | "dialogue" | "summary") {
+    window.sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(project));
+    if (project.id) window.localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
+    window.dispatchEvent(new Event("carabasai-sidebar-change"));
+    setProjectsOpen(false);
+    window.location.assign(stage === "summary" ? "/studio/project" : stage === "dialogue" ? "/studio/creative-room" : "/studio");
+  }
+
   function persistAccountProjects(next: AccountSession[]) {
     const sorted = [...next].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
     setAccountSessions(sorted);
@@ -234,6 +247,14 @@ export default function AccountPage() {
     const deleteRevealed = deleteSwipeId === key;
     const favoriteRevealed = favoriteSwipeId === key;
     const progress = project.projectDocument || project.stage === "summary" ? 70 : project.messages?.length || project.stage === "dialogue" ? 45 : project.notes ? 20 : 10;
+    const reachedDialogue = Boolean(project.messages?.length || project.stage === "dialogue" || project.stage === "summary" || project.projectDocument);
+    const reachedSummary = Boolean(project.projectDocument || project.stage === "summary");
+    const currentStage = reachedSummary ? "SUMMARY" : reachedDialogue ? "DIALOGUE" : "CREW SETUP";
+    const stages: Array<{ id: "crew" | "dialogue" | "summary"; label: string; reached: boolean }> = [
+      { id: "crew", label: "CREW SETUP", reached: true },
+      { id: "dialogue", label: "DIALOGUE", reached: reachedDialogue },
+      { id: "summary", label: "SUMMARY", reached: reachedSummary },
+    ];
     const image = (project.id ? projectCoverUrls[project.id] : undefined) || project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
     return <div key={key} className={`relative min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
       {favoriteRevealed && <button type="button" onClick={() => toggleProjectFavorite(project)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-xl text-[#FFDF00] md:hidden" aria-label="Add project to favorites">★</button>}
@@ -256,20 +277,32 @@ export default function AccountPage() {
           projectSwipeRef.current = null;
         }}
       >
-        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="flex min-h-28 min-w-0 w-full max-w-full overflow-hidden rounded-[20px] text-left md:block">
+        <div role="button" tabIndex={0} onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openProject(project); }} className="block min-w-0 w-full max-w-full cursor-pointer overflow-hidden rounded-[20px] text-left">
           <div
-            className="flex h-auto w-28 shrink-0 items-center justify-center bg-[#101010] bg-cover bg-center md:h-36 md:w-full"
+            className="flex aspect-video w-full items-center justify-center rounded-t-[20px] bg-[#101010] bg-cover bg-center"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           >
             {!image && <span className="px-3 text-center text-[7px] font-black tracking-[0.12em] text-white/20">GENERATING COVER...</span>}
           </div>
-          <div className="min-w-0 flex-1 p-3.5 md:p-5">
+          <div className="min-w-0 p-4 md:p-5">
             <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
-            <h3 className="mt-2 truncate pr-8 text-base font-black md:mt-3 md:text-lg">{project.title || project.notes || "UNTITLED PROJECT"}</h3>
-            <div className="mt-3 flex items-center justify-between text-[9px] text-white/35 md:mt-5"><span>PRODUCTION</span><span>{progress}%</span></div>
+            <h3 className="mt-2 line-clamp-2 pr-8 text-base font-black uppercase leading-tight text-white md:mt-3 md:text-lg">{project.title || "UNTITLED PROJECT"}</h3>
+            <details onClick={(event) => event.stopPropagation()} className="group mt-3 text-[10px] leading-5 text-white/35">
+              <summary className="line-clamp-2 cursor-pointer list-none pr-3 marker:hidden group-open:line-clamp-none">{project.notes || "NO PROJECT BRIEF"}</summary>
+              <span className="mt-1 block text-[8px] font-black text-[#FFDF00]/60 group-open:hidden">SHOW FULL BRIEF</span>
+            </details>
+            <div className="mt-4 flex items-center justify-between text-[9px] font-black tracking-[0.1em]"><span className="text-white/55">{currentStage}</span><span className="text-white/35">{progress}%</span></div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{ width: `${progress}%` }} /></div>
           </div>
-        </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 border-t border-white/8 px-4 py-3 md:px-5">
+          {stages.filter((stage) => stage.reached).map((stage) => <button
+            key={stage.id}
+            type="button"
+            onClick={(event) => { event.stopPropagation(); openProjectStage(project, stage.id); }}
+            className={`rounded-full border px-2.5 py-1.5 text-[7px] font-black tracking-[0.08em] transition ${stage.label === currentStage ? "border-[#FFDF00]/55 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/10 text-white/35 hover:border-[#FFDF00]/30 hover:text-white"}`}
+          >{stage.label}</button>)}
+        </div>
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
           {project.favorite && <button type="button" onClick={(event) => { event.stopPropagation(); toggleProjectFavorite(project); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-sm text-[#FFDF00] backdrop-blur-sm hover:text-white" title="Remove from favorites" aria-label="Remove project from favorites">★</button>}
           <button type="button" onClick={() => { setDeleteSwipeId(null); setFavoriteSwipeId(null); setProjectActionId((current) => current === key ? null : key); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-lg text-white/65 backdrop-blur-sm hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>

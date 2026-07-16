@@ -2,7 +2,42 @@ import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 
 export const runtime = "nodejs";
-const COVER_MODEL = "flux-2-dev-21x9-v2";
+const COVER_MODEL = "flux-2-dev-16x9-v3";
+
+async function createProjectTitle(accountId: string, apiToken: string, brief: string) {
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "Create a strong, concise working title for a film or video project. Reply with the title only, in the same language as the brief. Use 2 to 5 words. No quotation marks, punctuation, explanations, labels or line breaks.",
+            },
+            { role: "user", content: brief },
+          ],
+          max_tokens: 32,
+          temperature: 0.55,
+        }),
+      },
+    );
+    if (!response.ok) return "";
+    const payload = await response.json() as { result?: { response?: string } };
+    return String(payload.result?.response ?? "")
+      .replace(/["“”«»]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80);
+  } catch {
+    return "";
+  }
+}
 
 export async function POST(request: Request) {
   let access;
@@ -28,7 +63,7 @@ export async function POST(request: Request) {
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
   const prompt = [
-    "Create a cinematic key art image for a film project in an ultra-wide 21:9 composition.",
+    "Create a cinematic key art image for a film project in an exact 16:9 widescreen composition.",
     `The image must clearly and literally depict this exact project concept: ${brief}.`,
     "Identify the central character, action, location and genre directly from that concept. Do not replace them with a generic movie studio, camera equipment, abstract scenery or an unrelated portrait.",
     "Show one decisive story moment with a clear focal subject and visual storytelling that makes the premise immediately recognizable.",
@@ -41,7 +76,7 @@ export async function POST(request: Request) {
   const form = new FormData();
   form.append("prompt", prompt);
   form.append("steps", "20");
-  form.append("width", "1344");
+  form.append("width", "1024");
   form.append("height", "576");
 
   const cloudflareResponse = await fetch(
@@ -77,6 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
 
+  const generatedTitle = await createProjectTitle(accountId, apiToken, brief);
   const { data: projectRow } = await access.supabase
     .from("projects")
     .select("project_document")
@@ -91,8 +127,14 @@ export async function POST(request: Request) {
       .update({
         project_document: {
           ...currentDocument,
-          carabasai_session: { ...currentSession, coverPath, coverModel: COVER_MODEL },
+          carabasai_session: {
+            ...currentSession,
+            ...(generatedTitle ? { title: generatedTitle } : {}),
+            coverPath,
+            coverModel: COVER_MODEL,
+          },
         },
+        ...(generatedTitle ? { title: generatedTitle } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", projectId)
@@ -100,5 +142,5 @@ export async function POST(request: Request) {
     if (projectUpdateError) console.error("Project cover metadata update failed", projectUpdateError.message);
   }
 
-  return NextResponse.json({ coverPath, coverModel: COVER_MODEL });
+  return NextResponse.json({ coverPath, coverModel: COVER_MODEL, title: generatedTitle || undefined });
 }
