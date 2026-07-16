@@ -167,12 +167,12 @@ export default function AccountPage() {
     const favoriteRevealed = favoriteSwipeId === key;
     const progress = project.projectDocument || project.stage === "summary" ? 70 : project.messages?.length || project.stage === "dialogue" ? 45 : project.notes ? 20 : 10;
     const image = project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
-    return <div key={key} className={`relative rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
+    return <div key={key} className={`relative min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
       {favoriteRevealed && <button type="button" onClick={() => toggleProjectFavorite(project)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-xl text-[#FFDF00] md:hidden" aria-label="Add project to favorites">★</button>}
       {deleteRevealed && <button type="button" onClick={() => void removeAccountProject(project)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-lg text-red-400 md:hidden" aria-label="Delete project">⌫</button>}
       <article
         data-disable-menu-swipe
-        className={`relative overflow-visible rounded-[20px] border border-white/10 bg-[#0B0B0B] transition-all md:translate-x-0 md:hover:-translate-y-1 md:hover:border-[#FFDF00]/30 ${deleteRevealed ? "-translate-x-16" : favoriteRevealed ? "translate-x-16" : "translate-x-0"}`}
+        className={`relative min-w-0 w-full max-w-full overflow-visible rounded-[20px] border border-white/10 bg-[#0B0B0B] transition-all md:translate-x-0 md:hover:-translate-y-1 md:hover:border-[#FFDF00]/30 ${deleteRevealed ? "-translate-x-16" : favoriteRevealed ? "translate-x-16" : "translate-x-0"}`}
         onTouchStart={(event) => { const touch = event.touches[0]; projectSwipeMoved.current = false; projectSwipeRef.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
         onTouchEnd={(event) => {
           const start = projectSwipeRef.current;
@@ -188,7 +188,7 @@ export default function AccountPage() {
           projectSwipeRef.current = null;
         }}
       >
-        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="flex min-h-28 w-full overflow-hidden rounded-[20px] text-left md:block">
+        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="flex min-h-28 min-w-0 w-full max-w-full overflow-hidden rounded-[20px] text-left md:block">
           <div className="h-auto w-28 shrink-0 bg-cover bg-center md:h-36 md:w-full" style={{ backgroundImage: `url(${image || "/studio-bg.jpeg"})` }} />
           <div className="min-w-0 flex-1 p-3.5 md:p-5">
             <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
@@ -305,10 +305,10 @@ export default function AccountPage() {
 
         <section className="mt-12"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">PRODUCTION WALL</h2><button className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/50">OPEN WALL ↗</button></div><div className="relative h-[290px] overflow-hidden rounded-[24px] border border-white/10 bg-[url('/studio-bg.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-black/60"/><div className="absolute bottom-7 left-7"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">YOUR VISUAL WORKSPACE</p><p className="mt-2 max-w-md text-sm text-white/55">Images, videos, references and generated frames will live here.</p></div></div></section>
 
-        <section className="mt-10"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => renderAccountProject(project, index))}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
+        <section className="mt-10 min-w-0"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => renderAccountProject(project, index))}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
-      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid gap-4 sm:grid-cols-2">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
+      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
     </section>
   </main>;
 
