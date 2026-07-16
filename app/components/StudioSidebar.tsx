@@ -22,6 +22,7 @@ export default function StudioSidebar() {
   const menuSwipe = useRef<{ x: number; y: number } | null>(null);
   const itemSwipe = useRef<{ x: number; y: number; id: string } | null>(null);
   const lastScrollY = useRef(0);
+  const scrollDirectionStart = useRef(0);
 
   useEffect(() => {
     const restore = () => {
@@ -58,12 +59,18 @@ export default function StudioSidebar() {
 
   useEffect(() => {
     lastScrollY.current = window.scrollY;
+    scrollDirectionStart.current = window.scrollY;
     const handleScroll = () => {
       const current = window.scrollY;
       const difference = current - lastScrollY.current;
       if (current < 20) setMobileBrandVisible(true);
-      else if (difference > 6) setMobileBrandVisible(false);
-      else if (difference < -6) setMobileBrandVisible(true);
+      else if (difference > 0) {
+        if (current - scrollDirectionStart.current > 18) setMobileBrandVisible(false);
+        if (lastScrollY.current < scrollDirectionStart.current) scrollDirectionStart.current = lastScrollY.current;
+      } else if (difference < 0) {
+        if (scrollDirectionStart.current - current > 48) setMobileBrandVisible(true);
+        if (lastScrollY.current > scrollDirectionStart.current) scrollDirectionStart.current = lastScrollY.current;
+      }
       lastScrollY.current = current;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -73,12 +80,12 @@ export default function StudioSidebar() {
   useEffect(() => {
     const start = (event: globalThis.TouchEvent) => {
       const touch = event.touches[0];
-      if (touch.clientX <= 30) menuSwipe.current = { x: touch.clientX, y: touch.clientY };
+      if (touch.clientX <= 90) menuSwipe.current = { x: touch.clientX, y: touch.clientY };
     };
     const end = (event: globalThis.TouchEvent) => {
       const origin = menuSwipe.current;
       const touch = event.changedTouches[0];
-      if (origin && touch.clientX - origin.x > 70 && Math.abs(touch.clientY - origin.y) < 60) setMobileOpen(true);
+      if (origin && touch.clientX - origin.x > 42 && Math.abs(touch.clientY - origin.y) < 90) setMobileOpen(true);
       menuSwipe.current = null;
     };
     document.addEventListener("touchstart", start, { passive: true });
@@ -131,7 +138,6 @@ export default function StudioSidebar() {
   </div>
   {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[75] bg-black/75 backdrop-blur-sm md:hidden" aria-label="Close navigation" />}
   <aside className={`fixed bottom-0 left-0 top-0 z-[80] flex max-w-[88vw] flex-col border-r border-white/10 bg-[#080808] p-5 text-white transition-transform duration-200 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ width }}>
-    <button type="button" onClick={() => setMobileOpen(false)} className="absolute right-4 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 md:hidden" aria-label="Close navigation">×</button>
     <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
     <nav className="mt-6 grid gap-2">
       <Link href="/studio" className={`${item} ${homeActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>STUDIO HOME <span>⌂</span></Link>
