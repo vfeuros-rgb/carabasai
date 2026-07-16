@@ -84,7 +84,13 @@ export function saveProjects(projects: StoredProject[]) {
 }
 
 export async function setProjectFavorite(id: string, favorite: boolean) {
-  const next = readLocal().map((project) => project.id === id ? { ...project, favorite } : project);
+  const next = readLocal()
+    .map((project) => project.id === id ? { ...project, favorite } : project)
+    .sort((a, b) => {
+      const favoriteDifference = Number(Boolean(b.favorite)) - Number(Boolean(a.favorite));
+      if (favoriteDifference) return favoriteDifference;
+      return Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0);
+    });
   cacheProjects(next);
 
   if (!isUuid(id)) {
@@ -144,7 +150,11 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
   const remoteIds = new Set(remote.map((project) => project.id));
   const localOnly = local.filter((project) => !project.id || !remoteIds.has(project.id));
   if (localOnly.length) await upsertRemote(localOnly);
-  const merged = [...remote, ...localOnly];
+  const merged = [...remote, ...localOnly].sort((a, b) => {
+    const favoriteDifference = Number(Boolean(b.favorite)) - Number(Boolean(a.favorite));
+    if (favoriteDifference) return favoriteDifference;
+    return Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0);
+  });
   cacheProjects(merged);
   return merged as T[];
 }

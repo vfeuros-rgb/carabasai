@@ -188,12 +188,12 @@ export default function AccountPage() {
           projectSwipeRef.current = null;
         }}
       >
-        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="block w-full overflow-hidden rounded-[20px] text-left">
-          <div className="h-36 bg-cover bg-center" style={{ backgroundImage: `url(${image || "/studio-bg.jpeg"})` }} />
-          <div className="p-5">
+        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="flex min-h-28 w-full overflow-hidden rounded-[20px] text-left md:block">
+          <div className="h-auto w-28 shrink-0 bg-cover bg-center md:h-36 md:w-full" style={{ backgroundImage: `url(${image || "/studio-bg.jpeg"})` }} />
+          <div className="min-w-0 flex-1 p-3.5 md:p-5">
             <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
-            <h3 className="mt-3 truncate pr-8 text-lg font-black">{project.title || project.notes || "UNTITLED PROJECT"}</h3>
-            <div className="mt-5 flex items-center justify-between text-[9px] text-white/35"><span>PRODUCTION</span><span>{progress}%</span></div>
+            <h3 className="mt-2 truncate pr-8 text-base font-black md:mt-3 md:text-lg">{project.title || project.notes || "UNTITLED PROJECT"}</h3>
+            <div className="mt-3 flex items-center justify-between text-[9px] text-white/35 md:mt-5"><span>PRODUCTION</span><span>{progress}%</span></div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{ width: `${progress}%` }} /></div>
           </div>
         </button>
@@ -300,7 +300,7 @@ export default function AccountPage() {
     </aside>
 
     <section className="min-h-screen pt-16 md:pl-[var(--studio-sidebar-width,260px)] md:pt-0">
-      <div className="mx-auto w-full max-w-[1500px] px-8 py-10 lg:px-14">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-8 sm:py-10 lg:px-14">
         <header><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">{name || "CREATOR"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-4xl">WELCOME BACK TO YOUR STUDIO.</h1><p className="mt-3 text-sm text-white/35">{accountSessions.length} active {accountSessions.length === 1 ? "project" : "projects"} in your workspace.</p></header>
 
         <section className="mt-12"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">PRODUCTION WALL</h2><button className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/50">OPEN WALL ↗</button></div><div className="relative h-[290px] overflow-hidden rounded-[24px] border border-white/10 bg-[url('/studio-bg.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-black/60"/><div className="absolute bottom-7 left-7"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">YOUR VISUAL WORKSPACE</p><p className="mt-2 max-w-md text-sm text-white/55">Images, videos, references and generated frames will live here.</p></div></div></section>
