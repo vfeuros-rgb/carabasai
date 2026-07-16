@@ -180,7 +180,24 @@ export default function StudioSidebar() {
           <div
             className={`relative flex min-h-10 items-center gap-1 rounded-lg border px-2 transition-all md:translate-x-0 ${selected ? "border-[#FFDF00]/60 bg-[#FFDF00]/10 shadow-[inset_3px_0_0_#FFDF00]" : "border-white/8 bg-[#0B0B0B]"} ${swiped ? "-translate-x-16" : favoriteSwiped ? "translate-x-16" : "translate-x-0"}`}
             onTouchStart={(event) => { const touch = event.touches[0]; itemSwipe.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
-            onTouchEnd={(event) => { const start = itemSwipe.current; const touch = event.changedTouches[0]; const horizontal = start ? touch.clientX - start.x : 0; const vertical = start ? Math.abs(touch.clientY - start.y) : 999; if (start?.id === key && horizontal < -45 && vertical < 45) { setFavoriteSwipedId(null); setSwipedId(key); } else if (start?.id === key && horizontal > 45 && vertical < 45) { setSwipedId(null); setFavoriteSwipedId(key); } itemSwipe.current = null; }}
+            onTouchEnd={(event) => {
+              const start = itemSwipe.current;
+              const touch = event.changedTouches[0];
+              const horizontal = start ? touch.clientX - start.x : 0;
+              const vertical = start ? Math.abs(touch.clientY - start.y) : 999;
+              if (start?.id === key && vertical < 45) {
+                if (swiped && horizontal > 35) {
+                  setSwipedId(null);
+                } else if (favoriteSwiped && horizontal < -35) {
+                  setFavoriteSwipedId(null);
+                } else if (!swiped && !favoriteSwiped && horizontal < -45) {
+                  setSwipedId(key);
+                } else if (!swiped && !favoriteSwiped && horizontal > 45) {
+                  setFavoriteSwipedId(key);
+                }
+              }
+              itemSwipe.current = null;
+            }}
           >
             {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className={`min-w-0 flex-1 truncate py-2 text-left text-[9px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}>{session.title || session.notes || "UNTITLED SESSION"}</button>}
             {session.favorite && <span className="shrink-0 text-xs text-[#FFDF00]" title="Favorite project" aria-label="Favorite project">★</span>}
