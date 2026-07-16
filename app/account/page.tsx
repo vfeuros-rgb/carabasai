@@ -8,9 +8,10 @@ import StudioSidebar from "../components/StudioSidebar";
 import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 import { platformConfirm, platformPrompt } from "../../lib/platform-dialog";
 import { createMediaUrl } from "../../lib/supabase/media";
+import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -40,6 +41,7 @@ export default function AccountPage() {
   const [favoriteSwipeId, setFavoriteSwipeId] = useState<string | null>(null);
   const projectSwipeRef = useRef<{ x: number; y: number; id: string } | null>(null);
   const projectSwipeMoved = useRef(false);
+  const coverAttempts = useRef(new Set<string>());
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
 
@@ -93,6 +95,35 @@ export default function AccountPage() {
     });
     return () => { cancelled = true; };
   }, [accountSessions]);
+
+  useEffect(() => {
+    const project = accountSessions.find((item) =>
+      item.id && item.notes?.trim() && !item.coverPath && !coverAttempts.current.has(item.id)
+    );
+    if (!userEmail || !project?.id || !project.notes) return;
+    coverAttempts.current.add(project.id);
+    void authenticatedFetch("/api/project-cover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: project.id,
+        brief: project.notes,
+        director: project.secondDirector?.name,
+        screenwriter: project.screenwriter?.name,
+      }),
+    }).then(async (response) => {
+      const payload = await response.json() as { coverPath?: string; error?: string };
+      if (!response.ok || !payload.coverPath) throw new Error(payload.error || "PROJECT COVER COULD NOT BE GENERATED.");
+      const next = getCachedProjects<AccountSession>().map((item) =>
+        item.id === project.id ? { ...item, coverPath: payload.coverPath } : item
+      );
+      saveProjects(next);
+      setAccountSessions(next);
+    }).catch((error) => {
+      console.error("Project cover backfill failed", error);
+      coverAttempts.current.delete(project.id!);
+    });
+  }, [accountSessions, userEmail]);
 
   function changeMode(next: Mode) {
     setMode(next); setMessage(""); setCaptchaToken(""); setPasswordConfirmation("");

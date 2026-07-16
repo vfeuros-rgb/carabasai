@@ -825,7 +825,7 @@ export default function StudioPage() {
     );
     const history = getCachedProjects();
     saveProjects([creativeSession, ...history].slice(0, 20));
-    void generateProjectCover(creativeSession);
+    await generateProjectCover(creativeSession);
 
     router.push("/studio/creative-room");
   }
@@ -887,7 +887,7 @@ export default function StudioPage() {
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
       const history = getCachedProjects();
       saveProjects([completedSession, ...history].slice(0, 20));
-      void generateProjectCover(creativeSession);
+      await generateProjectCover(creativeSession);
       router.push("/studio/project");
     } catch (skipError) {
       setReferenceError(skipError instanceof Error ? skipError.message : "COULD NOT BUILD PROJECT DOCUMENT.");

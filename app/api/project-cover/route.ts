@@ -69,5 +69,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
 
+  const { data: projectRow } = await access.supabase
+    .from("projects")
+    .select("project_document")
+    .eq("id", projectId)
+    .eq("user_id", access.user.id)
+    .maybeSingle();
+  const currentDocument = (projectRow?.project_document ?? {}) as Record<string, unknown>;
+  const currentSession = (currentDocument.carabasai_session ?? {}) as Record<string, unknown>;
+  if (projectRow) {
+    const { error: projectUpdateError } = await access.supabase
+      .from("projects")
+      .update({
+        project_document: {
+          ...currentDocument,
+          carabasai_session: { ...currentSession, coverPath },
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", projectId)
+      .eq("user_id", access.user.id);
+    if (projectUpdateError) console.error("Project cover metadata update failed", projectUpdateError.message);
+  }
+
   return NextResponse.json({ coverPath });
 }
