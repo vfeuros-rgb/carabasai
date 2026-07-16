@@ -11,6 +11,21 @@ type Service = {
   launchNote: string;
 };
 
+type BillingItem = {
+  name: string; purpose: string; cadence: "monthly" | "annual" | "usage" | "free";
+  monthlyUsd: number; annualUsd: number; allowance: string; consumed: string; remaining: string;
+  source: "live" | "estimated" | "manual"; href: string;
+};
+
+function envMoney(name: string, fallback = 0) {
+  const value = Number(process.env[name] ?? fallback);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: value % 1 ? 2 : 0 }).format(value);
+}
+
 async function checkEndpoint(url: string, init: RequestInit) {
   try {
     const response = await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(5000) });
@@ -31,7 +46,7 @@ export default async function AdminControlRoom() {
   today.setUTCHours(0, 0, 0, 0);
 
   const [projectsResult, messagesResult, notebookResult, mediaResult, usageResult, openAiOnline, anthropicOnline, cloudflareOnline] = await Promise.all([
-    supabase.from("projects").select("id,stage,ai_provider,created_at", { count: "exact" }),
+    supabase.from("projects").select("id,stage,ai_provider,created_at,project_document", { count: "exact" }),
     supabase.from("messages").select("id", { count: "exact", head: true }),
     supabase.from("notebook_items").select("id", { count: "exact", head: true }),
     supabase.from("media_assets").select("size_bytes,kind"),
@@ -58,6 +73,40 @@ export default async function AdminControlRoom() {
     acc[project.ai_provider] = (acc[project.ai_provider] ?? 0) + 1; return acc;
   }, {});
 
+  const now = new Date();
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const currentDay = now.toISOString().slice(0, 10);
+  const generatedCovers = projects.filter((project) => {
+    const document = project.project_document as { carabasai_session?: { coverModel?: string; coverPath?: string } } | null;
+    return Boolean(document?.carabasai_session?.coverModel || document?.carabasai_session?.coverPath);
+  });
+  const coversThisMonth = generatedCovers.filter((project) => String(project.created_at).startsWith(currentMonth)).length;
+  const coversToday = generatedCovers.filter((project) => String(project.created_at).startsWith(currentDay)).length;
+  const estimatedNeuronsToday = coversToday * 3000;
+  const estimatedNeuronsRemaining = Math.max(0, 10_000 - estimatedNeuronsToday);
+
+  const cloudflareBaseMonthly = envMoney("CLOUDFLARE_WORKERS_MONTHLY_USD", 5);
+  const cloudflareUsageMonth = envMoney("CLOUDFLARE_AI_USAGE_MONTH_USD");
+  const anthropicUsageMonth = envMoney("ANTHROPIC_USAGE_MONTH_USD");
+  const openAiUsageMonth = envMoney("OPENAI_USAGE_MONTH_USD");
+  const supabaseMonthly = envMoney("SUPABASE_MONTHLY_USD");
+  const vercelMonthly = envMoney("VERCEL_MONTHLY_USD");
+  const godaddyAnnual = envMoney("GODADDY_DOMAIN_ANNUAL_USD") + envMoney("GODADDY_EMAIL_ANNUAL_USD");
+  const billing: BillingItem[] = [
+    { name: "Cloudflare Workers AI", purpose: "Project cover generation", cadence: "monthly", monthlyUsd: cloudflareBaseMonthly + cloudflareUsageMonth, annualUsd: (cloudflareBaseMonthly + cloudflareUsageMonth) * 12, allowance: "10,000 neurons / day included", consumed: `≈ ${estimatedNeuronsToday.toLocaleString("en-US")} neurons today · ${coversThisMonth} covers this month`, remaining: `≈ ${estimatedNeuronsRemaining.toLocaleString("en-US")} neurons today`, source: "estimated", href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai" },
+    { name: "Anthropic", purpose: "Claude dialogue and documents", cadence: "usage", monthlyUsd: anthropicUsageMonth, annualUsd: anthropicUsageMonth * 12, allowance: "Usage-based API", consumed: `${providerCounts.anthropic ?? 0} projects · ${money(anthropicUsageMonth)} entered`, remaining: "Balance needs an Admin API connection", source: anthropicUsageMonth ? "manual" : "estimated", href: "https://console.anthropic.com/settings/billing" },
+    { name: "OpenAI", purpose: "GPT dialogue and documents", cadence: "usage", monthlyUsd: openAiUsageMonth, annualUsd: openAiUsageMonth * 12, allowance: "Prepaid / usage-based API", consumed: `${providerCounts.openai ?? 0} projects · ${money(openAiUsageMonth)} entered`, remaining: "Balance needs an organization Admin key", source: openAiUsageMonth ? "manual" : "estimated", href: "https://platform.openai.com/usage" },
+    { name: "Supabase", purpose: "Auth, database and media", cadence: supabaseMonthly ? "monthly" : "free", monthlyUsd: supabaseMonthly, annualUsd: supabaseMonthly * 12, allowance: supabaseMonthly ? "Paid plan" : "Free development plan", consumed: `${projects.length} projects · ${bytes(totalMediaBytes)}`, remaining: "Exact quotas in Supabase Usage", source: "manual", href: "https://supabase.com/dashboard" },
+    { name: "Vercel", purpose: "Hosting and deployments", cadence: vercelMonthly ? "monthly" : "free", monthlyUsd: vercelMonthly, annualUsd: vercelMonthly * 12, allowance: vercelMonthly ? "Paid hosting plan" : "Hobby plan", consumed: process.env.VERCEL_ENV ?? "Production", remaining: "Usage API pending", source: "manual", href: "https://vercel.com/carabasai/carabasai-wq8s" },
+    { name: "GoDaddy", purpose: "Domain and business email", cadence: "annual", monthlyUsd: godaddyAnnual / 12, annualUsd: godaddyAnnual, allowance: "Annual renewal", consumed: godaddyAnnual ? `${money(godaddyAnnual)} / year entered` : "Renewal cost not entered", remaining: "Enter domain and mailbox renewal values", source: "manual", href: "https://account.godaddy.com/products" },
+    { name: "Cloudflare Turnstile", purpose: "Bot protection", cadence: "free", monthlyUsd: 0, annualUsd: 0, allowance: "Free", consumed: "Registration and recovery", remaining: "No subscription payment", source: "live", href: "https://dash.cloudflare.com/?to=/:account/turnstile" },
+  ];
+  const fixedMonthly = cloudflareBaseMonthly + supabaseMonthly + vercelMonthly + godaddyAnnual / 12;
+  const variableMonthly = cloudflareUsageMonth + anthropicUsageMonth + openAiUsageMonth;
+  const monthlyTotal = fixedMonthly + variableMonthly;
+  const annualCommitted = cloudflareBaseMonthly * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual;
+  const annualProjection = monthlyTotal * 12;
+
   const services: Service[] = [
     {
       name: "Anthropic", purpose: "Claude creative agents",
@@ -80,7 +129,7 @@ export default async function AdminControlRoom() {
     {
       name: "Cloudflare Workers AI", purpose: "Project cover generation",
       state: cloudflareOnline ? "online" : process.env.CLOUDFLARE_API_TOKEN ? "attention" : "offline",
-      status: cloudflareOnline ? "Connected" : "Check token", detail: "Text-free cinematic covers in 21:9.",
+      status: cloudflareOnline ? "Connected" : "Check token", detail: "Cinematic project covers in 16:9.",
       model: "FLUX.2 Dev", usage: "10,000 free neurons / day", cost: "Overage: $0.011 / 1K neurons",
       launchPlan: "upgrade", launchNote: "Enable paid usage only when cover generation is opened to users.",
       href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",
@@ -147,6 +196,43 @@ export default async function AdminControlRoom() {
               <p className="mt-3 text-3xl font-black tracking-[-0.04em]">{value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="mb-10">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">FINANCE & USAGE</p>
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">Studio operating costs</h2>
+            </div>
+            <p className="max-w-xl text-[10px] leading-4 text-white/30">Fixed plans are separated from variable API spend. ESTIMATED and MANUAL values are not provider invoices.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              ["FIXED / MONTH", money(fixedMonthly)], ["VARIABLE THIS MONTH", money(variableMonthly)],
+              ["TOTAL THIS MONTH", money(monthlyTotal)], ["COMMITTED / YEAR", money(annualCommitted)],
+              ["ANNUAL PROJECTION", money(annualProjection)],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-[#FFDF00]/15 bg-[#FFDF00]/[0.035] p-5">
+                <p className="text-[8px] font-black tracking-[0.16em] text-[#FFDF00]">{label}</p>
+                <p className="mt-3 text-2xl font-black">{value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0A0A0A]">
+            <div className="hidden grid-cols-[1.25fr_.8fr_.7fr_.7fr_1.5fr_1.1fr] gap-4 border-b border-white/10 px-6 py-4 text-[8px] font-black tracking-[0.15em] text-white/25 lg:grid">
+              <span>SERVICE</span><span>BILLING</span><span>MONTH</span><span>YEAR</span><span>USAGE / ALLOWANCE</span><span>REMAINING</span>
+            </div>
+            {billing.map((item) => (
+              <a key={item.name} href={item.href} target="_blank" rel="noreferrer" className="grid gap-4 border-b border-white/10 px-6 py-5 last:border-0 hover:bg-white/[0.025] lg:grid-cols-[1.25fr_.8fr_.7fr_.7fr_1.5fr_1.1fr]">
+                <div><p className="text-sm font-black">{item.name}</p><p className="mt-1 text-[10px] text-white/35">{item.purpose}</p></div>
+                <div><p className="text-[8px] text-white/25 lg:hidden">BILLING</p><p className="text-[10px] font-black tracking-[0.12em] text-[#FFDF00]">{item.cadence.toUpperCase()}</p><p className="mt-1 text-[8px] font-bold text-white/25">{item.source.toUpperCase()}</p></div>
+                <div><p className="text-[8px] text-white/25 lg:hidden">MONTH</p><p className="text-sm font-black">{money(item.monthlyUsd)}</p></div>
+                <div><p className="text-[8px] text-white/25 lg:hidden">YEAR</p><p className="text-sm font-black">{money(item.annualUsd)}</p></div>
+                <div><p className="text-[10px] font-bold text-white/60">{item.consumed}</p><p className="mt-1 text-[9px] text-white/30">{item.allowance}</p></div>
+                <div><p className="text-[10px] leading-4 text-white/45">{item.remaining}</p></div>
+              </a>
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
