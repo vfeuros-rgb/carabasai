@@ -708,7 +708,7 @@ export default function CreativeRoomPage() {
             </div>
           ))}
 
-          <div className="hidden h-[360px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:flex">
+          <div className="hidden h-[440px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:flex">
             <div className="flex shrink-0 items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
@@ -773,29 +773,26 @@ export default function CreativeRoomPage() {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/35">
-              DIRECTOR&apos;S BRIEF
-            </p>
-            <p className="mt-4 whitespace-pre-wrap text-xs uppercase leading-6 text-white/65">
-              {session.notes}
-            </p>
-            {session.references.length > 0 && (
-              <div className="mt-5 border-t border-white/10 pt-4">
-                <p className="text-[10px] font-black uppercase text-white/30">
-                  REFERENCES / {session.references.length}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {session.references.map((file) => (
-                    <AttachmentPreview
-                      key={`${file.name}-${file.size}`}
-                      file={file}
-                    />
-                  ))}
-                </div>
+          <details className="group overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.025]">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 marker:hidden">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/45">DIRECTOR&apos;S BRIEF</p>
+                <p className="mt-1 max-w-[220px] truncate text-[9px] text-white/25">{session.notes}</p>
               </div>
-            )}
-          </div>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-sm text-white/35 transition-transform group-open:rotate-180 group-open:border-[#FFDF00]/30 group-open:text-[#FFDF00]">⌄</span>
+            </summary>
+            <div className="max-h-72 overflow-y-auto overscroll-contain border-t border-white/8 px-5 py-4 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
+              <p className="whitespace-pre-wrap text-xs uppercase leading-6 text-white/65">{session.notes}</p>
+              {session.references.length > 0 && (
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <p className="text-[10px] font-black uppercase text-white/30">REFERENCES / {session.references.length}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {session.references.map((file) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </details>
         </aside>
 
         <section className="grid grid-cols-2 gap-2 lg:hidden" aria-label="Conversation participants">
