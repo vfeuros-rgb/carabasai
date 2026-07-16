@@ -590,6 +590,7 @@ export default function StudioPage() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [isSkippingDiscussion, setIsSkippingDiscussion] = useState(false);
+  const [isStartingSession, setIsStartingSession] = useState(false);
   const [hasDialogueStage, setHasDialogueStage] = useState(false);
   const [hasSummaryStage, setHasSummaryStage] = useState(false);
   const [authGateOpen, setAuthGateOpen] = useState(false);
@@ -782,34 +783,38 @@ export default function StudioPage() {
   }
 
   async function startCreativeSession() {
-    if (!selectedSecondDirector || !selectedScreenwriter || !notes.trim()) {
+    if (!selectedSecondDirector || !selectedScreenwriter || !notes.trim() || isStartingSession) {
       return;
     }
 
+    setIsStartingSession(true);
+    setReferenceError("");
     const { data } = await createClient().auth.getUser();
     if (!data.user?.email_confirmed_at) {
+      setIsStartingSession(false);
       setAuthGateOpen(true);
       return;
     }
 
-    const storedReferences = await Promise.all(
-      references.map(
-        ({ file }) =>
-          new Promise<{ name: string; type: string; size: number; dataUrl: string }>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve({
-              name: file.name,
-              type: file.type,
-              size: file.size,
-              dataUrl: String(reader.result),
-            });
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          })
-      )
-    );
+    try {
+      const storedReferences = await Promise.all(
+        references.map(
+          ({ file }) =>
+            new Promise<{ name: string; type: string; size: number; dataUrl: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                dataUrl: String(reader.result),
+              });
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            })
+        )
+      );
 
-    const creativeSession = {
+      const creativeSession = {
         id: createId(),
         startedAt: Date.now(),
         title: notes.trim().slice(0, 42),
@@ -819,15 +824,21 @@ export default function StudioPage() {
         references: storedReferences,
       };
 
-    sessionStorage.setItem(
-      "carabasaiCreativeSession",
-      JSON.stringify(creativeSession)
-    );
-    const history = getCachedProjects();
-    saveProjects([creativeSession, ...history].slice(0, 20));
-    await generateProjectCover(creativeSession);
+      sessionStorage.setItem(
+        "carabasaiCreativeSession",
+        JSON.stringify(creativeSession)
+      );
+      const history = getCachedProjects();
+      saveProjects([creativeSession, ...history].slice(0, 20));
 
-    router.push("/studio/creative-room");
+      // Cover generation is secondary and must never block entry into the dialogue.
+      void generateProjectCover(creativeSession);
+      router.push("/studio/creative-room");
+    } catch (error) {
+      console.error("Creative session could not start", error);
+      setReferenceError("COULD NOT PREPARE THE SESSION. PLEASE TRY AGAIN.");
+      setIsStartingSession(false);
+    }
   }
 
   async function generateProjectCover(session: { id: string; notes: string; secondDirector: CrewMember; screenwriter: CrewMember }) {
@@ -1072,10 +1083,13 @@ export default function StudioPage() {
                 <button
                   type="button"
                   onClick={() => void startCreativeSession()}
-                  disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion}
+                  disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession}
                   className="min-h-12 cursor-pointer rounded-full bg-[#FFDF00] px-7 py-3 text-sm font-black uppercase tracking-[0.12em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25"
                 >
-                  START CREATIVE SESSION
+                  <span className="flex items-center justify-center gap-3">
+                    {isStartingSession && <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" />}
+                    {isStartingSession ? "STARTING SESSION..." : "START CREATIVE SESSION"}
+                  </span>
                 </button>
               </div>
             </div>
