@@ -82,14 +82,27 @@ export default function StudioSidebar() {
   }, []);
 
   useEffect(() => {
+    const menuSwipeIsBlocked = (target?: EventTarget | null) => {
+      const element = target instanceof HTMLElement ? target : null;
+      return Boolean(
+        document.querySelector("[role='dialog'][aria-modal='true']") ||
+        element?.closest("input, textarea, select, [contenteditable='true'], [data-disable-menu-swipe], [role='dialog'], [aria-modal='true']"),
+      );
+    };
     const start = (event: globalThis.TouchEvent) => {
       if (mobileOpen || event.touches.length !== 1) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true'], [data-disable-menu-swipe]")) return;
+      if (menuSwipeIsBlocked(event.target)) {
+        menuSwipe.current = null;
+        return;
+      }
       const touch = event.touches[0];
       menuSwipe.current = { x: touch.clientX, y: touch.clientY };
     };
     const move = (event: globalThis.TouchEvent) => {
+      if (menuSwipeIsBlocked(event.target)) {
+        menuSwipe.current = null;
+        return;
+      }
       const origin = menuSwipe.current;
       const touch = event.touches[0];
       if (!origin || !touch) return;
@@ -108,7 +121,8 @@ export default function StudioSidebar() {
     document.addEventListener("touchstart", start, { passive: true });
     document.addEventListener("touchmove", move, { passive: true });
     document.addEventListener("touchend", end, { passive: true });
-    return () => { document.removeEventListener("touchstart", start); document.removeEventListener("touchmove", move); document.removeEventListener("touchend", end); };
+    document.addEventListener("touchcancel", end, { passive: true });
+    return () => { document.removeEventListener("touchstart", start); document.removeEventListener("touchmove", move); document.removeEventListener("touchend", end); document.removeEventListener("touchcancel", end); };
   }, [mobileOpen]);
 
   function openSession(session: SavedSession) {
