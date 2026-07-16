@@ -21,6 +21,7 @@ export type StoredProject = {
 const STORAGE_KEY = "carabasaiSessionHistory";
 export const ACTIVE_PROJECT_KEY = "carabasaiActiveProjectId";
 const CHANGE_EVENT = "carabasai-projects-change";
+const PENDING_SYNC_KEY = "carabasaiPendingProjectSync";
 
 function isUuid(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -45,6 +46,18 @@ function readLocal(): StoredProject[] {
   } catch {
     return [];
   }
+}
+
+function readPendingIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(PENDING_SYNC_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writePendingIds(ids: Set<string>) {
+  localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify([...ids]));
 }
 
 export function getCachedProjects<T extends StoredProject = StoredProject>() {
@@ -79,8 +92,22 @@ async function upsertRemote(projects: StoredProject[]) {
 }
 
 export function saveProjects(projects: StoredProject[]) {
+  const previous = new Map(readLocal().map((project) => [project.id, JSON.stringify(project)]));
+  const changed = projects.filter((project) => {
+    const id = projectId(project);
+    return previous.get(id) !== JSON.stringify(project);
+  });
+  const pending = readPendingIds();
+  changed.forEach((project) => pending.add(projectId(project)));
+  writePendingIds(pending);
   cacheProjects(projects);
-  void upsertRemote(projects).catch((error) => console.error("Project cloud sync failed", error));
+  void upsertRemote(changed)
+    .then(() => {
+      const remaining = readPendingIds();
+      changed.forEach((project) => remaining.delete(projectId(project)));
+      writePendingIds(remaining);
+    })
+    .catch((error) => console.error("Project cloud sync failed", error));
 }
 
 export async function setProjectFavorite(id: string, favorite: boolean) {
@@ -119,9 +146,19 @@ export function saveProject(project: StoredProject) {
 
 export async function deleteProject(id: string) {
   cacheProjects(readLocal().filter((project) => project.id !== id));
+  const pending = readPendingIds();
+  pending.delete(id);
+  writePendingIds(pending);
   if (!isUuid(id)) return;
   const supabase = createClient();
-  await supabase.from("projects").delete().eq("id", id);
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return;
+  const { error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userData.user.id);
+  if (error) throw error;
 }
 
 export async function syncProjects<T extends StoredProject = StoredProject>(): Promise<T[]> {
@@ -147,10 +184,19 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
       projectDocument: row.stage === "summary" ? row.project_document : undefined,
     };
   });
+  // The database is authoritative. Only projects explicitly changed on this
+  // device may be uploaded; stale local copies must never resurrect deletions.
+  const pending = readPendingIds();
+  const localPending = local.filter((project) => project.id && pending.has(project.id));
+  if (localPending.length) {
+    await upsertRemote(localPending);
+    const remaining = readPendingIds();
+    localPending.forEach((project) => project.id && remaining.delete(project.id));
+    writePendingIds(remaining);
+  }
   const remoteIds = new Set(remote.map((project) => project.id));
-  const localOnly = local.filter((project) => !project.id || !remoteIds.has(project.id));
-  if (localOnly.length) await upsertRemote(localOnly);
-  const merged = [...remote, ...localOnly].sort((a, b) => {
+  const pendingNotYetRemote = localPending.filter((project) => !remoteIds.has(project.id));
+  const merged = [...remote, ...pendingNotYetRemote].sort((a, b) => {
     const favoriteDifference = Number(Boolean(b.favorite)) - Number(Boolean(a.favorite));
     if (favoriteDifference) return favoriteDifference;
     return Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0);

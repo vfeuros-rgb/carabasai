@@ -44,9 +44,10 @@ export default function StudioSidebar() {
     const refreshCloud = () => void syncProjects<SavedSession>().then(setSessions).catch(console.error);
     const refreshWhenVisible = () => { if (document.visibilityState === "visible") refreshCloud(); };
     refreshCloud();
+    const cloudRefreshTimer = window.setInterval(refreshCloud, 15000);
     window.addEventListener("focus", refreshCloud);
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => { window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); window.removeEventListener(projectChangeEvent, restore); window.removeEventListener("focus", refreshCloud); document.removeEventListener("visibilitychange", refreshWhenVisible); };
+    return () => { window.clearInterval(cloudRefreshTimer); window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); window.removeEventListener(projectChangeEvent, restore); window.removeEventListener("focus", refreshCloud); document.removeEventListener("visibilitychange", refreshWhenVisible); };
   }, []);
 
   function resize(event: PointerEvent<HTMLButtonElement>) {

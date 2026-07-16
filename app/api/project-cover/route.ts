@@ -4,8 +4,9 @@ import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  let access;
   try {
-    await authenticateAiRequest(request);
+    access = await authenticateAiRequest(request);
   } catch (error) {
     const accessError = error instanceof AiAccessError ? error : new AiAccessError("AUTHENTICATION FAILED.", 401);
     return NextResponse.json({ error: accessError.message }, { status: accessError.status });
@@ -17,8 +18,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER GENERATOR IS NOT CONFIGURED." }, { status: 503 });
   }
 
-  const body = await request.json() as { brief?: string; director?: string; screenwriter?: string };
+  const body = await request.json() as { projectId?: string; brief?: string; director?: string; screenwriter?: string };
+  const projectId = body.projectId?.trim();
   const brief = body.brief?.trim().slice(0, 1200);
+  if (!projectId || !/^[0-9a-f-]{36}$/i.test(projectId)) {
+    return NextResponse.json({ error: "VALID PROJECT ID IS REQUIRED." }, { status: 400 });
+  }
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
   const prompt = [
@@ -51,10 +56,18 @@ export async function POST(request: Request) {
   const image = payload.result?.image;
   if (!image) return NextResponse.json({ error: "PROJECT COVER WAS EMPTY." }, { status: 502 });
 
-  return new Response(Buffer.from(image, "base64"), {
-    headers: {
-      "Content-Type": "image/jpeg",
-      "Cache-Control": "no-store",
-    },
-  });
+  const coverPath = `${access.user.id}/${projectId}/project-covers/cover.jpg`;
+  const { error: uploadError } = await access.supabase.storage
+    .from("carabasai-media")
+    .upload(coverPath, Buffer.from(image, "base64"), {
+      contentType: "image/jpeg",
+      cacheControl: "86400",
+      upsert: true,
+    });
+  if (uploadError) {
+    console.error("Project cover upload failed", uploadError.message);
+    return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
+  }
+
+  return NextResponse.json({ coverPath });
 }
