@@ -190,7 +190,7 @@ export default function AccountPage() {
       </div>
     </aside>
 
-    <section className="min-h-screen pl-[var(--studio-sidebar-width,260px)]">
+    <section className="min-h-screen pt-16 md:pl-[var(--studio-sidebar-width,260px)] md:pt-0">
       <div className="mx-auto w-full max-w-[1500px] px-8 py-10 lg:px-14">
         <header><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">{name || "CREATOR"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-4xl">WELCOME BACK TO YOUR STUDIO.</h1><p className="mt-3 text-sm text-white/35">{accountSessions.length} active {accountSessions.length === 1 ? "project" : "projects"} in your workspace.</p></header>
 

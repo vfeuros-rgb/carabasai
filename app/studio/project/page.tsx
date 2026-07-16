@@ -54,7 +54,7 @@ export default function ProjectPage() {
   }, []);
 
   if (!session?.projectDocument) {
-    return <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white"><StudioSidebar /><WorkflowNav /><div className="flex min-h-[70vh] items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
+    return <main className="min-h-screen bg-[#050505] px-4 py-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-5"><StudioSidebar /><WorkflowNav /><div className="flex min-h-[70vh] items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
   }
 
   const document = session.projectDocument;
@@ -190,7 +190,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
+    <main className="min-h-screen bg-[#050505] px-4 py-5 pt-20 text-white sm:px-8 md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-5 lg:pr-12">
       <StudioSidebar />
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">

@@ -551,7 +551,7 @@ export default function CreativeRoomPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
+    <main className="min-h-screen bg-[#050505] px-4 py-5 pt-20 text-white sm:px-8 md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-5 lg:pr-12">
       <StudioSidebar />
       <WorkflowNav />
       {!mobileHistoryOpen && (

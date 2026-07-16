@@ -872,7 +872,7 @@ export default function StudioPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#050505] py-6 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-5 text-white sm:pr-8 lg:pr-12"
+      className="min-h-screen bg-[#050505] px-5 py-6 pt-20 text-white sm:px-8 md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-6 lg:pr-12"
       style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}
     >
       <StudioSidebar />
