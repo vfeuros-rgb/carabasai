@@ -17,6 +17,7 @@ export default function StudioSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [mobileBrandVisible, setMobileBrandVisible] = useState(true);
   const menuSwipe = useRef<{ x: number; y: number } | null>(null);
@@ -111,6 +112,7 @@ export default function StudioSidebar() {
   function beginRename(session: SavedSession) {
     setEditingId(session.id ?? null);
     setEditingTitle(session.title || session.notes || "Untitled project");
+    setActionMenuId(null);
   }
 
   function finishRename(session: SavedSession) {
@@ -164,10 +166,13 @@ export default function StudioSidebar() {
             onTouchEnd={(event) => { const start = itemSwipe.current; const touch = event.changedTouches[0]; if (start?.id === key && start.x - touch.clientX > 45 && Math.abs(touch.clientY - start.y) < 45) setSwipedId(key); else if (start?.id === key && touch.clientX - start.x > 35) setSwipedId(null); itemSwipe.current = null; }}
           >
             {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className="min-w-0 flex-1 truncate py-2 text-left text-[9px] text-white/50 hover:text-white">{session.title || session.notes || "UNTITLED SESSION"}</button>}
-            <button type="button" onClick={() => toggleFavorite(session)} className={`h-7 w-7 shrink-0 text-sm ${session.favorite ? "text-[#FFDF00]" : "text-white/20 hover:text-white/60"}`} aria-label={session.favorite ? "Remove from favorites" : "Add to favorites"}>★</button>
-            <button type="button" onClick={() => beginRename(session)} className="h-7 w-7 shrink-0 text-[11px] text-white/20 hover:text-[#FFDF00]" aria-label="Rename project">✎</button>
-            <button type="button" onClick={() => void remove(session)} className="hidden h-7 w-7 shrink-0 text-[11px] text-white/20 hover:text-red-400 md:block" aria-label="Delete project">⌫</button>
+            <button type="button" onClick={() => setActionMenuId((current) => current === key ? null : key)} className="h-7 w-7 shrink-0 text-base leading-none text-white/35 hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
           </div>
+          {actionMenuId === key && <div className="relative z-10 grid gap-1 border-t border-white/8 bg-[#0D0D0D] p-1.5">
+            <button type="button" onClick={() => beginRename(session)} className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-white/50 hover:bg-white/5 hover:text-white">RENAME <span>✎</span></button>
+            <button type="button" onClick={() => { toggleFavorite(session); setActionMenuId(null); }} className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-white/50 hover:bg-white/5 hover:text-white">{session.favorite ? "REMOVE FAVORITE" : "ADD TO FAVORITES"} <span className={session.favorite ? "text-[#FFDF00]" : "text-white/25"}>★</span></button>
+            <button type="button" onClick={() => void remove(session)} className="hidden h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-red-400/65 hover:bg-red-500/5 hover:text-red-400 md:flex">DELETE <span>⌫</span></button>
+          </div>}
         </div>;
       }) : <p className="py-2 text-[8px] leading-4 text-white/20">YOUR SAVED SESSIONS WILL APPEAR HERE.</p>}</div>}
     </div>
