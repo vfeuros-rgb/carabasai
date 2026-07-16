@@ -6,6 +6,7 @@ import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 
 type Mode = "sign-in" | "sign-up";
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -25,6 +26,8 @@ export default function AccountPage() {
   const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryCooldown, setRecoveryCooldown] = useState(0);
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
 
@@ -35,6 +38,7 @@ export default function AccountPage() {
     if (requestedMode === "sign-up" || requestedMode === "sign-in") queueMicrotask(() => setMode(requestedMode));
     const confirmation = search.get("confirmation");
     if (confirmation) queueMicrotask(() => setMessage(confirmation === "success" ? "EMAIL CONFIRMED. YOUR ACCOUNT IS READY." : "EMAIL CONFIRMATION FAILED OR EXPIRED."));
+    queueMicrotask(() => setAccountSessions(JSON.parse(localStorage.getItem("carabasaiSessionHistory") ?? "[]") as AccountSession[]));
   }, []);
 
   useEffect(() => {
@@ -157,20 +161,22 @@ export default function AccountPage() {
     <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[78px] flex-col border-r border-white/10 bg-[#080808] px-3 py-5 md:w-[250px] md:px-5 md:py-7">
       <Link href="/studio" className="flex h-11 items-center gap-3 rounded-[12px] px-2">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFDF00] text-[11px] font-black text-black">C</span>
-        <span className="hidden text-[11px] font-black tracking-[0.18em] text-[#FFDF00] md:block">CARABASAI</span>
+        <span className="hidden text-[11px] font-black tracking-[0.18em] text-[#FFDF00] md:block">CARABASAI STUDIO</span>
       </Link>
-      <nav className="mt-10 space-y-2">
+      <nav className="mt-8 space-y-2">
         <Link href="/studio" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white">
-          <span className="w-5 text-center text-lg">⌂</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HOME</span>
+          <span className="w-5 text-center text-lg">⌂</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">STUDIO HOME</span>
         </Link>
-        <Link href="/studio" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white">
-          <span className="w-5 text-center text-base">◷</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HISTORY</span>
+        <Link href="/account" className="flex h-12 items-center gap-3 rounded-[14px] bg-[#FFDF00] px-3 text-black">
+          <span className="w-5 text-center text-base">●</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">MY ACCOUNT</span>
         </Link>
-        <Link href="/account" className="flex h-12 items-center gap-3 rounded-[14px] border border-[#FFDF00]/25 bg-[#FFDF00]/8 px-3 text-[#FFDF00]">
-          <span className="w-5 text-center text-base">●</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">ACCOUNT</span>
-        </Link>
+        <a href="mailto:info@carabasai.com" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white"><span className="w-5 text-center text-base">?</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HELP DESK</span></a>
       </nav>
-      <div className="mt-auto border-t border-white/10 pt-5">
+      <div className="mt-auto hidden border-t border-white/10 pt-4 md:block">
+        <button type="button" onClick={() => setHistoryOpen((current) => !current)} className="flex w-full items-center justify-between py-2 text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">SESSION HISTORY <span>{historyOpen ? "−" : "+"}</span></button>
+        {historyOpen && <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{accountSessions.length ? accountSessions.map((session) => <Link key={session.id ?? session.startedAt ?? session.notes} href="/studio" className="block truncate rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-[9px] text-white/45">{session.title || session.notes || "UNTITLED SESSION"}</Link>) : <p className="py-2 text-[8px] leading-4 text-white/20">YOUR SAVED SESSIONS WILL APPEAR HERE.</p>}</div>}
+      </div>
+      <div className="mt-4 border-t border-white/10 pt-5">
         <div className="flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/30 bg-black/40 text-sm">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div>
           <div className="hidden min-w-0 md:block"><p className="truncate text-[10px] font-black text-white/80">{name || "Carabasai creator"}</p><p className="mt-1 truncate text-[8px] text-white/30">{userEmail}</p></div>

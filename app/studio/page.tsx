@@ -581,6 +581,7 @@ export default function StudioPage() {
   );
   const [sessionHistory, setSessionHistory] = useState<SavedSession[]>([]);
   const [historyWidth, setHistoryWidth] = useState(260);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -873,18 +874,19 @@ export default function StudioPage() {
       style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}
     >
       <nav className="fixed bottom-0 left-0 top-0 z-30 flex flex-col border-r border-white/10 bg-[#080808] p-5" style={{ width: historyWidth }}>
-        <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI</p>
-        <div className="mt-6 grid gap-2 border-b border-white/10 pb-5">
-          <a href="/studio" className="flex h-11 items-center justify-between rounded-xl bg-[#FFDF00] px-4 text-[10px] font-black tracking-[0.12em] text-black">HOME <span>⌂</span></a>
-          <a href="/account" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65 transition hover:border-[#FFDF00]/30 hover:text-white">ACCOUNT <span className="text-[#FFDF00]">○</span></a>
+        <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
+        <div className="mt-6 grid gap-2">
+          <a href="/studio" className="flex h-11 items-center justify-between rounded-xl bg-[#FFDF00] px-4 text-[10px] font-black tracking-[0.12em] text-black">STUDIO HOME <span>⌂</span></a>
+          <a href="/account" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65 transition hover:border-[#FFDF00]/30 hover:text-white">MY ACCOUNT <span className="text-[#FFDF00]">○</span></a>
+          <a href="mailto:info@carabasai.com" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65 transition hover:border-[#FFDF00]/30 hover:text-white">HELP DESK <span className="text-[#FFDF00]">?</span></a>
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">
-          SESSION HISTORY
-        </p>
-        <p className="mt-2 text-[9px] uppercase leading-5 text-white/25">
-          RETURN TO YOUR CREATIVE ROOMS
-        </p>
-        <div className="mt-6 flex-1 space-y-2 overflow-y-auto">
+        <div className="mt-auto border-t border-white/10 pt-4">
+          <button type="button" onClick={() => setHistoryOpen((current) => !current)} className="flex w-full items-center justify-between py-2 text-left text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">
+            SESSION HISTORY <span>{historyOpen ? "−" : "+"}</span>
+          </button>
+          {historyOpen && <p className="mt-1 text-[9px] uppercase leading-5 text-white/25">RETURN TO YOUR CREATIVE ROOMS</p>}
+        </div>
+        {historyOpen && <div className="mt-4 max-h-[48vh] space-y-2 overflow-y-auto">
           {sessionHistory.length === 0 ? (
             <p className="text-[9px] uppercase leading-5 text-white/25">
               YOUR SAVED SESSIONS WILL APPEAR HERE.
@@ -918,16 +920,14 @@ export default function StudioPage() {
               </div>
             ))
           )}
-        </div>
-        <p className="border-t border-white/10 pt-4 text-[8px] uppercase leading-4 text-white/20">
+        </div>}
+        <p className="mt-3 border-t border-white/10 pt-4 text-[8px] uppercase leading-4 text-white/20">
           SAVED IN THIS BROWSER
         </p>
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
-        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#FFDF00]">
-          CARABASAI STUDIO
-        </p>
+        <span />
         <div className="flex items-center gap-2 text-[9px] font-black tracking-[0.1em]">
           <span className="text-[#FFDF00]">CREW SETUP</span>
           {hasDialogueStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/creative-room")} className="text-white/45">DIALOGUE</button></>}
