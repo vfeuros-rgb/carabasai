@@ -167,25 +167,18 @@ export default function AccountPage() {
   if (!authReady) return <main className="min-h-screen bg-[#050505]" aria-label="Loading account" />;
 
   if (userEmail) return <main className="min-h-screen bg-[#050505] text-white">
-    <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[78px] flex-col border-r border-white/10 bg-[#080808] px-3 py-5 md:w-[250px] md:px-5 md:py-7">
-      <Link href="/studio" className="flex h-11 items-center gap-3 rounded-[12px] px-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFDF00] text-[11px] font-black text-black">C</span>
-        <span className="hidden text-[11px] font-black tracking-[0.18em] text-[#FFDF00] md:block">CARABASAI STUDIO</span>
-      </Link>
-      <nav className="mt-8 space-y-2">
-        <Link href="/studio" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white">
-          <span className="w-5 text-center text-lg">⌂</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">STUDIO HOME</span>
-        </Link>
-        <Link href="/account" className="flex h-12 items-center gap-3 rounded-[14px] bg-[#FFDF00] px-3 text-black">
-          <span className="w-5 text-center text-base">●</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">MY ACCOUNT</span>
-        </Link>
-        <a href="mailto:info@carabasai.com" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white"><span className="w-5 text-center text-base">?</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HELP DESK</span></a>
+    <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[260px] flex-col border-r border-white/10 bg-[#080808] p-5">
+      <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
+      <nav className="mt-6 grid gap-2">
+        <Link href="/studio" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65">STUDIO HOME <span className="text-[#FFDF00]">⌂</span></Link>
+        <Link href="/account" className="flex h-11 items-center justify-between rounded-xl bg-[#FFDF00] px-4 text-[10px] font-black tracking-[0.12em] text-black">MY ACCOUNT <span>○</span></Link>
+        <a href="mailto:info@carabasai.com" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65">HELP DESK <span className="text-[#FFDF00]">?</span></a>
       </nav>
       <div className="mt-auto hidden border-t border-white/10 pt-4 md:block">
         <button type="button" onClick={() => setHistoryOpen((current) => !current)} className="flex w-full items-center justify-between py-2 text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">SESSION HISTORY <span>{historyOpen ? "−" : "+"}</span></button>
         {historyOpen && <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{accountSessions.length ? accountSessions.map((session) => <Link key={session.id ?? session.startedAt ?? session.notes} href="/studio" className="block truncate rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-[9px] text-white/45">{session.title || session.notes || "UNTITLED SESSION"}</Link>) : <p className="py-2 text-[8px] leading-4 text-white/20">YOUR SAVED SESSIONS WILL APPEAR HERE.</p>}</div>}
       </div>
-      <div className="mt-4 border-t border-white/10 pt-5">
+      <div className="hidden">
         <div className="flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/30 bg-black/40 text-sm">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div>
           <div className="hidden min-w-0 md:block"><p className="truncate text-[10px] font-black text-white/80">{name || "Carabasai creator"}</p><p className="mt-1 truncate text-[8px] text-white/30">{userEmail}</p></div>
@@ -194,7 +187,7 @@ export default function AccountPage() {
       </div>
     </aside>
 
-    <section className="min-h-screen pl-[78px] md:pl-[250px]">
+    <section className="min-h-screen pl-[260px]">
       <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
         <header className="flex items-center justify-between border-b border-white/10 pb-6">
           <div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ACCOUNT HOME</p><h1 className="mt-2 text-2xl font-black tracking-[-0.04em] sm:text-3xl">YOUR CREATIVE SPACE.</h1></div>
