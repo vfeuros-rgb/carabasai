@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { PointerEvent, useEffect, useRef, useState } from "react";
-import { deleteProject, getCachedProjects, projectChangeEvent, saveProjects, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, projectChangeEvent, saveProjects, syncProjects } from "../../lib/project-store";
 
 type SavedSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; projectDocument?: unknown; messages?: unknown[] };
 
@@ -33,7 +33,7 @@ export default function StudioSidebar() {
       setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
       setHistoryOpen(localStorage.getItem("carabasaiSharedHistoryOpen") !== "false");
       setSessions(getCachedProjects<SavedSession>());
-      try { setActiveProjectId((JSON.parse(sessionStorage.getItem("carabasaiCreativeSession") ?? "null") as SavedSession | null)?.id ?? null); } catch { setActiveProjectId(null); }
+      try { setActiveProjectId((JSON.parse(sessionStorage.getItem("carabasaiCreativeSession") ?? "null") as SavedSession | null)?.id ?? localStorage.getItem(ACTIVE_PROJECT_KEY)); } catch { setActiveProjectId(localStorage.getItem(ACTIVE_PROJECT_KEY)); }
     };
     queueMicrotask(restore);
     window.addEventListener("carabasai-sidebar-change", restore);
@@ -113,6 +113,7 @@ export default function StudioSidebar() {
 
   function openSession(session: SavedSession) {
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(session));
+    if (session.id) localStorage.setItem(ACTIVE_PROJECT_KEY, session.id);
     setActiveProjectId(session.id ?? null);
     router.push(session.projectDocument ? "/studio/project" : session.messages?.length ? "/studio/creative-room" : "/studio");
   }

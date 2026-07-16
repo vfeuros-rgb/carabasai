@@ -14,10 +14,12 @@ export type StoredProject = {
   notebook?: unknown[];
   projectDocument?: unknown;
   references?: unknown[];
+  stage?: "crew" | "dialogue" | "summary";
   [key: string]: unknown;
 };
 
 const STORAGE_KEY = "carabasaiSessionHistory";
+export const ACTIVE_PROJECT_KEY = "carabasaiActiveProjectId";
 const CHANGE_EVENT = "carabasai-projects-change";
 
 function isUuid(value: unknown): value is string {
@@ -107,7 +109,7 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
   if (error) throw error;
   const remote = (data ?? []).map((row) => {
     const snapshot = row.project_document?.carabasai_session as StoredProject | undefined;
-    return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite } : {
+    return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite, stage: row.stage } : {
       id: row.id,
       title: row.title,
       notes: row.brief,
@@ -115,7 +117,8 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
       favorite: row.favorite,
       secondDirector: row.second_director,
       screenwriter: row.screenwriter,
-      projectDocument: row.project_document,
+      stage: row.stage,
+      projectDocument: row.stage === "summary" ? row.project_document : undefined,
     };
   });
   cacheProjects(remote);

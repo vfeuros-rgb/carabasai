@@ -5,10 +5,10 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
-import { getCachedProjects, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, getCachedProjects, syncProjects } from "../../lib/project-store";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -105,10 +105,12 @@ export default function AccountPage() {
 
   function openProject(project: AccountSession) {
     window.sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(project));
+    if (project.id) window.localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
+    window.dispatchEvent(new Event("carabasai-sidebar-change"));
     setProjectsOpen(false);
-    const destination = project.projectDocument
+    const destination = project.projectDocument || project.stage === "summary"
       ? "/studio/project"
-      : project.messages?.length
+      : project.messages?.length || project.stage === "dialogue"
         ? "/studio/creative-room"
         : "/studio";
     window.location.assign(destination);

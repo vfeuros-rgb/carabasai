@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteProject } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject } from "../../lib/project-store";
 
 type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown };
 
@@ -29,11 +29,13 @@ export default function WorkflowNav() {
     if (!window.confirm(`DELETE “${name}”? THIS CANNOT BE UNDONE.`)) return;
     await deleteProject(progress.id);
     sessionStorage.removeItem("carabasaiCreativeSession");
+    localStorage.removeItem(ACTIVE_PROJECT_KEY);
     window.location.assign("/studio");
   }
 
   function startNewProject() {
     sessionStorage.removeItem("carabasaiCreativeSession");
+    localStorage.removeItem(ACTIVE_PROJECT_KEY);
     window.dispatchEvent(new Event("carabasai-sidebar-change"));
     window.location.assign("/studio");
   }
