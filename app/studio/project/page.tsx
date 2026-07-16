@@ -20,15 +20,37 @@ type ProjectSession = {
   messages?: Array<{ role: string; content: string; speaker?: string }>;
   secondDirector: { name: string };
   screenwriter: { name: string };
+  characterCostumeSpecialist?: CharacterCostumeSpecialist;
   draftQuestion?: string;
 };
 
-const departments = [
-  [
-    "CHARACTER & COSTUME DESIGN",
-    "Choose the specialist who develops the characters’ appearance, wardrobe, silhouettes and visual continuity.",
-  ],
-] as const;
+type CharacterCostumeSpecialist = {
+  id: string;
+  name: string;
+  specialty: string;
+  signature: string;
+  description: string;
+  tags: string[];
+};
+
+const characterCostumeSpecialists: CharacterCostumeSpecialist[] = [
+  {
+    id: "alma-reed",
+    name: "ALMA REED",
+    specialty: "CHARACTER IDENTITY / COSTUME STORYTELLING",
+    signature: "Every garment reveals what the character is trying to hide.",
+    description: "Builds memorable silhouettes, lived-in wardrobes and visual character arcs that remain consistent across AI-generated shots.",
+    tags: ["PSYCHOLOGY", "WARDROBE ARC", "CONTINUITY"],
+  },
+  {
+    id: "nik-voss",
+    name: "NIK VOSS",
+    specialty: "STYLIZED CHARACTERS / VISUAL WORLDS",
+    signature: "A character should be recognizable before we see the face.",
+    description: "Pushes shape language, strong costume concepts and controlled visual contrast for graphic, animation-led and heightened projects.",
+    tags: ["SILHOUETTE", "SHAPE LANGUAGE", "STYLIZATION"],
+  },
+];
 
 function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
@@ -43,6 +65,8 @@ export default function ProjectPage() {
   const [editingValue, setEditingValue] = useState("");
   const [highlightedPoints, setHighlightedPoints] = useState<string[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [specialistRosterOpen, setSpecialistRosterOpen] = useState(false);
+  const [activeSpecialist, setActiveSpecialist] = useState<CharacterCostumeSpecialist>(characterCostumeSpecialists[0]);
   const [activeUnresolvedPoint, setActiveUnresolvedPoint] = useState("");
 
   useEffect(() => {
@@ -53,6 +77,10 @@ export default function ProjectPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(restored);
     setActiveSection(restored.projectDocument?.sections[0]?.id ?? "");
+    if (restored.characterCostumeSpecialist) {
+      setActiveSpecialist(restored.characterCostumeSpecialist);
+      setSelectedDepartments(["CHARACTER & COSTUME DESIGN"]);
+    }
   }, []);
 
   if (!session?.projectDocument) {
@@ -69,6 +97,17 @@ export default function ProjectPage() {
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
+  }
+
+  function hireCharacterCostumeSpecialist() {
+    if (!session) return;
+    const updated: ProjectSession = { ...session, characterCostumeSpecialist: activeSpecialist };
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
+    setSelectedDepartments(["CHARACTER & COSTUME DESIGN"]);
+    setSpecialistRosterOpen(false);
   }
 
   function savePoint(sectionId: string, pointIndex: number) {
@@ -215,9 +254,10 @@ export default function ProjectPage() {
 
         <aside className="space-y-5">
           {(document.openQuestions?.length ?? 0) > 0 && <section className="rounded-[28px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-5"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">UNRESOLVED KEY POINTS</p><button type="button" onClick={() => void letTeamDecideAll()} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === "all" ? "DECIDING ALL..." : "LET TEAM DECIDE ALL"}</button></div><div className="mt-4 space-y-3">{document.openQuestions?.map((question) => <div key={question.id} className="rounded-[16px] border border-white/10 bg-black/20 p-4"><p className="text-[9px] font-black text-white/40">{question.label}</p><p className="mt-2 text-xs leading-5 text-white/70">{question.question}</p><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => askTeam(question)} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/55">ASK THE TEAM</button><button type="button" onClick={() => void letTeamDecide(question)} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === question.id ? "DECIDING..." : "LET TEAM DECIDE"}</button></div></div>)}</div>{error && <p className="mt-4 text-[9px] text-red-300">{error}</p>}</section>}
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTERS & COSTUMES</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose one specialist to shape the characters, costumes and their visual continuity.</p><div className="mt-6">{departments.map(([name, description]) => { const selected = selectedDepartments.includes(name); return <button key={name} type="button" onClick={() => setSelectedDepartments(selected ? [] : [name])} className={`flex min-h-44 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${selected ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div><p className="text-xs font-black text-white/80">{name}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{description}</p></div><p className="mt-6 text-[9px] font-black text-[#FFDF00]">{selected ? "SPECIALIST SELECTED ✓" : "CHOOSE SPECIALIST +"}</p></button>; })}</div><div className="mt-6 flex justify-end"><button type="button" disabled={selectedDepartments.length !== 1} className="rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">NEXT →</button></div></section>
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTERS & COSTUMES</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose one specialist to shape the characters, costumes and their visual continuity.</p><button type="button" onClick={() => setSpecialistRosterOpen(true)} className={`mt-6 flex min-h-44 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${session.characterCostumeSpecialist ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div><p className="text-xs font-black text-white/80">{session.characterCostumeSpecialist?.name ?? "CHARACTER & COSTUME DESIGN"}</p><p className="mt-2 text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{session.characterCostumeSpecialist?.specialty ?? "VISUAL IDENTITY / WARDROBE / CONTINUITY"}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{session.characterCostumeSpecialist?.description ?? "Open the roster and choose the creative voice responsible for character appearance and costume language."}</p></div><p className="mt-6 text-[9px] font-black text-[#FFDF00]">{session.characterCostumeSpecialist ? "CHANGE SPECIALIST →" : "OPEN SPECIALIST ROSTER +"}</p></button><div className="mt-6 flex justify-end"><button type="button" disabled={selectedDepartments.length !== 1} className="rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">NEXT →</button></div></section>
         </aside>
       </div>
+      {specialistRosterOpen && <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Character and costume specialist roster"><section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#090909] shadow-2xl"><header className="flex items-start justify-between border-b border-white/10 p-5 sm:p-7"><div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">CHARACTER & COSTUME DEPARTMENT</p><h2 className="mt-2 text-2xl font-black sm:text-4xl">CHOOSE YOUR SPECIALIST.</h2></div><button type="button" onClick={() => setSpecialistRosterOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/45 hover:text-white" aria-label="Close roster">×</button></header><div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[300px_1fr]"><div className="space-y-2 border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="mb-4 px-2 text-[8px] font-black tracking-[0.14em] text-white/30">SPECIALIST ROSTER</p>{characterCostumeSpecialists.map((specialist) => <button key={specialist.id} type="button" onClick={() => setActiveSpecialist(specialist)} className={`flex w-full items-center gap-3 rounded-[16px] border p-3 text-left transition ${activeSpecialist.id === specialist.id ? "border-[#FFDF00]/45 bg-[#FFDF00]/7" : "border-white/8 bg-white/[0.02] hover:border-white/20"}`}><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black text-xs font-black text-[#FFDF00]">{specialist.name.split(" ").map((part) => part[0]).join("")}</span><span><span className="block text-[11px] font-black text-white/85">{specialist.name}</span><span className="mt-1 block text-[8px] leading-4 text-white/30">{specialist.specialty}</span></span></button>)}</div><div className="flex flex-col p-6 sm:p-8"><div className="flex items-center gap-4"><span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/5 text-xl font-black text-[#FFDF00]">{activeSpecialist.name.split(" ").map((part) => part[0]).join("")}</span><div><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">CHARACTER & COSTUME SPECIALIST</p><h3 className="mt-2 text-3xl font-black">{activeSpecialist.name}</h3><p className="mt-2 text-[9px] text-white/35">{activeSpecialist.specialty}</p></div></div><blockquote className="mt-8 text-xl font-black leading-tight text-[#FFDF00] sm:text-3xl">“{activeSpecialist.signature}”</blockquote><p className="mt-6 max-w-2xl text-sm leading-7 text-white/55">{activeSpecialist.description}</p><div className="mt-5 flex flex-wrap gap-2">{activeSpecialist.tags.map((tag) => <span key={tag} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black tracking-[0.08em] text-white/45">{tag}</span>)}</div><div className="mt-auto flex justify-end pt-8"><button type="button" onClick={hireCharacterCostumeSpecialist} className="rounded-full bg-[#FFDF00] px-7 py-3 text-[10px] font-black text-black">{session.characterCostumeSpecialist?.id === activeSpecialist.id ? "KEEP SPECIALIST ✓" : "HIRE SPECIALIST"}</button></div></div></div></section></div>}
     </main>
   );
 }
