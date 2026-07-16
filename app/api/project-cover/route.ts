@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 
 export const runtime = "nodejs";
+const COVER_MODEL = "flux-2-dev-v1";
 
 export async function POST(request: Request) {
   let access;
@@ -27,23 +28,28 @@ export async function POST(request: Request) {
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
   const prompt = [
-    "Create a cinematic film project cover, landscape 16:9 composition.",
-    `Project concept: ${brief}.`,
-    body.director ? `Creative direction selected by: ${body.director}.` : "",
-    body.screenwriter ? `Story approach selected by: ${body.screenwriter}.` : "",
-    "One strong visual idea, professional film still, dramatic controlled lighting, clear focal subject, rich cinematic production design.",
+    "Create a cinematic key art image for a film project in a landscape 16:9 composition.",
+    `The image must clearly and literally depict this exact project concept: ${brief}.`,
+    "Identify the central character, action, location and genre directly from that concept. Do not replace them with a generic movie studio, camera equipment, abstract scenery or an unrelated portrait.",
+    "Show one decisive story moment with a clear focal subject and visual storytelling that makes the premise immediately recognizable.",
+    "Professional film still, specific production design, controlled dramatic lighting, coherent anatomy, believable environment.",
     "No typography, no captions, no logos, no watermark, no UI, no collage.",
   ].filter(Boolean).join(" ");
 
+  const form = new FormData();
+  form.append("prompt", prompt);
+  form.append("steps", "20");
+  form.append("width", "1024");
+  form.append("height", "576");
+
   const cloudflareResponse = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/black-forest-labs/flux-2-dev`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt, steps: 4 }),
+      body: form,
     }
   );
 
@@ -83,7 +89,7 @@ export async function POST(request: Request) {
       .update({
         project_document: {
           ...currentDocument,
-          carabasai_session: { ...currentSession, coverPath },
+          carabasai_session: { ...currentSession, coverPath, coverModel: COVER_MODEL },
         },
         updated_at: new Date().toISOString(),
       })
@@ -92,5 +98,5 @@ export async function POST(request: Request) {
     if (projectUpdateError) console.error("Project cover metadata update failed", projectUpdateError.message);
   }
 
-  return NextResponse.json({ coverPath });
+  return NextResponse.json({ coverPath, coverModel: COVER_MODEL });
 }

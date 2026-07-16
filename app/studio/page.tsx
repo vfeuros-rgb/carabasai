@@ -842,15 +842,16 @@ export default function StudioPage() {
           screenwriter: session.screenwriter.name,
         }),
       });
-      const payload = await response.json() as { coverPath?: string; error?: string };
+      const payload = await response.json() as { coverPath?: string; coverModel?: string; error?: string };
       if (!response.ok || !payload.coverPath) throw new Error(payload.error || "Cover generation failed");
       const history = getCachedProjects();
-      const updated = history.map((project) => project.id === session.id ? { ...project, coverPath: payload.coverPath } : project);
+      const coverModel = payload.coverModel ?? "flux-2-dev-v1";
+      const updated = history.map((project) => project.id === session.id ? { ...project, coverPath: payload.coverPath, coverModel } : project);
       saveProjects(updated);
       const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
       if (activeRaw) {
-        const active = JSON.parse(activeRaw) as typeof session & { coverPath?: string };
-        if (active.id === session.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({ ...active, coverPath: payload.coverPath }));
+        const active = JSON.parse(activeRaw) as typeof session & { coverPath?: string; coverModel?: string };
+        if (active.id === session.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({ ...active, coverPath: payload.coverPath, coverModel }));
       }
     } catch (error) {
       console.error("Project cover generation failed", error);

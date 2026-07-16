@@ -11,7 +11,8 @@ import { createMediaUrl } from "../../lib/supabase/media";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+const CURRENT_COVER_MODEL = "flux-2-dev-v1";
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -99,7 +100,7 @@ export default function AccountPage() {
       const invalidIds = new Set(entries.filter((entry) => !entry.valid).map((entry) => entry.id));
       if (invalidIds.size) {
         const repaired = getCachedProjects<AccountSession>().map((project) =>
-          project.id && invalidIds.has(project.id) ? { ...project, coverPath: undefined } : project
+          project.id && invalidIds.has(project.id) ? { ...project, coverPath: undefined, coverModel: undefined } : project
         );
         invalidIds.forEach((id) => coverAttempts.current.delete(id));
         saveProjects(repaired);
@@ -111,7 +112,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     const project = accountSessions.find((item) =>
-      item.id && item.notes?.trim() && !item.coverPath && !coverAttempts.current.has(item.id)
+      item.id && item.notes?.trim() && (!item.coverPath || item.coverModel !== CURRENT_COVER_MODEL) && !coverAttempts.current.has(item.id)
     );
     if (!userEmail || !project?.id || !project.notes) return;
     coverAttempts.current.add(project.id);
@@ -125,10 +126,10 @@ export default function AccountPage() {
         screenwriter: project.screenwriter?.name,
       }),
     }).then(async (response) => {
-      const payload = await response.json() as { coverPath?: string; error?: string };
+      const payload = await response.json() as { coverPath?: string; coverModel?: string; error?: string };
       if (!response.ok || !payload.coverPath) throw new Error(payload.error || "PROJECT COVER COULD NOT BE GENERATED.");
       const next = getCachedProjects<AccountSession>().map((item) =>
-        item.id === project.id ? { ...item, coverPath: payload.coverPath } : item
+        item.id === project.id ? { ...item, coverPath: payload.coverPath, coverModel: payload.coverModel ?? CURRENT_COVER_MODEL } : item
       );
       saveProjects(next);
       setAccountSessions(next);
