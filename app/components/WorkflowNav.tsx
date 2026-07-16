@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { deleteProject } from "../../lib/project-store";
 
-type SessionProgress = { messages?: unknown[]; projectDocument?: unknown };
+type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown };
 
 export default function WorkflowNav() {
   const pathname = usePathname();
@@ -22,7 +23,17 @@ export default function WorkflowNav() {
     { id: "summary", label: "SUMMARY", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
   ].filter((step) => step.available);
 
+  async function removeCurrentProject() {
+    if (!progress.id) return;
+    const name = progress.title || progress.notes || "UNTITLED PROJECT";
+    if (!window.confirm(`DELETE “${name}”? THIS CANNOT BE UNDONE.`)) return;
+    await deleteProject(progress.id);
+    sessionStorage.removeItem("carabasaiCreativeSession");
+    window.location.assign("/studio");
+  }
+
   return <nav aria-label="Project workflow" className="mx-auto mb-7 flex w-full max-w-7xl items-center gap-2 border-b border-white/8 pb-4 text-[9px] font-black tracking-[0.12em]">
-    {steps.map((step, index) => <span key={step.id} className="flex items-center gap-2">{index > 0 && <span className="text-white/18">/</span>}<Link href={step.href} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</Link></span>)}
+    <div className="flex min-w-0 flex-wrap items-center gap-2">{steps.map((step, index) => <span key={step.id} className="flex items-center gap-2">{index > 0 && <span className="text-white/18">/</span>}<Link href={step.href} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</Link></span>)}</div>
+    {progress.id && <button type="button" onClick={() => void removeCurrentProject()} className="ml-auto shrink-0 text-[8px] text-red-300/35 transition hover:text-red-300">DELETE PROJECT</button>}
   </nav>;
 }

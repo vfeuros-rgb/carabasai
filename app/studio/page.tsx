@@ -591,7 +591,6 @@ export default function StudioPage() {
   const [isSkippingDiscussion, setIsSkippingDiscussion] = useState(false);
   const [hasDialogueStage, setHasDialogueStage] = useState(false);
   const [hasSummaryStage, setHasSummaryStage] = useState(false);
-  const [resetMenuOpen, setResetMenuOpen] = useState(false);
   const [authGateOpen, setAuthGateOpen] = useState(false);
 
   const isModalOpen = activeRole !== null;
@@ -624,23 +623,17 @@ export default function StudioPage() {
     }
   }, []);
 
-  function resetCurrentProject() {
-    if (!window.confirm("RESET THE CURRENT PROJECT?")) return;
-    setResetMenuOpen(false);
-    sessionStorage.removeItem("carabasaiCreativeSession");
-    setNotes("");
-    setReferences([]);
-    setSelectedSecondDirector(null);
-    setSelectedScreenwriter(null);
-    setHasDialogueStage(false);
-    setHasSummaryStage(false);
-  }
-
   function resetBriefAndReferences() {
     setNotes("");
     setReferences([]);
     setReferenceError("");
-    setResetMenuOpen(false);
+    const raw = sessionStorage.getItem("carabasaiCreativeSession");
+    if (raw) {
+      const current = JSON.parse(raw) as SavedSession & { references?: unknown[] };
+      const updated = { ...current, notes: "", references: [] };
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+      saveProjects([updated, ...getCachedProjects<SavedSession>().filter((item) => item.id !== updated.id)]);
+    }
   }
 
   function resizeHistory(event: React.PointerEvent<HTMLButtonElement>) {
@@ -1030,8 +1023,7 @@ export default function StudioPage() {
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button type="button" onClick={() => referenceInputRef.current?.click()} className="min-h-10 cursor-pointer rounded-full border border-white/15 px-4 py-2 text-[9px] font-black uppercase text-white/65">+ ADD REFERENCES{references.length > 0 ? ` (${references.length})` : ""}</button>
                 <div className="relative">
-                  <button type="button" onClick={() => setResetMenuOpen((current) => !current)} aria-expanded={resetMenuOpen} className="min-h-10 rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/30 hover:border-red-300/25 hover:text-red-300">RESET</button>
-                  {resetMenuOpen && <div className="absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-[16px] border border-white/10 bg-[#0B0B0B] p-1 shadow-2xl"><button type="button" onClick={resetBriefAndReferences} className="w-full rounded-[12px] px-4 py-3 text-left text-[9px] font-black text-white/55 hover:bg-white/5 hover:text-white">RESET BRIEF + REFERENCES</button><button type="button" onClick={resetCurrentProject} className="w-full rounded-[12px] px-4 py-3 text-left text-[9px] font-black text-red-300/65 hover:bg-red-300/5 hover:text-red-300">RESET ENTIRE PROJECT</button></div>}
+                  <button type="button" onClick={resetBriefAndReferences} className="min-h-10 rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/30 hover:border-white/20 hover:text-white/60">RESET</button>
                 </div>
               </div>
               <div className="flex items-center gap-2">
