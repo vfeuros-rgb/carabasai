@@ -31,6 +31,9 @@ type CharacterCostumeSpecialist = {
   signature: string;
   description: string;
   tags: string[];
+  bestFor: string;
+  notFor: string;
+  stats: Array<{ label: string; value: number }>;
 };
 
 const characterCostumeSpecialists: CharacterCostumeSpecialist[] = [
@@ -41,6 +44,9 @@ const characterCostumeSpecialists: CharacterCostumeSpecialist[] = [
     signature: "Every garment reveals what the character is trying to hide.",
     description: "Builds memorable silhouettes, lived-in wardrobes and visual character arcs that remain consistent across AI-generated shots.",
     tags: ["PSYCHOLOGY", "WARDROBE ARC", "CONTINUITY"],
+    bestFor: "Human drama, grounded characters, subtle transformation and believable clothing.",
+    notFor: "Graphic fantasy, exaggerated shapes and spectacle-first costume design.",
+    stats: [{ label: "REALISM", value: 9 }, { label: "SILHOUETTE", value: 6 }, { label: "CONTINUITY", value: 10 }, { label: "STYLIZATION", value: 4 }, { label: "CRITIQUE", value: 7 }],
   },
   {
     id: "nik-voss",
@@ -49,6 +55,9 @@ const characterCostumeSpecialists: CharacterCostumeSpecialist[] = [
     signature: "A character should be recognizable before we see the face.",
     description: "Pushes shape language, strong costume concepts and controlled visual contrast for graphic, animation-led and heightened projects.",
     tags: ["SILHOUETTE", "SHAPE LANGUAGE", "STYLIZATION"],
+    bestFor: "Animation, heightened worlds, genre projects and immediately readable silhouettes.",
+    notFor: "Invisible everyday wardrobe, strict documentary realism and neutral visual language.",
+    stats: [{ label: "REALISM", value: 4 }, { label: "SILHOUETTE", value: 10 }, { label: "CONTINUITY", value: 8 }, { label: "STYLIZATION", value: 9 }, { label: "CRITIQUE", value: 6 }],
   },
 ];
 
@@ -257,7 +266,50 @@ export default function ProjectPage() {
           <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTERS & COSTUMES</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose one specialist to shape the characters, costumes and their visual continuity.</p><button type="button" onClick={() => setSpecialistRosterOpen(true)} className={`mt-6 flex min-h-44 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${session.characterCostumeSpecialist ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div><p className="text-xs font-black text-white/80">{session.characterCostumeSpecialist?.name ?? "CHARACTER & COSTUME DESIGN"}</p><p className="mt-2 text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{session.characterCostumeSpecialist?.specialty ?? "VISUAL IDENTITY / WARDROBE / CONTINUITY"}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{session.characterCostumeSpecialist?.description ?? "Open the roster and choose the creative voice responsible for character appearance and costume language."}</p></div><p className="mt-6 text-[9px] font-black text-[#FFDF00]">{session.characterCostumeSpecialist ? "CHANGE SPECIALIST →" : "OPEN SPECIALIST ROSTER +"}</p></button><div className="mt-6 flex justify-end"><button type="button" disabled={selectedDepartments.length !== 1} className="rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">NEXT →</button></div></section>
         </aside>
       </div>
-      {specialistRosterOpen && <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Character and costume specialist roster"><section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#090909] shadow-2xl"><header className="flex items-start justify-between border-b border-white/10 p-5 sm:p-7"><div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">CHARACTER & COSTUME DEPARTMENT</p><h2 className="mt-2 text-2xl font-black sm:text-4xl">CHOOSE YOUR SPECIALIST.</h2></div><button type="button" onClick={() => setSpecialistRosterOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/45 hover:text-white" aria-label="Close roster">×</button></header><div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[300px_1fr]"><div className="space-y-2 border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="mb-4 px-2 text-[8px] font-black tracking-[0.14em] text-white/30">SPECIALIST ROSTER</p>{characterCostumeSpecialists.map((specialist) => <button key={specialist.id} type="button" onClick={() => setActiveSpecialist(specialist)} className={`flex w-full items-center gap-3 rounded-[16px] border p-3 text-left transition ${activeSpecialist.id === specialist.id ? "border-[#FFDF00]/45 bg-[#FFDF00]/7" : "border-white/8 bg-white/[0.02] hover:border-white/20"}`}><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black text-xs font-black text-[#FFDF00]">{specialist.name.split(" ").map((part) => part[0]).join("")}</span><span><span className="block text-[11px] font-black text-white/85">{specialist.name}</span><span className="mt-1 block text-[8px] leading-4 text-white/30">{specialist.specialty}</span></span></button>)}</div><div className="flex flex-col p-6 sm:p-8"><div className="flex items-center gap-4"><span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/5 text-xl font-black text-[#FFDF00]">{activeSpecialist.name.split(" ").map((part) => part[0]).join("")}</span><div><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">CHARACTER & COSTUME SPECIALIST</p><h3 className="mt-2 text-3xl font-black">{activeSpecialist.name}</h3><p className="mt-2 text-[9px] text-white/35">{activeSpecialist.specialty}</p></div></div><blockquote className="mt-8 text-xl font-black leading-tight text-[#FFDF00] sm:text-3xl">“{activeSpecialist.signature}”</blockquote><p className="mt-6 max-w-2xl text-sm leading-7 text-white/55">{activeSpecialist.description}</p><div className="mt-5 flex flex-wrap gap-2">{activeSpecialist.tags.map((tag) => <span key={tag} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black tracking-[0.08em] text-white/45">{tag}</span>)}</div><div className="mt-auto flex justify-end pt-8"><button type="button" onClick={hireCharacterCostumeSpecialist} className="rounded-full bg-[#FFDF00] px-7 py-3 text-[10px] font-black text-black">{session.characterCostumeSpecialist?.id === activeSpecialist.id ? "KEEP SPECIALIST ✓" : "HIRE SPECIALIST"}</button></div></div></div></section></div>}
+      {specialistRosterOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/85 p-0 backdrop-blur-md sm:p-3 lg:items-center lg:p-6" role="dialog" aria-modal="true" aria-label="Character and costume specialist roster">
+          <div aria-hidden="true" onClick={() => setSpecialistRosterOpen(false)} className="absolute inset-0 cursor-pointer" />
+          <section className="relative z-10 flex max-h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0A0A0A] sm:max-h-[calc(100dvh-24px)] lg:max-h-[92vh] lg:rounded-[30px]">
+            <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0A0A] px-4 py-4 sm:px-8">
+              <div className="pr-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFDF00] sm:text-[11px]">CHARACTER & COSTUME ROSTER</p>
+                <h2 className="mt-2 text-base font-black uppercase sm:text-2xl">CHOOSE YOUR VISUAL CHARACTER ARCHITECT.</h2>
+              </div>
+              <button type="button" onClick={() => setSpecialistRosterOpen(false)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 text-2xl text-white/70" aria-label="Close roster">×</button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <div className="border-b border-white/10 p-3 sm:p-4">
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {characterCostumeSpecialists.map((specialist) => {
+                    const isActive = activeSpecialist.id === specialist.id;
+                    return <button key={specialist.id} type="button" onClick={() => setActiveSpecialist(specialist)} className={`flex min-w-[230px] items-center gap-3 rounded-[18px] border p-3 text-left sm:min-w-[260px] ${isActive ? "border-[#FFDF00] bg-[#FFDF00]/10" : "border-white/10 bg-white/[0.02]"}`}><span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border border-white/10 bg-[linear-gradient(145deg,#242424,#080808)] text-sm font-black text-[#FFDF00]">{specialist.name.split(" ").map((part) => part[0]).join("")}</span><div><p className={`text-sm font-black uppercase ${isActive ? "text-[#FFDF00]" : "text-white"}`}>{specialist.name}</p><p className="mt-1 text-[10px] uppercase leading-4 text-white/40">{specialist.specialty}</p></div></button>;
+                  })}
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-[minmax(340px,0.85fr)_1.15fr]">
+                <div className="relative aspect-square w-full overflow-hidden bg-[radial-gradient(circle_at_50%_35%,#32301b_0%,#15140d_34%,#080808_70%)]">
+                  <div className="absolute inset-0 flex items-center justify-center text-[96px] font-black tracking-[-0.08em] text-[#FFDF00]/80 sm:text-[140px]">{activeSpecialist.name.split(" ").map((part) => part[0]).join("")}</div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFDF00] sm:text-xs">CHARACTER & COSTUME SPECIALIST</p><h3 className="mt-2 text-3xl font-black uppercase tracking-[-0.05em] sm:text-5xl">{activeSpecialist.name}</h3><p className="mt-2 text-xs font-black uppercase tracking-[0.1em] text-white/60 sm:text-sm">{activeSpecialist.specialty}</p></div>
+                </div>
+
+                <div className="flex min-h-[620px] flex-col p-5 sm:p-8">
+                  <blockquote className="text-xl font-black leading-tight tracking-[-0.03em] text-[#FFDF00] sm:text-3xl">“{activeSpecialist.signature}”</blockquote>
+                  <div className="mt-5 rounded-[18px] border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-4"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#FFDF00]">SIGNATURE MOVE</p><p className="mt-2 text-sm leading-6 text-white/80">⚡ {activeSpecialist.signature}</p></div>
+                  <p className="mt-5 text-sm leading-6 text-white/55">{activeSpecialist.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">{activeSpecialist.tags.map((tag) => <span key={tag} className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-white/45">{tag}</span>)}</div>
+                  <div className="mt-5 grid gap-3 text-xs sm:grid-cols-2"><p className="rounded-[14px] border border-white/8 p-3 leading-5 text-white/55"><span className="mr-2 font-black uppercase text-[#FFDF00]">BEST FOR</span>{activeSpecialist.bestFor}</p><p className="rounded-[14px] border border-white/8 p-3 leading-5 text-white/45"><span className="mr-2 font-black uppercase text-white/25">NOT FOR</span>{activeSpecialist.notFor}</p></div>
+                  <div className="mt-6"><div className="flex items-end justify-between"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">CHARACTER STATS</p><p className="text-[8px] uppercase text-white/20">0–10</p></div><div className="mt-3 space-y-3">{activeSpecialist.stats.map((stat) => <div key={stat.label} className="grid grid-cols-[116px_1fr_24px] items-center gap-3"><span className="text-[9px] font-black uppercase tracking-[0.06em] text-white/50">{stat.label}</span><div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#FFDF00]" style={{ width: `${stat.value * 10}%` }} /></div><span className="text-right text-[9px] font-black text-white/60">{stat.value}</span></div>)}</div></div>
+                </div>
+              </div>
+            </div>
+
+            <footer className="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-[#0A0A0A] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8"><p className="text-[9px] uppercase leading-5 text-white/30 sm:text-[10px]">YOU REMAIN THE DIRECTOR. THIS SPECIALIST DEFINES CHARACTER AND COSTUME LANGUAGE.</p><button type="button" onClick={hireCharacterCostumeSpecialist} className="min-h-12 w-full shrink-0 rounded-full bg-[#FFDF00] px-7 py-3 text-sm font-black uppercase tracking-[0.1em] text-black hover:bg-[#FFE633] sm:w-auto">{session.characterCostumeSpecialist?.id === activeSpecialist.id ? "KEEP SPECIALIST ✓" : "HIRE SPECIALIST"}</button></footer>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
