@@ -196,6 +196,7 @@ export default function CreativeRoomPage() {
   const [showDocumentConfirm, setShowDocumentConfirm] = useState(false);
   const [documentBuildFailed, setDocumentBuildFailed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedSession = sessionStorage.getItem("carabasaiCreativeSession");
@@ -315,7 +316,8 @@ export default function CreativeRoomPage() {
   }
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesScrollRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading, error]);
 
   async function requestAgentResponse(
@@ -786,7 +788,7 @@ export default function CreativeRoomPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-[75vh] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
+        <section className="flex h-[calc(100dvh-6.25rem)] min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025] md:h-[calc(100dvh-2.5rem)]">
           <div className="flex flex-col gap-5 border-b border-white/10 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">CREATIVE DEVELOPMENT</p>
@@ -804,7 +806,7 @@ export default function CreativeRoomPage() {
             </div>
           </div>
 
-          <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-7">
+          <div ref={messagesScrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-7">
             {messages
               .filter((message) => !message.hidden)
               .map((message) => {
