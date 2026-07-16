@@ -9,6 +9,7 @@ import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
 import { deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../../lib/project-store";
+import { platformConfirm } from "../../../lib/platform-dialog";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -587,7 +588,7 @@ export default function CreativeRoomPage() {
                   <button type="button" onClick={() => editingSessionId === saved.id ? saveSessionTitle(saved.id) : (setEditingSessionId(saved.id ?? null), setEditingTitle(!saved.title || saved.title === saved.notes.slice(0, 42) ? saved.notes : saved.title))} className="h-8 w-7 shrink-0 text-xs text-white/30" aria-label="Edit session title">{editingSessionId === saved.id ? "✓" : "✎"}</button>
                   {Boolean(saved.projectDocument) && <button type="button" onClick={() => { setMobileMenuOpen(false); openSavedSummary(saved); }} className="h-8 w-8 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
                   <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20"}`} aria-label="Favorite session">★</button>
-                  <button type="button" onClick={() => { if (window.confirm("DELETE THIS SESSION?")) updateSessionHistory(saved.id, "delete"); }} className="h-8 w-7 shrink-0 text-sm text-white/20" aria-label="Delete session">×</button>
+                  <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-7 shrink-0 text-sm text-white/20" aria-label="Delete session">×</button>
                 </div>
               ))}
             </div>
@@ -639,7 +640,7 @@ export default function CreativeRoomPage() {
               <button type="button" onClick={() => setExpandedSessionId((current) => current === saved.id ? null : saved.id ?? null)} className="h-8 w-8 shrink-0 text-sm text-white/30 hover:text-white" aria-label={expandedSessionId === saved.id ? "Collapse session details" : "Expand session details"}>{expandedSessionId === saved.id ? "⌃" : "⌄"}</button>
               {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
               <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 shrink-0 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20 hover:text-[#FFDF00]"}`} aria-label={saved.favorite ? "Remove from favorites" : "Add to favorites"}>★</button>
-              <button type="button" onClick={() => { if (window.confirm("DELETE THIS SESSION?")) updateSessionHistory(saved.id, "delete"); }} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
+              <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
             </div>
           ))}
         </div>

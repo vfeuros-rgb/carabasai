@@ -6,6 +6,7 @@ import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
 import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
+import { platformConfirm, platformPrompt } from "../../lib/platform-dialog";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
@@ -147,14 +148,17 @@ export default function AccountPage() {
     setProjectActionId(null);
   }
 
-  function renameProject(project: AccountSession) {
-    const title = window.prompt("PROJECT NAME", project.title || project.notes || "UNTITLED PROJECT")?.trim();
+  async function renameProject(project: AccountSession) {
+    const title = (await platformPrompt({ eyebrow: "PROJECT DETAILS", title: "RENAME PROJECT.", message: "Give this production a clear working title.", defaultValue: project.title || project.notes || "UNTITLED PROJECT", confirmLabel: "SAVE TITLE" }))?.trim();
     if (title) persistAccountProjects(accountSessions.map((item) => item.id === project.id ? { ...item, title } : item));
     setProjectActionId(null);
   }
 
   async function removeAccountProject(project: AccountSession) {
-    if (!project.id || !window.confirm(`DELETE “${project.title || project.notes || "UNTITLED PROJECT"}”?`)) return;
+    if (!project.id) return;
+    const name = project.title || project.notes || "UNTITLED PROJECT";
+    const confirmed = await platformConfirm({ eyebrow: "PROJECT ACTION", title: "DELETE PROJECT?", message: `“${name}” will be permanently removed from your studio and every synced device.`, confirmLabel: "DELETE PROJECT", tone: "danger" });
+    if (!confirmed) return;
     setAccountSessions((current) => current.filter((item) => item.id !== project.id));
     setDeleteSwipeId(null);
     setProjectActionId(null);

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, projectChangeEvent, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
+import { platformConfirm } from "../../lib/platform-dialog";
 
 type SavedSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; projectDocument?: unknown; messages?: unknown[] };
 
@@ -165,7 +166,10 @@ export default function StudioSidebar() {
   }
 
   async function remove(session: SavedSession) {
-    if (!session.id || !window.confirm(`DELETE “${session.title || session.notes || "UNTITLED PROJECT"}”?`)) return;
+    if (!session.id) return;
+    const projectName = session.title || session.notes || "UNTITLED PROJECT";
+    const confirmed = await platformConfirm({ eyebrow: "PROJECT ACTION", title: "DELETE PROJECT?", message: `“${projectName}” will be permanently removed from your studio and every synced device.`, confirmLabel: "DELETE PROJECT", tone: "danger" });
+    if (!confirmed) return;
     const wasCurrentProject = session.id === activeProjectId;
     const deletedTitle = (session.title || session.notes || "UNTITLED PROJECT").slice(0, 80);
     setSessions((current) => current.filter((item) => item.id !== session.id));

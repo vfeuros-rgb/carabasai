@@ -8,6 +8,7 @@ import StudioSidebar from "../components/StudioSidebar";
 import WorkflowNav from "../components/WorkflowNav";
 import { createClient } from "../../lib/supabase/client";
 import { deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
+import { platformConfirm } from "../../lib/platform-dialog";
 
 type CrewMember = {
   id: string;
@@ -623,7 +624,9 @@ export default function StudioPage() {
     }
   }, []);
 
-  function resetBriefAndReferences() {
+  async function resetBriefAndReferences() {
+    const confirmed = await platformConfirm({ eyebrow: "DIRECTOR'S NOTES", title: "CLEAR BRIEF & REFERENCES?", message: "Your selected crew and project will remain. The current brief and every attached reference will be cleared.", confirmLabel: "CLEAR CONTENT", tone: "danger" });
+    if (!confirmed) return;
     setNotes("");
     setReferences([]);
     setReferenceError("");
@@ -914,7 +917,7 @@ export default function StudioPage() {
                 <button type="button" onClick={() => setExpandedSessionId((current) => current === saved.id ? null : saved.id ?? null)} className="h-8 w-8 shrink-0 text-sm text-white/30 hover:text-white" aria-label={expandedSessionId === saved.id ? "Collapse session details" : "Expand session details"}>{expandedSessionId === saved.id ? "⌃" : "⌄"}</button>
                 {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
                 <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 shrink-0 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20 hover:text-[#FFDF00]"}`} aria-label={saved.favorite ? "Remove from favorites" : "Add to favorites"}>★</button>
-                <button type="button" onClick={() => { if (window.confirm("DELETE THIS SESSION?")) updateSessionHistory(saved.id, "delete"); }} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
+                <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
               </div>
             ))
           )}
@@ -1026,7 +1029,7 @@ export default function StudioPage() {
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button type="button" onClick={() => referenceInputRef.current?.click()} className="min-h-10 cursor-pointer rounded-full border border-white/15 px-4 py-2 text-[9px] font-black uppercase text-white/65">+ ADD REFERENCES{references.length > 0 ? ` (${references.length})` : ""}</button>
                 <div className="relative">
-                  <button type="button" onClick={resetBriefAndReferences} className="min-h-10 rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/30 hover:border-white/20 hover:text-white/60">RESET</button>
+                  <button type="button" onClick={() => void resetBriefAndReferences()} className="min-h-10 rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/30 hover:border-white/20 hover:text-white/60">RESET</button>
                 </div>
               </div>
               <div className="flex items-center gap-2">

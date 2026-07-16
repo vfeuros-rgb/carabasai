@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ACTIVE_PROJECT_KEY, deleteProject } from "../../lib/project-store";
+import { platformConfirm } from "../../lib/platform-dialog";
 
 type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown };
 
@@ -44,7 +45,8 @@ export default function WorkflowNav() {
   async function removeCurrentProject() {
     if (!progress.id) return;
     const name = progress.title || progress.notes || "UNTITLED PROJECT";
-    if (!window.confirm(`DELETE “${name}”? THIS CANNOT BE UNDONE.`)) return;
+    const confirmed = await platformConfirm({ eyebrow: "PROJECT ACTION", title: "DELETE PROJECT?", message: `“${name}” will be permanently removed from your studio. This cannot be undone.`, confirmLabel: "DELETE PROJECT", tone: "danger" });
+    if (!confirmed) return;
     setProjectMenuOpen(false);
     await deleteProject(progress.id);
     sessionStorage.removeItem("carabasaiCreativeSession");
