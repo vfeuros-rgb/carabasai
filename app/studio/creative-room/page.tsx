@@ -7,6 +7,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
+import WorkflowNav from "../../components/WorkflowNav";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -552,6 +553,7 @@ export default function CreativeRoomPage() {
   return (
     <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
       <StudioSidebar />
+      <WorkflowNav />
       {!mobileHistoryOpen && (
         <button type="button" onClick={() => setMobileMenuOpen(true)} className="hidden" aria-label="Open menu" />
       )}

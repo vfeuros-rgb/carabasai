@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
 import StudioSidebar from "../components/StudioSidebar";
+import WorkflowNav from "../components/WorkflowNav";
 import { createClient } from "../../lib/supabase/client";
 
 type CrewMember = {
@@ -875,6 +876,7 @@ export default function StudioPage() {
       style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}
     >
       <StudioSidebar />
+      <WorkflowNav />
       <nav className="hidden" style={{ width: historyWidth }}>
         <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
         <div className="mt-6 grid gap-2">
@@ -937,7 +939,7 @@ export default function StudioPage() {
         </div>
       </header>
 
-      <section className="mx-auto mt-14 w-full max-w-7xl lg:mt-24">
+      <section className="mx-auto mt-8 w-full max-w-7xl lg:mt-14">
         <p className="text-xs font-black uppercase tracking-[0.25em] text-[#FFDF00]">
           DIRECTOR&apos;S OFFICE
         </p>

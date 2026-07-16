@@ -5,6 +5,7 @@ import { currentAIProvider } from "../AIProviderSwitch";
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
+import WorkflowNav from "../../components/WorkflowNav";
 
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
@@ -53,7 +54,7 @@ export default function ProjectPage() {
   }, []);
 
   if (!session?.projectDocument) {
-    return <main className="min-h-screen bg-[#050505] pl-[var(--studio-sidebar-width,260px)] text-white"><StudioSidebar /><div className="flex min-h-screen items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
+    return <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white"><StudioSidebar /><WorkflowNav /><div className="flex min-h-[70vh] items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
   }
 
   const document = session.projectDocument;
@@ -191,6 +192,7 @@ export default function ProjectPage() {
   return (
     <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
       <StudioSidebar />
+      <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
           <div className="p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">DIRECTOR + SCREENWRITER DOCUMENT</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
