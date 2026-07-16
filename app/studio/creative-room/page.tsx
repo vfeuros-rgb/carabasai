@@ -963,11 +963,10 @@ export default function CreativeRoomPage() {
                   onClick={() => attachmentInputRef.current?.click()}
                   disabled={isLoading}
                   aria-label="Attach references"
-                  className="flex h-8 w-7 shrink-0 items-center justify-center transition hover:scale-110 disabled:opacity-25"
-                  style={{ color: "#FFDF00" }}
+                  className="flex h-8 w-7 shrink-0 items-center justify-center text-white/75 transition hover:scale-110 hover:text-white disabled:opacity-25"
                 >
                   <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
-                    <path d="m8.5 12.5 6.15-6.15a3.2 3.2 0 0 1 4.53 4.53l-8.31 8.31a5 5 0 0 1-7.07-7.07l8.13-8.13a2.8 2.8 0 0 1 3.96 3.96l-7.8 7.8a1.25 1.25 0 0 1-1.77-1.77l6.55-6.55" stroke="#FFDF00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="m8.5 12.5 6.15-6.15a3.2 3.2 0 0 1 4.53 4.53l-8.31 8.31a5 5 0 0 1-7.07-7.07l8.13-8.13a2.8 2.8 0 0 1 3.96 3.96l-7.8 7.8a1.25 1.25 0 0 1-1.77-1.77l6.55-6.55" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               </div>
