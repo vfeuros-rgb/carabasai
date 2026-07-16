@@ -256,7 +256,12 @@ export default function AccountPage() {
         }}
       >
         <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="flex min-h-28 min-w-0 w-full max-w-full overflow-hidden rounded-[20px] text-left md:block">
-          <div className="h-auto w-28 shrink-0 bg-cover bg-center md:h-36 md:w-full" style={{ backgroundImage: `url(${image || "/studio-bg.jpeg"})` }} />
+          <div
+            className="flex h-auto w-28 shrink-0 items-center justify-center bg-[#101010] bg-cover bg-center md:h-36 md:w-full"
+            style={image ? { backgroundImage: `url(${image})` } : undefined}
+          >
+            {!image && <span className="px-3 text-center text-[7px] font-black tracking-[0.12em] text-white/20">GENERATING COVER...</span>}
+          </div>
           <div className="min-w-0 flex-1 p-3.5 md:p-5">
             <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
             <h3 className="mt-2 truncate pr-8 text-base font-black md:mt-3 md:text-lg">{project.title || project.notes || "UNTITLED PROJECT"}</h3>
