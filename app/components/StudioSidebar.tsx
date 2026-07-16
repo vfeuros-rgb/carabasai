@@ -189,7 +189,8 @@ export default function StudioSidebar() {
     }
   }
 
-  const accountActive = pathname.startsWith("/account");
+  const workspaceActive = pathname === "/account";
+  const accountActive = pathname.startsWith("/account/");
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item = "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
   return <>
@@ -204,9 +205,9 @@ export default function StudioSidebar() {
     <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
     <nav className="mt-6 grid gap-2">
       <Link href="/studio" className={`${item} ${homeActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>STUDIO HOME <span>⌂</span></Link>
+      <Link href="/account" onClick={() => setMobileOpen(false)} className={`${item} ${workspaceActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>WORKSPACE <span>▦</span></Link>
       <button type="button" onClick={() => { const next = !accountMenuOpen; setAccountMenuOpen(next); localStorage.setItem("carabasaiAccountMenuOpen", String(next)); }} className={`${item} ${accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}>MY ACCOUNT <span className={`transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}>⌄</span></button>
       {accountMenuOpen && <div className="grid gap-1.5 pl-3">
-        <Link href="/account" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>WORKSPACE <span>▦</span></Link>
         <Link href="/account/settings" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/settings" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>SETTINGS <span>⚙</span></Link>
         <Link href="/account/subscription" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/subscription" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>SUBSCRIPTION <span>◇</span></Link>
         <Link href="/account/credits" onClick={() => setMobileOpen(false)} className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/credits" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}>BUY CREDITS <span>＋</span></Link>
