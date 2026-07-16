@@ -28,11 +28,18 @@ export default function AccountPage() {
   const [recoveryCode, setRecoveryCode] = useState("");
   const [historyOpen, setHistoryOpen] = useState(true);
   const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
+  const [authReady, setAuthReady] = useState(false);
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
 
   useEffect(() => {
-    try { createClient().auth.getUser().then(({ data }) => { setUserEmail(data.user?.email ?? ""); setName(String(data.user?.user_metadata.full_name ?? "")); setAvatarUrl(String(data.user?.user_metadata.avatar_url ?? "")); }); } catch { /* shown on submit */ }
+    try {
+      createClient().auth.getUser().then(({ data }) => {
+        setUserEmail(data.user?.email ?? "");
+        setName(String(data.user?.user_metadata.full_name ?? ""));
+        setAvatarUrl(String(data.user?.user_metadata.avatar_url ?? ""));
+      }).finally(() => setAuthReady(true));
+    } catch { queueMicrotask(() => setAuthReady(true)); }
     const search = new URLSearchParams(window.location.search);
     const requestedMode = search.get("mode");
     if (requestedMode === "sign-up" || requestedMode === "sign-in") queueMicrotask(() => setMode(requestedMode));
@@ -156,6 +163,8 @@ export default function AccountPage() {
     const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
     await saveAvatar(publicUrl);
   }
+
+  if (!authReady) return <main className="min-h-screen bg-[#050505]" aria-label="Loading account" />;
 
   if (userEmail) return <main className="min-h-screen bg-[#050505] text-white">
     <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[78px] flex-col border-r border-white/10 bg-[#080808] px-3 py-5 md:w-[250px] md:px-5 md:py-7">
