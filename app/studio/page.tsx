@@ -832,13 +832,10 @@ export default function StudioPage() {
       saveProjects([creativeSession, ...history].slice(0, 20));
       localStorage.setItem(ACTIVE_PROJECT_KEY, creativeSession.id);
 
-      // Generate the project identity while the start button is visibly busy.
-      // Awaiting the request also prevents the browser navigation from
-      // cancelling it before Cloudflare returns the cover.
-      await generateProjectCover(creativeSession);
-
       // Use a hard navigation here so the newly persisted session is always
       // restored by the creative room, even if a client transition is stale.
+      // The creative room starts cover generation in the background after it
+      // has mounted, so this navigation never waits for the image model.
       window.location.assign("/studio/creative-room");
     } catch (error) {
       console.error("Creative session could not start", error);

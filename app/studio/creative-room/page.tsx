@@ -56,7 +56,11 @@ type CreativeSession = {
   favorite?: boolean;
   projectDocument?: unknown;
   draftQuestion?: string;
+  coverPath?: string;
+  coverModel?: string;
 };
+
+const CURRENT_COVER_MODEL = "flux-2-dev-16x9-v3";
 
 type Message = {
   id: string;
@@ -199,12 +203,61 @@ export default function CreativeRoomPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const notebookScrollRef = useRef<HTMLDivElement>(null);
+  const coverGenerationStarted = useRef(new Set<string>());
 
   useEffect(() => {
     const notebookScroller = notebookScrollRef.current;
     if (!notebookScroller || notebook.length === 0) return;
     notebookScroller.scrollTo({ top: notebookScroller.scrollHeight, behavior: "smooth" });
   }, [notebook.length]);
+
+  useEffect(() => {
+    if (!session?.id || !session.notes.trim()) return;
+    if (session.coverPath && session.coverModel === CURRENT_COVER_MODEL) return;
+    if (coverGenerationStarted.current.has(session.id)) return;
+
+    coverGenerationStarted.current.add(session.id);
+    void authenticatedFetch("/api/project-cover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: session.id,
+        brief: session.notes,
+        director: session.secondDirector.name,
+        screenwriter: session.screenwriter.name,
+      }),
+    }).then(async (response) => {
+      const payload = await response.json() as {
+        coverPath?: string;
+        coverModel?: string;
+        title?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.coverPath) {
+        throw new Error(payload.error || "PROJECT COVER COULD NOT BE GENERATED.");
+      }
+
+      const coverModel = payload.coverModel ?? CURRENT_COVER_MODEL;
+      const updatedSession: CreativeSession = {
+        ...session,
+        ...(payload.title ? { title: payload.title } : {}),
+        coverPath: payload.coverPath,
+        coverModel,
+      };
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updatedSession));
+      const updatedProjects = getCachedProjects<CreativeSession>().map((project) =>
+        project.id === session.id ? updatedSession : project
+      );
+      saveProjects(updatedProjects);
+      setSession(updatedSession);
+      setSessionHistory(updatedProjects);
+    }).catch((coverError) => {
+      // The conversation remains fully usable when the image provider is
+      // temporarily unavailable. A later account visit can retry the cover.
+      console.error("Background project cover generation failed", coverError);
+      coverGenerationStarted.current.delete(session.id!);
+    });
+  }, [session]);
 
   useEffect(() => {
     const storedSession = sessionStorage.getItem("carabasaiCreativeSession");
