@@ -7,7 +7,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 import StudioSidebar from "../components/StudioSidebar";
 import WorkflowNav from "../components/WorkflowNav";
 import { createClient } from "../../lib/supabase/client";
-import { deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 import { platformConfirm } from "../../lib/platform-dialog";
 
 type CrewMember = {
@@ -830,10 +830,11 @@ export default function StudioPage() {
       );
       const history = getCachedProjects();
       saveProjects([creativeSession, ...history].slice(0, 20));
+      localStorage.setItem(ACTIVE_PROJECT_KEY, creativeSession.id);
 
-      // Cover generation is secondary and must never block entry into the dialogue.
-      void generateProjectCover(creativeSession);
-      router.push("/studio/creative-room");
+      // Use a hard navigation here so the newly persisted session is always
+      // restored by the creative room, even if a client transition is stale.
+      window.location.assign("/studio/creative-room");
     } catch (error) {
       console.error("Creative session could not start", error);
       setReferenceError("COULD NOT PREPARE THE SESSION. PLEASE TRY AGAIN.");
