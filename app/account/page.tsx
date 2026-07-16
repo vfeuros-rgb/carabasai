@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
-import { ACTIVE_PROJECT_KEY, getCachedProjects, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, syncProjects } from "../../lib/project-store";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -32,6 +32,11 @@ export default function AccountPage() {
   const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectActionId, setProjectActionId] = useState<string | null>(null);
+  const [deleteSwipeId, setDeleteSwipeId] = useState<string | null>(null);
+  const [favoriteSwipeId, setFavoriteSwipeId] = useState<string | null>(null);
+  const projectSwipeRef = useRef<{ x: number; y: number; id: string } | null>(null);
+  const projectSwipeMoved = useRef(false);
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
 
@@ -114,6 +119,81 @@ export default function AccountPage() {
         ? "/studio/creative-room"
         : "/studio";
     window.location.assign(destination);
+  }
+
+  function persistAccountProjects(next: AccountSession[]) {
+    const sorted = [...next].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
+    setAccountSessions(sorted);
+    saveProjects(sorted);
+  }
+
+  function toggleProjectFavorite(project: AccountSession) {
+    persistAccountProjects(accountSessions.map((item) => item.id === project.id ? { ...item, favorite: !item.favorite } : item));
+    setFavoriteSwipeId(null);
+    setProjectActionId(null);
+  }
+
+  function renameProject(project: AccountSession) {
+    const title = window.prompt("PROJECT NAME", project.title || project.notes || "UNTITLED PROJECT")?.trim();
+    if (title) persistAccountProjects(accountSessions.map((item) => item.id === project.id ? { ...item, title } : item));
+    setProjectActionId(null);
+  }
+
+  async function removeAccountProject(project: AccountSession) {
+    if (!project.id || !window.confirm(`DELETE “${project.title || project.notes || "UNTITLED PROJECT"}”?`)) return;
+    setAccountSessions((current) => current.filter((item) => item.id !== project.id));
+    setDeleteSwipeId(null);
+    setProjectActionId(null);
+    await deleteProject(project.id);
+  }
+
+  function renderAccountProject(project: AccountSession, index: number) {
+    const key = project.id ?? String(project.startedAt ?? index);
+    const deleteRevealed = deleteSwipeId === key;
+    const favoriteRevealed = favoriteSwipeId === key;
+    const progress = project.projectDocument || project.stage === "summary" ? 70 : project.messages?.length || project.stage === "dialogue" ? 45 : project.notes ? 20 : 10;
+    const image = project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
+    return <div key={key} className={`relative rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
+      {favoriteRevealed && <button type="button" onClick={() => toggleProjectFavorite(project)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-xl text-[#FFDF00] md:hidden" aria-label="Add project to favorites">★</button>}
+      {deleteRevealed && <button type="button" onClick={() => void removeAccountProject(project)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-lg text-red-400 md:hidden" aria-label="Delete project">⌫</button>}
+      <article
+        data-disable-menu-swipe
+        className={`relative overflow-visible rounded-[20px] border border-white/10 bg-[#0B0B0B] transition-all md:translate-x-0 md:hover:-translate-y-1 md:hover:border-[#FFDF00]/30 ${deleteRevealed ? "-translate-x-16" : favoriteRevealed ? "translate-x-16" : "translate-x-0"}`}
+        onTouchStart={(event) => { const touch = event.touches[0]; projectSwipeMoved.current = false; projectSwipeRef.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
+        onTouchEnd={(event) => {
+          const start = projectSwipeRef.current;
+          const touch = event.changedTouches[0];
+          const horizontal = start ? touch.clientX - start.x : 0;
+          const vertical = start ? Math.abs(touch.clientY - start.y) : 999;
+          if (start?.id === key && vertical < 45) {
+            if (deleteRevealed && horizontal > 35) { setDeleteSwipeId(null); projectSwipeMoved.current = true; }
+            else if (favoriteRevealed && horizontal < -35) { setFavoriteSwipeId(null); projectSwipeMoved.current = true; }
+            else if (!deleteRevealed && !favoriteRevealed && horizontal < -45) { setDeleteSwipeId(key); setFavoriteSwipeId(null); projectSwipeMoved.current = true; }
+            else if (!deleteRevealed && !favoriteRevealed && horizontal > 45) { setFavoriteSwipeId(key); setDeleteSwipeId(null); projectSwipeMoved.current = true; }
+          }
+          projectSwipeRef.current = null;
+        }}
+      >
+        <button type="button" onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} className="block w-full overflow-hidden rounded-[20px] text-left">
+          <div className="h-36 bg-cover bg-center" style={{ backgroundImage: `url(${image || "/studio-bg.jpeg"})` }} />
+          <div className="p-5">
+            <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
+            <h3 className="mt-3 truncate pr-8 text-lg font-black">{project.title || project.notes || "UNTITLED PROJECT"}</h3>
+            <div className="mt-5 flex items-center justify-between text-[9px] text-white/35"><span>PRODUCTION</span><span>{progress}%</span></div>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{ width: `${progress}%` }} /></div>
+          </div>
+        </button>
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+          {project.favorite && <span className="text-sm text-[#FFDF00]" aria-label="Favorite project">★</span>}
+          <button type="button" onClick={() => { setDeleteSwipeId(null); setFavoriteSwipeId(null); setProjectActionId((current) => current === key ? null : key); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-lg text-white/65 backdrop-blur-sm hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
+        </div>
+        {projectActionId === key && <div className="absolute right-3 top-12 z-20 w-44 rounded-[13px] border border-white/10 bg-[#111] p-1.5 shadow-2xl">
+          <button type="button" onClick={() => renameProject(project)} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-[8px] font-black tracking-[0.1em] text-white/55 hover:bg-white/5 hover:text-white">RENAME <span>✎</span></button>
+          <button type="button" onClick={() => toggleProjectFavorite(project)} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-[8px] font-black tracking-[0.1em] text-white/55 hover:bg-white/5 hover:text-white">{project.favorite ? "REMOVE FAVORITE" : "ADD TO FAVORITES"} <span className={project.favorite ? "text-[#FFDF00]" : "text-white/25"}>★</span></button>
+          <button type="button" onClick={() => void removeAccountProject(project)} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-[8px] font-black tracking-[0.1em] text-red-400/70 hover:bg-red-500/5 hover:text-red-400">DELETE <span>⌫</span></button>
+        </div>}
+      </article>
+    </div>;
   }
 
   async function sendRecovery(event: FormEvent) {
@@ -211,10 +291,10 @@ export default function AccountPage() {
 
         <section className="mt-12"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">PRODUCTION WALL</h2><button className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/50">OPEN WALL ↗</button></div><div className="relative h-[290px] overflow-hidden rounded-[24px] border border-white/10 bg-[url('/studio-bg.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-black/60"/><div className="absolute bottom-7 left-7"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">YOUR VISUAL WORKSPACE</p><p className="mt-2 max-w-md text-sm text-white/55">Images, videos, references and generated frames will live here.</p></div></div></section>
 
-        <section className="mt-10"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => { const progress = project.projectDocument ? 70 : project.messages?.length ? 45 : project.notes ? 20 : 10; const image = project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl; return <button type="button" key={project.id ?? project.startedAt ?? index} onClick={() => openProject(project)} className="overflow-hidden rounded-[20px] border border-white/10 bg-[#0B0B0B] text-left transition hover:-translate-y-1 hover:border-[#FFDF00]/30"><div className="h-36 bg-cover bg-center" style={{backgroundImage:`url(${image || "/studio-bg.jpeg"})`}}/><div className="p-5"><p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p><h3 className="mt-3 truncate text-lg font-black">{project.title || project.notes || "UNTITLED PROJECT"}</h3><div className="mt-5 flex items-center justify-between text-[9px] text-white/35"><span>PRODUCTION</span><span>{progress}%</span></div><div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{width:`${progress}%`}}/></div></div></button>})}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
+        <section className="mt-10"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => renderAccountProject(project, index))}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
-      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[82vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid gap-3 sm:grid-cols-2">{accountSessions.map((project) => <button type="button" key={project.id ?? project.startedAt ?? project.notes} onClick={() => openProject(project)} className="rounded-[16px] border border-white/10 p-5 text-left hover:border-[#FFDF00]/30"><p className="truncate font-black">{project.title || project.notes}</p><p className="mt-2 text-[9px] text-white/30">{project.startedAt ? new Date(project.startedAt).toLocaleString("en-GB") : "ACTIVE PROJECT"}</p></button>)}</div></div></div>}
+      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid gap-4 sm:grid-cols-2">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
     </section>
   </main>;
 
