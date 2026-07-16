@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
-import AccountButton from "../account/AccountButton";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
 import { createClient } from "../../lib/supabase/client";
 
@@ -582,9 +581,6 @@ export default function StudioPage() {
   );
   const [sessionHistory, setSessionHistory] = useState<SavedSession[]>([]);
   const [historyWidth, setHistoryWidth] = useState(260);
-  const [historyCollapsed, setHistoryCollapsed] = useState(false);
-  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -612,7 +608,6 @@ export default function StudioPage() {
     );
     const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
     if (savedWidth >= 220 && savedWidth <= 480) setHistoryWidth(savedWidth);
-    setHistoryCollapsed(localStorage.getItem("carabasaiHistoryCollapsed") === "true");
     const active = sessionStorage.getItem("carabasaiCreativeSession");
     if (active) {
       const restored = JSON.parse(active) as SavedSession;
@@ -659,13 +654,6 @@ export default function StudioPage() {
     };
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", stop);
-  }
-
-  function toggleHistory() {
-    setHistoryCollapsed((current) => {
-      localStorage.setItem("carabasaiHistoryCollapsed", String(!current));
-      return !current;
-    });
   }
 
   function openSavedSession(saved: SavedSession) {
@@ -881,52 +869,15 @@ export default function StudioPage() {
 
   return (
     <main
-      className={`min-h-screen bg-[#050505] px-5 py-6 text-white sm:px-8 lg:px-12 ${historyCollapsed ? "xl:pl-20" : "xl:pl-[calc(var(--history-width)+32px)]"}`}
+      className="min-h-screen bg-[#050505] py-6 pl-[calc(var(--history-width)+32px)] pr-5 text-white sm:pr-8 lg:pr-12"
       style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}
     >
-      {!mobileHistoryOpen && (
-        <button type="button" onClick={() => setMobileMenuOpen(true)} className="fixed right-4 top-4 z-40 flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#111]/95 shadow-xl" aria-label="Open menu">
-          <span className="h-px w-4 bg-[#FFDF00]" /><span className="h-px w-4 bg-[#FFDF00]" /><span className="h-px w-4 bg-[#FFDF00]" />
-        </button>
-      )}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50">
-          <button type="button" aria-label="Close mobile menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 bg-black/25" />
-          <div className="absolute right-4 top-16 w-[min(320px,calc(100vw-32px))] rounded-[20px] border border-white/10 bg-[#0B0B0B]/98 p-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">CARABASAI MENU</p>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="h-9 w-9 rounded-full border border-white/10 text-white/45">×</button>
-            </div>
-            <a href="/account" className="mt-4 flex w-full items-center justify-between rounded-[14px] border border-white/10 bg-white/[0.03] px-4 py-3 text-[10px] font-black tracking-[0.1em] text-white/75">ACCOUNT <span className="text-[#FFDF00]">→</span></a>
-            <button type="button" onClick={() => { setMobileMenuOpen(false); setHistoryCollapsed((current) => { localStorage.setItem("carabasaiHistoryCollapsed", String(!current)); return !current; }); }} className="mt-2 hidden w-full items-center justify-between rounded-[14px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-[10px] font-black tracking-[0.1em] text-white/75 xl:flex">SESSION HISTORY <span className="text-[#FFDF00]">{historyCollapsed ? "+" : "−"}</span></button>
-            <p className="mt-4 border-t border-white/10 pt-4 text-[9px] font-black tracking-[0.12em] text-white/35 xl:hidden">SESSION HISTORY</p>
-            <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto xl:hidden">
-              {sessionHistory.length === 0 ? (
-                <p className="py-4 text-[9px] leading-5 text-white/25">YOUR SAVED SESSIONS WILL APPEAR HERE.</p>
-              ) : [...sessionHistory].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite))).map((saved) => (
-                <div key={saved.id ?? saved.startedAt ?? saved.notes} className="flex items-center gap-2 rounded-[13px] border border-white/10 bg-white/[0.03] p-2">
-                  {editingSessionId === saved.id ? (
-                    <input value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveSessionTitle(saved.id); if (event.key === "Escape") setEditingSessionId(null); }} autoFocus className="min-w-0 flex-1 rounded-lg border border-[#FFDF00]/30 bg-black/40 px-2 py-2 text-[10px] text-white outline-none" />
-                  ) : (
-                    <button type="button" onClick={() => openSavedSession(saved)} className="min-w-0 flex-1 px-2 py-2 text-left"><p className="truncate text-[10px] font-black text-white/70">{saved.title || saved.notes}</p><p className="mt-1 text-[8px] text-white/25">{saved.startedAt ? new Date(saved.startedAt).toLocaleDateString("en-GB") : ""}</p></button>
-                  )}
-                  <button type="button" onClick={() => editingSessionId === saved.id ? saveSessionTitle(saved.id) : (setEditingSessionId(saved.id ?? null), setEditingTitle(!saved.title || saved.title === saved.notes.slice(0, 42) ? saved.notes : saved.title))} className="h-8 w-7 shrink-0 text-xs text-white/30" aria-label="Edit session title">{editingSessionId === saved.id ? "✓" : "✎"}</button>
-                  {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
-                  <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20"}`} aria-label="Favorite session">★</button>
-                  <button type="button" onClick={() => { if (window.confirm("DELETE THIS SESSION?")) updateSessionHistory(saved.id, "delete"); }} className="h-8 w-7 shrink-0 text-sm text-white/20" aria-label="Delete session">×</button>
-                </div>
-              ))}
-            </div>
-          </div>
+      <nav className="fixed bottom-0 left-0 top-0 z-30 flex flex-col border-r border-white/10 bg-[#080808] p-5" style={{ width: historyWidth }}>
+        <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI</p>
+        <div className="mt-6 grid gap-2 border-b border-white/10 pb-5">
+          <a href="/studio" className="flex h-11 items-center justify-between rounded-xl bg-[#FFDF00] px-4 text-[10px] font-black tracking-[0.12em] text-black">HOME <span>⌂</span></a>
+          <a href="/account" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65 transition hover:border-[#FFDF00]/30 hover:text-white">ACCOUNT <span className="text-[#FFDF00]">○</span></a>
         </div>
-      )}
-      {mobileHistoryOpen && <button type="button" aria-label="Close history overlay" onClick={() => setMobileHistoryOpen(false)} className="fixed inset-0 z-20 bg-black/70 xl:hidden" />}
-      {historyCollapsed && !mobileHistoryOpen ? (
-        <button type="button" onClick={toggleHistory} className="fixed left-0 top-6 z-40 hidden h-12 w-11 items-center justify-center rounded-r-full border border-l-0 border-white/10 bg-[#111] text-[#FFDF00] xl:flex" aria-label="Open session history">
-          ›
-        </button>
-      ) : (
-      <nav className={`fixed bottom-0 left-0 top-0 z-30 max-w-[88vw] border-r border-white/10 bg-[#080808] p-5 ${mobileHistoryOpen ? "flex flex-col" : "hidden"} xl:flex xl:flex-col`} style={{ width: historyWidth }}>
         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">
           SESSION HISTORY
         </p>
@@ -971,11 +922,9 @@ export default function StudioPage() {
         <p className="border-t border-white/10 pt-4 text-[8px] uppercase leading-4 text-white/20">
           SAVED IN THIS BROWSER
         </p>
-        <button type="button" onClick={() => { if (window.innerWidth < 1280) setMobileHistoryOpen(false); else toggleHistory(); }} className="absolute right-4 top-4 text-lg text-white/30 hover:text-white" aria-label="Close session history">‹</button>
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
-      )}
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 pr-14">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-[#FFDF00]">
           CARABASAI STUDIO
         </p>
@@ -983,7 +932,6 @@ export default function StudioPage() {
           <span className="text-[#FFDF00]">CREW SETUP</span>
           {hasDialogueStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/creative-room")} className="text-white/45">DIALOGUE</button></>}
           {hasSummaryStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/project")} className="text-white/45">SUMMARY</button></>}
-          <AccountButton className="ml-2" />
         </div>
       </header>
 
