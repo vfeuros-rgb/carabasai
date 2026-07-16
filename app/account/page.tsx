@@ -5,7 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
 import StudioSidebar from "../components/StudioSidebar";
-import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
@@ -55,6 +55,17 @@ export default function AccountPage() {
     if (confirmation) queueMicrotask(() => setMessage(confirmation === "success" ? "EMAIL CONFIRMED. YOUR ACCOUNT IS READY." : "EMAIL CONFIRMATION FAILED OR EXPIRED."));
     queueMicrotask(() => setAccountSessions(getCachedProjects<AccountSession>()));
     void syncProjects<AccountSession>().then(setAccountSessions).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const refreshCloudProjects = () => void syncProjects<AccountSession>().then(setAccountSessions).catch(console.error);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") refreshCloudProjects(); };
+    window.addEventListener("focus", refreshCloudProjects);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refreshCloudProjects);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -128,7 +139,10 @@ export default function AccountPage() {
   }
 
   function toggleProjectFavorite(project: AccountSession) {
-    persistAccountProjects(accountSessions.map((item) => item.id === project.id ? { ...item, favorite: !item.favorite } : item));
+    const favorite = !project.favorite;
+    setAccountSessions(accountSessions.map((item) => item.id === project.id ? { ...item, favorite } : item)
+      .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite))));
+    if (project.id) void setProjectFavorite(project.id, favorite).catch(console.error);
     setFavoriteSwipeId(null);
     setProjectActionId(null);
   }

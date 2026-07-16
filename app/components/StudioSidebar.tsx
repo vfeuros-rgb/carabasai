@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { PointerEvent, useEffect, useRef, useState } from "react";
-import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, projectChangeEvent, saveProjects, syncProjects } from "../../lib/project-store";
+import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, projectChangeEvent, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 
 type SavedSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; projectDocument?: unknown; messages?: unknown[] };
 
@@ -39,8 +39,12 @@ export default function StudioSidebar() {
     window.addEventListener("carabasai-sidebar-change", restore);
     window.addEventListener("storage", restore);
     window.addEventListener(projectChangeEvent, restore);
-    void syncProjects<SavedSession>().then(setSessions).catch(console.error);
-    return () => { window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); window.removeEventListener(projectChangeEvent, restore); };
+    const refreshCloud = () => void syncProjects<SavedSession>().then(setSessions).catch(console.error);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") refreshCloud(); };
+    refreshCloud();
+    window.addEventListener("focus", refreshCloud);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => { window.removeEventListener("carabasai-sidebar-change", restore); window.removeEventListener("storage", restore); window.removeEventListener(projectChangeEvent, restore); window.removeEventListener("focus", refreshCloud); document.removeEventListener("visibilitychange", refreshWhenVisible); };
   }, []);
 
   function resize(event: PointerEvent<HTMLButtonElement>) {
@@ -139,7 +143,11 @@ export default function StudioSidebar() {
   }
 
   function toggleFavorite(session: SavedSession) {
-    persist(sessions.map((item) => item.id === session.id ? { ...item, favorite: !item.favorite } : item));
+    const favorite = !session.favorite;
+    const sorted = sessions.map((item) => item.id === session.id ? { ...item, favorite } : item)
+      .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
+    setSessions(sorted);
+    if (session.id) void setProjectFavorite(session.id, favorite).catch(console.error);
     setFavoriteSwipedId(null);
   }
 

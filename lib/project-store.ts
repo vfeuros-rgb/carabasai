@@ -83,6 +83,27 @@ export function saveProjects(projects: StoredProject[]) {
   void upsertRemote(projects).catch((error) => console.error("Project cloud sync failed", error));
 }
 
+export async function setProjectFavorite(id: string, favorite: boolean) {
+  const next = readLocal().map((project) => project.id === id ? { ...project, favorite } : project);
+  cacheProjects(next);
+
+  if (!isUuid(id)) {
+    const project = next.find((item) => item.id === id);
+    if (project) await upsertRemote([project]);
+    return;
+  }
+
+  const supabase = createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return;
+  const { error } = await supabase
+    .from("projects")
+    .update({ favorite, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userData.user.id);
+  if (error) throw error;
+}
+
 export function saveProject(project: StoredProject) {
   const id = projectId(project);
   const next = [project, ...readLocal().filter((item) => item.id !== id)].slice(0, 100);
@@ -104,7 +125,6 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return local as T[];
 
-  if (local.length) await upsertRemote(local);
   const { data, error } = await supabase.from("projects").select("*").order("updated_at", { ascending: false });
   if (error) throw error;
   const remote = (data ?? []).map((row) => {
@@ -121,8 +141,12 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
       projectDocument: row.stage === "summary" ? row.project_document : undefined,
     };
   });
-  cacheProjects(remote);
-  return remote as T[];
+  const remoteIds = new Set(remote.map((project) => project.id));
+  const localOnly = local.filter((project) => !project.id || !remoteIds.has(project.id));
+  if (localOnly.length) await upsertRemote(localOnly);
+  const merged = [...remote, ...localOnly];
+  cacheProjects(merged);
+  return merged as T[];
 }
 
 export const projectChangeEvent = CHANGE_EVENT;

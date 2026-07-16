@@ -8,7 +8,7 @@ import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
-import { deleteProject, getCachedProjects, saveProjects, syncProjects } from "../../../lib/project-store";
+import { deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../../lib/project-store";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -269,7 +269,10 @@ export default function CreativeRoomPage() {
         ? current.filter((item) => item.id !== id)
         : current.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item);
       const sorted = [...updated].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
-      saveProjects(sorted);
+      if (action === "favorite") {
+        const favorite = Boolean(sorted.find((item) => item.id === id)?.favorite);
+        void setProjectFavorite(id, favorite).catch(console.error);
+      }
       if (action === "delete") void deleteProject(id);
       return sorted;
     });
