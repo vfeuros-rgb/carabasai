@@ -22,6 +22,7 @@ export default function StudioSidebar() {
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [favoriteSwipedId, setFavoriteSwipedId] = useState<string | null>(null);
   const [mobileBrandVisible, setMobileBrandVisible] = useState(true);
+  const [deletedCurrentTitle, setDeletedCurrentTitle] = useState<string | null>(null);
   const menuSwipe = useRef<{ x: number; y: number } | null>(null);
   const itemSwipe = useRef<{ x: number; y: number; id: string } | null>(null);
   const lastScrollY = useRef(0);
@@ -165,10 +166,20 @@ export default function StudioSidebar() {
 
   async function remove(session: SavedSession) {
     if (!session.id || !window.confirm(`DELETE “${session.title || session.notes || "UNTITLED PROJECT"}”?`)) return;
+    const wasCurrentProject = session.id === activeProjectId;
+    const deletedTitle = (session.title || session.notes || "UNTITLED PROJECT").slice(0, 80);
     setSessions((current) => current.filter((item) => item.id !== session.id));
     setSwipedId(null);
     setFavoriteSwipedId(null);
+    setActionMenuId(null);
     await deleteProject(session.id);
+    if (wasCurrentProject) {
+      sessionStorage.removeItem("carabasaiCreativeSession");
+      localStorage.removeItem(ACTIVE_PROJECT_KEY);
+      setActiveProjectId(null);
+      setMobileOpen(false);
+      setDeletedCurrentTitle(deletedTitle);
+    }
   }
 
   const accountActive = pathname.startsWith("/account");
@@ -234,5 +245,21 @@ export default function StudioSidebar() {
       }) : <p className="py-2 text-[8px] leading-4 text-white/20">YOUR SAVED SESSIONS WILL APPEAR HERE.</p>}</div>}
     </div>
     <button type="button" onPointerDown={resize} className="absolute bottom-0 right-0 top-0 hidden w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20 md:block" aria-label="Resize navigation" />
-  </aside></>;
+  </aside>
+  {deletedCurrentTitle && (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-5 text-white backdrop-blur-md">
+      <section role="dialog" aria-modal="true" aria-labelledby="deleted-project-title" className="w-full max-w-md rounded-[28px] border border-[#FFDF00]/25 bg-[#0A0A0A] p-7 text-center shadow-[0_30px_100px_rgba(0,0,0,0.8)] sm:p-9">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#FFDF00]/35 bg-[#FFDF00]/10 text-xl text-[#FFDF00]">⌫</div>
+        <p className="mt-6 text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">CARABASAI STUDIO</p>
+        <h2 id="deleted-project-title" className="mt-3 text-2xl font-black tracking-[-0.04em]">PROJECT DELETED.</h2>
+        <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-white/45">
+          “{deletedCurrentTitle}” is no longer in your studio. Return to Studio Home and begin a new project.
+        </p>
+        <button type="button" onClick={() => window.location.assign("/studio")} className="mt-7 h-12 w-full rounded-full bg-[#FFDF00] text-[10px] font-black tracking-[0.08em] text-black transition hover:bg-white">
+          START A NEW PROJECT
+        </button>
+      </section>
+    </div>
+  )}
+  </>;
 }
