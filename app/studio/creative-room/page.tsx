@@ -198,6 +198,13 @@ export default function CreativeRoomPage() {
   const [documentBuildFailed, setDocumentBuildFailed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const notebookScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const notebookScroller = notebookScrollRef.current;
+    if (!notebookScroller || notebook.length === 0) return;
+    notebookScroller.scrollTo({ top: notebookScroller.scrollHeight, behavior: "smooth" });
+  }, [notebook.length]);
 
   useEffect(() => {
     const storedSession = sessionStorage.getItem("carabasaiCreativeSession");
@@ -701,8 +708,8 @@ export default function CreativeRoomPage() {
             </div>
           ))}
 
-          <div className="hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:block">
-            <div className="flex items-center justify-between gap-4">
+          <div className="hidden h-[360px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:flex">
+            <div className="flex shrink-0 items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
                   PROJECT NOTEBOOK
@@ -716,12 +723,13 @@ export default function CreativeRoomPage() {
               </span>
             </div>
 
-            {notebook.length === 0 ? (
-              <p className="mt-5 text-[10px] uppercase leading-5 text-white/25">
-                USEFUL DECISIONS WILL APPEAR HERE DURING THE CONVERSATION.
-              </p>
-            ) : (
-              <div className="mt-5 space-y-3">
+            <div ref={notebookScrollRef} className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
+              {notebook.length === 0 ? (
+                <p className="text-[10px] uppercase leading-5 text-white/25">
+                  USEFUL DECISIONS WILL APPEAR HERE DURING THE CONVERSATION.
+                </p>
+              ) : (
+              <div className="space-y-3">
                 {notebook.map((note) => {
                   const author = session[note.author];
                   return (
@@ -761,7 +769,8 @@ export default function CreativeRoomPage() {
                   );
                 })}
               </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
