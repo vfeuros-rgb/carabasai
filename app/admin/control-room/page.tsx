@@ -7,6 +7,8 @@ type State = "online" | "configured" | "attention" | "offline";
 type Service = {
   name: string; purpose: string; state: State; status: string; detail: string;
   model?: string; usage?: string; cost?: string; href: string;
+  launchPlan: "keep" | "upgrade";
+  launchNote: string;
 };
 
 async function checkEndpoint(url: string, init: RequestInit) {
@@ -63,6 +65,7 @@ export default async function AdminControlRoom() {
       status: anthropicOnline ? "Connected" : "Check connection", detail: "Agent dialogue and project development.",
       model: process.env.ANTHROPIC_MODEL ?? "Provider default", usage: `${providerCounts.anthropic ?? 0} projects`,
       cost: process.env.ANTHROPIC_ADMIN_API_KEY ? "Cost API ready" : "Admin usage key needed",
+      launchPlan: "upgrade", launchNote: "Review production limits and billing tier before public launch.",
       href: "https://console.anthropic.com/settings/billing",
     },
     {
@@ -71,6 +74,7 @@ export default async function AdminControlRoom() {
       status: openAiOnline ? "Connected" : "Check connection", detail: "Alternative dialogue and document provider.",
       model: process.env.OPENAI_MODEL ?? "Provider default", usage: `${providerCounts.openai ?? 0} projects`,
       cost: process.env.OPENAI_ADMIN_KEY ? "Cost API ready" : "Organization admin key needed",
+      launchPlan: "upgrade", launchNote: "Review production limits and billing tier before public launch.",
       href: "https://platform.openai.com/usage",
     },
     {
@@ -78,19 +82,23 @@ export default async function AdminControlRoom() {
       state: cloudflareOnline ? "online" : process.env.CLOUDFLARE_API_TOKEN ? "attention" : "offline",
       status: cloudflareOnline ? "Connected" : "Check token", detail: "Text-free cinematic covers in 21:9.",
       model: "FLUX.2 Dev", usage: "10,000 free neurons / day", cost: "Overage: $0.011 / 1K neurons",
+      launchPlan: "upgrade", launchNote: "Enable paid usage only when cover generation is opened to users.",
       href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",
     },
     {
       name: "Supabase", purpose: "Auth, database and private media",
       state: projectsResult.error ? "attention" : "online", status: projectsResult.error ? "Database check failed" : "Connected",
       detail: "Users, sessions, project documents and assets.", usage: `${projects.length} projects · ${bytes(totalMediaBytes)}`,
-      cost: "Billing managed in Supabase", href: "https://supabase.com/dashboard",
+      cost: "Billing managed in Supabase", launchPlan: "upgrade",
+      launchNote: "Upgrade storage, database and backup limits before accepting public users.",
+      href: "https://supabase.com/dashboard",
     },
     {
       name: "Vercel", purpose: "Production hosting and deployments",
       state: process.env.VERCEL ? "online" : "configured", status: process.env.VERCEL ? "Production online" : "Local environment",
       detail: "Next.js hosting for studio.carabasai.com.", usage: process.env.VERCEL_ENV ?? "Local",
       cost: process.env.VERCEL_TOKEN ? "Usage API ready" : "Vercel token needed for costs",
+      launchPlan: "upgrade", launchNote: "Move from the personal tier to a production plan before launch.",
       href: "https://vercel.com/carabasai/carabasai-wq8s",
     },
     {
@@ -98,12 +106,15 @@ export default async function AdminControlRoom() {
       state: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? "online" : "offline",
       status: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? "Connected" : "Not configured",
       detail: "Protects account registration and recovery.", usage: "Managed challenge", cost: "Free",
+      launchPlan: "keep", launchNote: "Keep enabled for registration and recovery.",
       href: "https://dash.cloudflare.com/?to=/:account/turnstile",
     },
     {
       name: "GoDaddy", purpose: "Domain and business email", state: "configured", status: "Manual billing",
       detail: "carabasai.com, studio subdomain and mail aliases.", usage: "studio.carabasai.com",
-      cost: "Renewal visible at registrar", href: "https://account.godaddy.com/products",
+      cost: "Renewal visible at registrar", launchPlan: "keep",
+      launchNote: "Keep domain and mailbox active; verify renewal dates before launch.",
+      href: "https://account.godaddy.com/products",
     },
   ];
 
@@ -152,6 +163,12 @@ export default async function AdminControlRoom() {
                     <span className={`mt-1 h-2.5 w-2.5 rounded-full ${service.state === "online" ? "bg-emerald-400 shadow-[0_0_16px_#34d399]" : service.state === "attention" ? "bg-orange-400" : service.state === "configured" ? "bg-[#FFDF00]" : "bg-red-500"}`} />
                   </div>
                   <p className="mt-4 min-h-10 text-xs leading-5 text-white/40">{service.detail}</p>
+                  <div className={`mt-4 rounded-xl border px-3 py-2.5 ${service.launchPlan === "upgrade" ? "border-[#FFDF00]/20 bg-[#FFDF00]/[0.04]" : "border-emerald-400/15 bg-emerald-400/[0.04]"}`}>
+                    <p className={`text-[8px] font-black tracking-[0.14em] ${service.launchPlan === "upgrade" ? "text-[#FFDF00]" : "text-emerald-300"}`}>
+                      {service.launchPlan === "upgrade" ? "UPGRADE BEFORE LAUNCH" : "KEEP ACTIVE"}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-white/35">{service.launchNote}</p>
+                  </div>
                   <dl className="mt-5 space-y-3 border-t border-white/10 pt-5 text-[11px]">
                     <div className="flex justify-between gap-4"><dt className="text-white/30">Status</dt><dd className="text-right font-bold">{service.status}</dd></div>
                     {service.model && <div className="flex justify-between gap-4"><dt className="text-white/30">Model</dt><dd className="text-right font-bold">{service.model}</dd></div>}
@@ -180,6 +197,19 @@ export default async function AdminControlRoom() {
               <h2 className="mt-2 text-xl font-black">Next connections</h2>
               <p className="mt-3 text-xs leading-5 text-white/40">Add provider admin keys to Vercel to display real monthly costs. Ordinary generation keys intentionally cannot read organization billing.</p>
               <div className="mt-5 space-y-2 text-[10px] font-bold text-white/55"><p>ANTHROPIC_ADMIN_API_KEY</p><p>OPENAI_ADMIN_KEY</p><p>VERCEL_TOKEN</p></div>
+            </section>
+            <section className="rounded-3xl border border-white/10 bg-[#0A0A0A] p-6">
+              <p className="text-[9px] font-black tracking-[0.17em] text-[#FFDF00]">LAUNCH CHECKLIST</p>
+              <h2 className="mt-2 text-xl font-black">Deferred upgrades</h2>
+              <p className="mt-3 text-xs leading-5 text-white/40">These services stay in the infrastructure register now. Paid production upgrades can wait until the public launch.</p>
+              <div className="mt-5 space-y-3">
+                {services.filter((service) => service.launchPlan === "upgrade").map((service) => (
+                  <div key={service.name} className="flex items-center justify-between gap-4 border-t border-white/10 pt-3 text-[10px]">
+                    <span className="font-bold text-white/60">{service.name}</span>
+                    <span className="text-right font-black tracking-[0.1em] text-[#FFDF00]">BEFORE LAUNCH</span>
+                  </div>
+                ))}
+              </div>
             </section>
           </aside>
         </section>
