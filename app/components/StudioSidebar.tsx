@@ -20,6 +20,7 @@ export default function StudioSidebar() {
   const [editingTitle, setEditingTitle] = useState("");
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [favoriteSwipedId, setFavoriteSwipedId] = useState<string | null>(null);
   const [mobileBrandVisible, setMobileBrandVisible] = useState(true);
   const menuSwipe = useRef<{ x: number; y: number } | null>(null);
   const itemSwipe = useRef<{ x: number; y: number; id: string } | null>(null);
@@ -124,6 +125,7 @@ export default function StudioSidebar() {
 
   function toggleFavorite(session: SavedSession) {
     persist(sessions.map((item) => item.id === session.id ? { ...item, favorite: !item.favorite } : item));
+    setFavoriteSwipedId(null);
   }
 
   function beginRename(session: SavedSession) {
@@ -142,6 +144,7 @@ export default function StudioSidebar() {
     if (!session.id || !window.confirm(`DELETE “${session.title || session.notes || "UNTITLED PROJECT"}”?`)) return;
     setSessions((current) => current.filter((item) => item.id !== session.id));
     setSwipedId(null);
+    setFavoriteSwipedId(null);
     await deleteProject(session.id);
   }
 
@@ -168,16 +171,19 @@ export default function StudioSidebar() {
       {historyOpen && <div className="mt-2 max-h-[42vh] space-y-2 overflow-x-hidden overflow-y-auto">{sessions.length ? sessions.map((session) => {
         const key = session.id ?? String(session.startedAt ?? session.notes);
         const swiped = swipedId === key;
+        const favoriteSwiped = favoriteSwipedId === key;
         const selected = Boolean(session.id && session.id === activeProjectId);
-        return <div key={key} className={`relative overflow-hidden rounded-lg ${swiped ? "bg-red-950/40" : "bg-transparent"}`}>
+        return <div key={key} className={`relative overflow-hidden rounded-lg ${swiped ? "bg-red-950/40" : favoriteSwiped ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
+          {favoriteSwiped && <button type="button" onClick={() => toggleFavorite(session)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-lg text-[#FFDF00] md:hidden" aria-label={session.favorite ? "Remove project from favorites" : "Add project to favorites"}>★</button>}
           {swiped && <button type="button" onClick={() => void remove(session)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-base text-red-400 md:hidden" aria-label="Delete project">⌫</button>}
           <div
-            className={`relative flex min-h-10 items-center gap-1 rounded-lg border px-2 transition-all md:translate-x-0 ${selected ? "border-[#FFDF00]/60 bg-[#FFDF00]/10 shadow-[inset_3px_0_0_#FFDF00]" : "border-white/8 bg-[#0B0B0B]"} ${swiped ? "-translate-x-16" : "translate-x-0"}`}
+            className={`relative flex min-h-10 items-center gap-1 rounded-lg border px-2 transition-all md:translate-x-0 ${selected ? "border-[#FFDF00]/60 bg-[#FFDF00]/10 shadow-[inset_3px_0_0_#FFDF00]" : "border-white/8 bg-[#0B0B0B]"} ${swiped ? "-translate-x-16" : favoriteSwiped ? "translate-x-16" : "translate-x-0"}`}
             onTouchStart={(event) => { const touch = event.touches[0]; itemSwipe.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
-            onTouchEnd={(event) => { const start = itemSwipe.current; const touch = event.changedTouches[0]; const horizontal = start ? touch.clientX - start.x : 0; const vertical = start ? Math.abs(touch.clientY - start.y) : 999; if (start?.id === key && horizontal < -45 && vertical < 45) setSwipedId(key); else if (start?.id === key && horizontal > 45 && vertical < 45) { setSwipedId(null); toggleFavorite(session); } itemSwipe.current = null; }}
+            onTouchEnd={(event) => { const start = itemSwipe.current; const touch = event.changedTouches[0]; const horizontal = start ? touch.clientX - start.x : 0; const vertical = start ? Math.abs(touch.clientY - start.y) : 999; if (start?.id === key && horizontal < -45 && vertical < 45) { setFavoriteSwipedId(null); setSwipedId(key); } else if (start?.id === key && horizontal > 45 && vertical < 45) { setSwipedId(null); setFavoriteSwipedId(key); } itemSwipe.current = null; }}
           >
             {editingId === session.id ? <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onBlur={() => finishRename(session)} onKeyDown={(event) => { if (event.key === "Enter") finishRename(session); if (event.key === "Escape") setEditingId(null); }} className="min-w-0 flex-1 bg-transparent py-2 text-[9px] text-white outline-none" /> : <button type="button" onClick={() => openSession(session)} className={`min-w-0 flex-1 truncate py-2 text-left text-[9px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}>{session.title || session.notes || "UNTITLED SESSION"}</button>}
-            <button type="button" onClick={() => setActionMenuId((current) => current === key ? null : key)} className="h-7 w-7 shrink-0 text-base leading-none text-white/35 hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
+            {session.favorite && <span className="shrink-0 text-xs text-[#FFDF00]" title="Favorite project" aria-label="Favorite project">★</span>}
+            <button type="button" onClick={() => { setSwipedId(null); setFavoriteSwipedId(null); setActionMenuId((current) => current === key ? null : key); }} className="h-7 w-7 shrink-0 text-base leading-none text-white/35 hover:text-[#FFDF00]" aria-label="Project actions">⋮</button>
           </div>
           {actionMenuId === key && <div className="relative z-10 grid gap-1 border-t border-white/8 bg-[#0D0D0D] p-1.5">
             <button type="button" onClick={() => beginRename(session)} className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-white/50 hover:bg-white/5 hover:text-white">RENAME <span>✎</span></button>
