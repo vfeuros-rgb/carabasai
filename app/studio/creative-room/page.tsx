@@ -942,27 +942,30 @@ export default function CreativeRoomPage() {
                 onChange={(event) => void addAttachments(event.target.files)}
                 className="hidden"
               />
-              <button
-                type="button"
-                onClick={() => attachmentInputRef.current?.click()}
-                disabled={isLoading}
-                aria-label="Attach references"
-                className="flex h-9 w-7 shrink-0 items-center justify-center text-[#FFDF00] transition hover:scale-110 hover:text-[#ffe83d] disabled:opacity-25"
-              >
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
-                  <path d="m8.5 12.5 6.15-6.15a3.2 3.2 0 0 1 4.53 4.53l-8.31 8.31a5 5 0 0 1-7.07-7.07l8.13-8.13a2.8 2.8 0 0 1 3.96 3.96l-7.8 7.8a1.25 1.25 0 0 1-1.77-1.77l6.55-6.55" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileNotebookOpen(true)}
-                aria-label="Open project notebook"
-                aria-expanded={mobileNotebookOpen}
-                className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm transition lg:hidden ${mobileNotebookOpen ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 text-white/45 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]"}`}
-              >
-                ▤
-                {notebook.length > 0 && <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FFDF00] px-1 text-[7px] font-black text-black">{notebook.filter((note) => note.accepted).length}/{notebook.length}</span>}
-              </button>
+              <div className="flex w-8 shrink-0 flex-col items-center gap-1 lg:w-7">
+                <button
+                  type="button"
+                  onClick={() => setMobileNotebookOpen(true)}
+                  aria-label="Open project notebook"
+                  aria-expanded={mobileNotebookOpen}
+                  className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs transition lg:hidden ${mobileNotebookOpen ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 text-white/45 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]"}`}
+                >
+                  ▤
+                  {notebook.length > 0 && <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FFDF00] px-1 text-[7px] font-black text-black">{notebook.filter((note) => note.accepted).length}/{notebook.length}</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={isLoading}
+                  aria-label="Attach references"
+                  className="flex h-8 w-7 shrink-0 items-center justify-center transition hover:scale-110 disabled:opacity-25"
+                  style={{ color: "#FFDF00" }}
+                >
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
+                    <path d="m8.5 12.5 6.15-6.15a3.2 3.2 0 0 1 4.53 4.53l-8.31 8.31a5 5 0 0 1-7.07-7.07l8.13-8.13a2.8 2.8 0 0 1 3.96 3.96l-7.8 7.8a1.25 1.25 0 0 1-1.77-1.77l6.55-6.55" stroke="#FFDF00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
