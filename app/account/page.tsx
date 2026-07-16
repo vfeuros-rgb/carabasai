@@ -86,12 +86,25 @@ export default function AccountPage() {
     void Promise.all(covers.map(async (project) => {
       try {
         const url = await createMediaUrl(project.coverPath!, 60 * 60 * 6);
-        return [project.id!, url] as const;
+        return { id: project.id!, url, valid: true as const };
       } catch {
-        return null;
+        return { id: project.id!, valid: false as const };
       }
     })).then((entries) => {
-      if (!cancelled) setProjectCoverUrls(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
+      if (cancelled) return;
+      setProjectCoverUrls(Object.fromEntries(
+        entries.filter((entry): entry is { id: string; url: string; valid: true } => entry.valid)
+          .map((entry) => [entry.id, entry.url])
+      ));
+      const invalidIds = new Set(entries.filter((entry) => !entry.valid).map((entry) => entry.id));
+      if (invalidIds.size) {
+        const repaired = getCachedProjects<AccountSession>().map((project) =>
+          project.id && invalidIds.has(project.id) ? { ...project, coverPath: undefined } : project
+        );
+        invalidIds.forEach((id) => coverAttempts.current.delete(id));
+        saveProjects(repaired);
+        setAccountSessions(repaired);
+      }
     });
     return () => { cancelled = true; };
   }, [accountSessions]);
