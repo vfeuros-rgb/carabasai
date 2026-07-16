@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import TurnstileWidget from "./TurnstileWidget";
+import StudioSidebar from "../components/StudioSidebar";
 
 type Mode = "sign-in" | "sign-up";
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown };
@@ -168,7 +169,8 @@ export default function AccountPage() {
   if (!authReady) return <main className="min-h-screen bg-[#050505]" aria-label="Loading account" />;
 
   if (userEmail) return <main className="min-h-screen bg-[#050505] text-white">
-    <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[260px] flex-col border-r border-white/10 bg-[#080808] p-5">
+    <StudioSidebar />
+    <aside className="hidden">
       <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
       <nav className="mt-6 grid gap-2">
         <Link href="/studio" className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-4 text-[10px] font-black tracking-[0.12em] text-white/65">STUDIO HOME <span className="text-[#FFDF00]">⌂</span></Link>
@@ -188,7 +190,7 @@ export default function AccountPage() {
       </div>
     </aside>
 
-    <section className="min-h-screen pl-[260px]">
+    <section className="min-h-screen pl-[var(--studio-sidebar-width,260px)]">
       <div className="mx-auto w-full max-w-[1500px] px-8 py-10 lg:px-14">
         <header><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">{name || "CREATOR"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-4xl">WELCOME BACK TO YOUR STUDIO.</h1><p className="mt-3 text-sm text-white/35">{accountSessions.length} active {accountSessions.length === 1 ? "project" : "projects"} in your workspace.</p></header>
 

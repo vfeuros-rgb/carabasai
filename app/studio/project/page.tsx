@@ -4,6 +4,7 @@ import Link from "next/link";
 import { currentAIProvider } from "../AIProviderSwitch";
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
+import StudioSidebar from "../../components/StudioSidebar";
 
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
@@ -52,7 +53,7 @@ export default function ProjectPage() {
   }, []);
 
   if (!session?.projectDocument) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#050505] p-6 text-white"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></main>;
+    return <main className="min-h-screen bg-[#050505] pl-[var(--studio-sidebar-width,260px)] text-white"><StudioSidebar /><div className="flex min-h-screen items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
   }
 
   const document = session.projectDocument;
@@ -188,7 +189,8 @@ export default function ProjectPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] px-4 py-5 text-white sm:px-8 lg:px-12">
+    <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
+      <StudioSidebar />
       <header className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
         <div><p className="text-xs font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p><p className="mt-2 text-[9px] tracking-[0.16em] text-white/30">PROJECT DOCUMENT / DEVELOPMENT COMPLETE</p></div>
         <nav className="flex items-center gap-2 text-[9px] font-black tracking-[0.1em]"><Link href="/studio" className="text-white/40">CREW SETUP</Link><span className="text-white/20">/</span><Link href="/studio/creative-room" className="text-white/40">DIALOGUE</Link><span className="text-white/20">/</span><span className="text-[#FFDF00]">SUMMARY</span></nav>

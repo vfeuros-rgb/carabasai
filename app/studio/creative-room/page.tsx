@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
+import StudioSidebar from "../../components/StudioSidebar";
 
 type AgentId = "secondDirector" | "screenwriter";
 
@@ -549,12 +550,13 @@ export default function CreativeRoomPage() {
   ];
 
   return (
-    <main className={`min-h-screen bg-[#050505] px-4 py-5 text-white sm:px-8 lg:px-12 ${historyCollapsed ? "xl:pl-20" : "xl:pl-[calc(var(--history-width)+32px)]"}`} style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}>
+    <main className="min-h-screen bg-[#050505] py-5 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-4 text-white sm:pr-8 lg:pr-12">
+      <StudioSidebar />
       {!mobileHistoryOpen && (
-        <button type="button" onClick={() => setMobileMenuOpen(true)} className="fixed right-4 top-4 z-40 flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#111]/95 shadow-xl" aria-label="Open menu"><span className="h-px w-4 bg-[#FFDF00]" /><span className="h-px w-4 bg-[#FFDF00]" /><span className="h-px w-4 bg-[#FFDF00]" /></button>
+        <button type="button" onClick={() => setMobileMenuOpen(true)} className="hidden" aria-label="Open menu" />
       )}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50">
+        <div className="hidden">
           <button type="button" aria-label="Close mobile menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 bg-black/25" />
           <div className="absolute right-4 top-16 w-[min(320px,calc(100vw-32px))] rounded-[20px] border border-white/10 bg-[#0B0B0B]/98 p-4 shadow-2xl">
             <div className="flex items-center justify-between">
@@ -587,7 +589,7 @@ export default function CreativeRoomPage() {
       {historyCollapsed && !mobileHistoryOpen ? (
         <button type="button" onClick={toggleHistory} className="fixed left-0 top-6 z-40 hidden h-12 w-11 items-center justify-center rounded-r-full border border-l-0 border-white/10 bg-[#111] text-[#FFDF00] xl:flex" aria-label="Open session history">›</button>
       ) : (
-      <nav className={`fixed bottom-0 left-0 top-0 z-30 max-w-[88vw] border-r border-white/10 bg-[#080808] p-5 ${mobileHistoryOpen ? "flex flex-col" : "hidden"} xl:flex xl:flex-col`} style={{ width: historyWidth }}>
+      <nav className="hidden" style={{ width: historyWidth }}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
             SESSION HISTORY

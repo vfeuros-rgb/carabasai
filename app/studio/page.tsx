@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
+import StudioSidebar from "../components/StudioSidebar";
 import { createClient } from "../../lib/supabase/client";
 
 type CrewMember = {
@@ -870,10 +871,11 @@ export default function StudioPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#050505] py-6 pl-[calc(var(--history-width)+32px)] pr-5 text-white sm:pr-8 lg:pr-12"
+      className="min-h-screen bg-[#050505] py-6 pl-[calc(var(--studio-sidebar-width,260px)+32px)] pr-5 text-white sm:pr-8 lg:pr-12"
       style={{ "--history-width": `${historyWidth}px` } as React.CSSProperties}
     >
-      <nav className="fixed bottom-0 left-0 top-0 z-30 flex flex-col border-r border-white/10 bg-[#080808] p-5" style={{ width: historyWidth }}>
+      <StudioSidebar />
+      <nav className="hidden" style={{ width: historyWidth }}>
         <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">CARABASAI STUDIO</p>
         <div className="mt-6 grid gap-2">
           <a href="/studio" className="flex h-11 items-center justify-between rounded-xl bg-[#FFDF00] px-4 text-[10px] font-black tracking-[0.12em] text-black">STUDIO HOME <span>⌂</span></a>
