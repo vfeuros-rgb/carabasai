@@ -153,6 +153,57 @@ export default function AccountPage() {
     await saveAvatar(publicUrl);
   }
 
+  if (userEmail) return <main className="min-h-screen bg-[#050505] text-white">
+    <aside className="fixed bottom-0 left-0 top-0 z-30 flex w-[78px] flex-col border-r border-white/10 bg-[#080808] px-3 py-5 md:w-[250px] md:px-5 md:py-7">
+      <Link href="/studio" className="flex h-11 items-center gap-3 rounded-[12px] px-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFDF00] text-[11px] font-black text-black">C</span>
+        <span className="hidden text-[11px] font-black tracking-[0.18em] text-[#FFDF00] md:block">CARABASAI</span>
+      </Link>
+      <nav className="mt-10 space-y-2">
+        <Link href="/studio" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white">
+          <span className="w-5 text-center text-lg">⌂</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HOME</span>
+        </Link>
+        <Link href="/studio" className="flex h-12 items-center gap-3 rounded-[14px] px-3 text-white/45 transition hover:bg-white/[0.04] hover:text-white">
+          <span className="w-5 text-center text-base">◷</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">HISTORY</span>
+        </Link>
+        <Link href="/account" className="flex h-12 items-center gap-3 rounded-[14px] border border-[#FFDF00]/25 bg-[#FFDF00]/8 px-3 text-[#FFDF00]">
+          <span className="w-5 text-center text-base">●</span><span className="hidden text-[10px] font-black tracking-[0.12em] md:block">ACCOUNT</span>
+        </Link>
+      </nav>
+      <div className="mt-auto border-t border-white/10 pt-5">
+        <div className="flex items-center gap-3 px-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/30 bg-black/40 text-sm">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div>
+          <div className="hidden min-w-0 md:block"><p className="truncate text-[10px] font-black text-white/80">{name || "Carabasai creator"}</p><p className="mt-1 truncate text-[8px] text-white/30">{userEmail}</p></div>
+        </div>
+        <button type="button" onClick={signOut} className="mt-4 flex h-10 w-full items-center justify-center rounded-full border border-white/10 text-[9px] font-black text-white/35 hover:border-white/20 hover:text-white/60"><span className="md:hidden">↪</span><span className="hidden md:inline">SIGN OUT</span></button>
+      </div>
+    </aside>
+
+    <section className="min-h-screen pl-[78px] md:pl-[250px]">
+      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+        <header className="flex items-center justify-between border-b border-white/10 pb-6">
+          <div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ACCOUNT HOME</p><h1 className="mt-2 text-2xl font-black tracking-[-0.04em] sm:text-3xl">YOUR CREATIVE SPACE.</h1></div>
+          <Link href="/studio" className="rounded-full border border-white/12 px-4 py-2.5 text-[9px] font-black text-white/45 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">OPEN STUDIO</Link>
+        </header>
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+          <section className="rounded-[26px] border border-white/10 bg-white/[0.025] p-6 sm:p-8">
+            <div className="flex items-center gap-5">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#FFDF00]/35 bg-black/40 text-3xl">{avatarUrl.startsWith("http") ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : avatarUrl || name.charAt(0).toUpperCase() || "A"}</div>
+              <div className="min-w-0"><p className="text-[9px] font-black tracking-[0.14em] text-emerald-300">CONNECTED</p><h2 className="mt-2 truncate text-xl font-black sm:text-2xl">{name || "Carabasai creator"}</h2><p className="mt-1 truncate text-xs text-white/40">{userEmail}</p></div>
+            </div>
+            <div className="mt-8 border-t border-white/10 pt-6"><p className="text-[9px] font-black tracking-[0.12em] text-white/35">CHOOSE AVATAR</p><div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">{presetAvatars.map((avatar) => <button key={avatar} type="button" onClick={() => saveAvatar(avatar)} className="aspect-square rounded-full border border-white/10 bg-black/30 text-xl hover:border-[#FFDF00]/50">{avatar}</button>)}</div><label className="mt-5 flex cursor-pointer items-center justify-center rounded-full border border-white/15 px-5 py-3 text-[10px] font-black hover:border-[#FFDF00]/40"><input type="file" accept="image/*" onChange={uploadAvatar} className="hidden" />UPLOAD YOUR IMAGE</label></div>
+          </section>
+          <div className="space-y-5">
+            <section className="rounded-[24px] border border-white/10 bg-white/[0.025] p-6"><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">MEMBERSHIP</p><p className="mt-4 text-lg font-black">CREATOR ACCOUNT</p><p className="mt-2 text-xs leading-5 text-white/35">Your sessions, references and generated assets can be connected to this account.</p></section>
+            <section className="rounded-[24px] border border-white/10 bg-white/[0.025] p-6"><p className="text-[9px] font-black tracking-[0.14em] text-[#FFDF00]">WORKSPACE</p><p className="mt-4 text-lg font-black">CARABASAI STUDIO</p><Link href="/studio" className="mt-5 flex h-11 items-center justify-between rounded-[12px] border border-white/10 px-4 text-[9px] font-black text-white/55">CONTINUE CREATING <span className="text-[#FFDF00]">→</span></Link></section>
+          </div>
+        </div>
+        {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
+      </div>
+    </section>
+  </main>;
+
   if (recoveryMode && !userEmail) return <main className="flex min-h-screen items-center justify-center bg-[#050505] p-5 text-white">{recoverySent && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-md rounded-[28px] border border-[#FFDF00]/25 bg-[#0A0A0A] p-7 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFDF00] text-2xl text-black">✉</div><p className="mt-6 text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">RECOVERY CODE SENT</p><h2 className="mt-3 text-2xl font-black">ENTER THE CODE.</h2><p className="mt-4 text-sm leading-6 text-white/50">We sent a 6-digit code to <span className="font-bold text-white/80">{email}</span>.</p><form onSubmit={verifyRecoveryCode} className="mt-6"><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="h-16 w-full rounded-[16px] border border-white/15 bg-black/40 text-center text-2xl font-black tracking-[0.35em] outline-none focus:border-[#FFDF00]/60" /><button disabled={loading || recoveryCode.length !== 6} className="mt-4 h-12 w-full rounded-full bg-[#FFDF00] text-[10px] font-black text-black disabled:opacity-30">{loading ? "CHECKING CODE..." : "VERIFY CODE"}</button></form>{message && <p className="mt-4 text-[10px] leading-5 text-white/55">{message}</p>}<button type="button" disabled={recoveryCooldown > 0 || loading} onClick={() => { setRecoverySent(false); setRecoveryCode(""); setMessage(""); }} className="mt-4 h-10 w-full rounded-full border border-white/10 text-[9px] font-black text-white/45 disabled:opacity-25">{recoveryCooldown > 0 ? `NEW CODE IN ${recoveryCooldown}s` : "REQUEST ANOTHER CODE"}</button><button type="button" onClick={() => { setRecoverySent(false); setRecoveryCode(""); setMessage(""); }} className="mt-5 text-[10px] font-black text-white/45 hover:text-[#FFDF00]">← BACK</button></section></div>}<section className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/[0.025] p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.18em] text-[#FFDF00]">PASSWORD RECOVERY</p><h1 className="mt-4 text-3xl font-black">RESET YOUR PASSWORD.</h1><p className="mt-4 text-sm leading-6 text-white/40">We will send a 6-digit recovery code to your email.</p><form onSubmit={sendRecovery} className="mt-7 space-y-3"><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="EMAIL" autoComplete="email" className="h-14 w-full rounded-[14px] border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#FFDF00]/50" /><TurnstileWidget key={`recovery-${captchaVersion}`} onToken={setCaptchaToken} /><button disabled={loading || !captchaToken || recoveryCooldown > 0} className="h-12 w-full rounded-full bg-[#FFDF00] text-[10px] font-black text-black disabled:opacity-30">{loading ? "PLEASE WAIT..." : recoveryCooldown > 0 ? `NEW CODE IN ${recoveryCooldown}s` : !captchaToken ? "COMPLETE SECURITY CHECK" : "SEND RECOVERY CODE"}</button></form>{message && <p className="mt-5 text-[10px] leading-5 text-white/55">{message}</p>}<button type="button" onClick={() => { setRecoveryMode(false); setCaptchaToken(""); setMessage(""); setRecoveryCode(""); }} className="mt-7 text-[10px] font-black text-white/40">← BACK TO SIGN IN</button></section></main>;
 
   return <main className="flex min-h-screen items-center justify-center bg-[#050505] p-5 text-white">{awaitingConfirmation && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-md rounded-[28px] border border-[#FFDF00]/25 bg-[#0A0A0A] p-7 text-center shadow-2xl"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFDF00] text-2xl text-black">✉</div><p className="mt-6 text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">CONFIRM YOUR EMAIL</p><h2 className="mt-3 text-2xl font-black">CHECK YOUR INBOX.</h2><p className="mt-4 text-sm leading-6 text-white/50">We sent a confirmation link to <span className="font-bold text-white/80">{email}</span>. Open the email and follow the link to activate your account.</p><p className="mt-4 text-[10px] leading-5 text-white/30">If this email already has an account, sign in or use password recovery instead.</p><button type="button" onClick={() => { setAwaitingConfirmation(false); setMode("sign-in"); }} className="mt-7 h-11 w-full rounded-full border border-white/15 text-[10px] font-black text-white/65">BACK TO SIGN IN</button></section></div>}<section className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/[0.025] p-6 sm:p-8">
