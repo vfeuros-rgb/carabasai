@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { currentAIProvider } from "../AIProviderSwitch";
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
@@ -31,6 +32,7 @@ function isUnresolvedPoint(point: string) {
 }
 
 export default function ProjectPage() {
+  const router = useRouter();
   const [session, setSession] = useState<ProjectSession | null>(null);
   const [activeSection, setActiveSection] = useState("");
   const [resolvingQuestion, setResolvingQuestion] = useState("");
@@ -43,6 +45,7 @@ export default function ProjectPage() {
   const [activeSpecialist, setActiveSpecialist] = useState<CharacterCastingSpecialist>(characterCastingSpecialists[0]);
   const [castingSamplePreview, setCastingSamplePreview] = useState<CharacterCastingSpecialist["characterExamples"][number] | null>(null);
   const [activeUnresolvedPoint, setActiveUnresolvedPoint] = useState("");
+  const [openingCasting, setOpeningCasting] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("carabasaiCreativeSession");
@@ -83,6 +86,27 @@ export default function ProjectPage() {
     setSession(updated);
     setSelectedDepartments(["CHARACTER CASTING"]);
     setSpecialistRosterOpen(false);
+  }
+
+  function openCharacterCasting() {
+    if (!session?.characterCastingSpecialist || openingCasting) return;
+    setOpeningCasting(true);
+
+    const updated = {
+      ...session,
+      stage: "casting" as const,
+      characterCasting: (session as ProjectSession & { characterCasting?: unknown }).characterCasting ?? {
+        specialistId: session.characterCastingSpecialist.id,
+        characters: [],
+        messages: [],
+      },
+    };
+
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
+    router.push("/studio/character-casting");
   }
 
   function savePoint(sectionId: string, pointIndex: number) {
@@ -229,7 +253,7 @@ export default function ProjectPage() {
 
         <aside className="space-y-5">
           {(document.openQuestions?.length ?? 0) > 0 && <section className="rounded-[28px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-5"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">UNRESOLVED KEY POINTS</p><button type="button" onClick={() => void letTeamDecideAll()} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === "all" ? "DECIDING ALL..." : "LET TEAM DECIDE ALL"}</button></div><div className="mt-4 space-y-3">{document.openQuestions?.map((question) => <div key={question.id} className="rounded-[16px] border border-white/10 bg-black/20 p-4"><p className="text-[9px] font-black text-white/40">{question.label}</p><p className="mt-2 text-xs leading-5 text-white/70">{question.question}</p><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => askTeam(question)} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/55">ASK THE TEAM</button><button type="button" onClick={() => void letTeamDecide(question)} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === question.id ? "DECIDING..." : "LET TEAM DECIDE"}</button></div></div>)}</div>{error && <p className="mt-4 text-[9px] text-red-300">{error}</p>}</section>}
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTER CASTING</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose the visual casting eye that will define every generated face and body before costume design begins.</p><button type="button" onClick={() => setSpecialistRosterOpen(true)} className={`mt-6 flex min-h-36 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${session.characterCastingSpecialist ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div className="flex items-start gap-4">{session.characterCastingSpecialist && <Image src={session.characterCastingSpecialist.portrait} alt={session.characterCastingSpecialist.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-[14px] border border-white/10 object-cover object-top" />}<div className="min-w-0"><p className="text-xs font-black text-white/80">{session.characterCastingSpecialist?.name ?? "CHOOSE CHARACTER CASTING LEAD"}</p><p className="mt-2 text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{session.characterCastingSpecialist?.specialty ?? "FACE / BODY / PHYSICAL PRESENCE"}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{session.characterCastingSpecialist?.biography ?? "Open the roster and choose the visual method that will shape all subsequent character generations."}</p></div></div><p className="mt-5 text-[9px] font-black text-[#FFDF00]">{session.characterCastingSpecialist ? "CHANGE SPECIALIST →" : "OPEN SPECIALIST ROSTER +"}</p></button><div className="mt-6 flex justify-end"><button type="button" disabled={selectedDepartments.length !== 1} className="rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">NEXT →</button></div></section>
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTER CASTING</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose the visual casting eye that will define every generated face and body before costume design begins.</p><button type="button" onClick={() => setSpecialistRosterOpen(true)} className={`mt-6 flex min-h-36 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${session.characterCastingSpecialist ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div className="flex items-start gap-4">{session.characterCastingSpecialist && <Image src={session.characterCastingSpecialist.portrait} alt={session.characterCastingSpecialist.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-[14px] border border-white/10 object-cover object-top" />}<div className="min-w-0"><p className="text-xs font-black text-white/80">{session.characterCastingSpecialist?.name ?? "CHOOSE CHARACTER CASTING LEAD"}</p><p className="mt-2 text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{session.characterCastingSpecialist?.specialty ?? "FACE / BODY / PHYSICAL PRESENCE"}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{session.characterCastingSpecialist?.biography ?? "Open the roster and choose the visual method that will shape all subsequent character generations."}</p></div></div><p className="mt-5 text-[9px] font-black text-[#FFDF00]">{session.characterCastingSpecialist ? "CHANGE SPECIALIST →" : "OPEN SPECIALIST ROSTER +"}</p></button><div className="mt-6 flex justify-end"><button type="button" onClick={openCharacterCasting} disabled={!session.characterCastingSpecialist || openingCasting} aria-busy={openingCasting} className="flex min-w-28 items-center justify-center gap-2 rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">{openingCasting ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" /><span>OPENING...</span></> : <span>NEXT →</span>}</button></div></section>
         </aside>
       </div>
       {specialistRosterOpen && (
