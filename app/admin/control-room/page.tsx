@@ -111,6 +111,8 @@ export default async function AdminControlRoom() {
   const cloudflareUsageMonth = envMoney("CLOUDFLARE_AI_USAGE_MONTH_USD");
   const anthropicUsageMonth = envMoney("ANTHROPIC_USAGE_MONTH_USD", 5);
   const openAiUsageMonth = envMoney("OPENAI_USAGE_MONTH_USD", 5);
+  const chatGptPlusMonthlyEur = envMoney("CHATGPT_PLUS_MONTHLY_EUR", 23.58);
+  const chatGptPlusMonthlyUsd = chatGptPlusMonthlyEur * rates.usdPerEur;
   const supabaseMonthly = envMoney("SUPABASE_MONTHLY_USD");
   const vercelMonthly = envMoney("VERCEL_MONTHLY_USD");
   const godaddyAnnualEur = envMoney("GODADDY_CARABASAI_ANNUAL_EUR", 21.99) + envMoney("GODADDY_FLORIANI_ANNUAL_EUR", 21.99);
@@ -120,7 +122,8 @@ export default async function AdminControlRoom() {
   const billing: BillingItem[] = [
     { name: "Cloudflare Workers AI", purpose: "Project cover generation", cadence: "monthly", monthlyUsd: cloudflareBaseMonthly + cloudflareUsageMonth, annualUsd: (cloudflareBaseMonthly + cloudflareUsageMonth) * 12, allowance: "10,000 neurons / day included", consumed: `≈ ${estimatedNeuronsToday.toLocaleString("en-US")} neurons today · ${coversThisMonth} covers this month`, remaining: `≈ ${estimatedNeuronsRemaining.toLocaleString("en-US")} neurons today`, source: "estimated", href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai" },
     { name: "Anthropic", purpose: "Claude dialogue and documents", cadence: "usage", monthlyUsd: anthropicUsageMonth, annualUsd: anthropicUsageMonth * 12, allowance: "Usage-based API", consumed: `${providerCounts.anthropic ?? 0} projects · ${money(anthropicUsageMonth)} entered`, remaining: "Balance needs an Admin API connection", source: anthropicUsageMonth ? "manual" : "estimated", href: "https://console.anthropic.com/settings/billing" },
-    { name: "OpenAI", purpose: "GPT dialogue and documents", cadence: "usage", monthlyUsd: openAiUsageMonth, annualUsd: openAiUsageMonth * 12, allowance: "Prepaid / usage-based API", consumed: `${providerCounts.openai ?? 0} projects · ${money(openAiUsageMonth)} entered`, remaining: "Balance needs an organization Admin key", source: openAiUsageMonth ? "manual" : "estimated", href: "https://platform.openai.com/usage" },
+    { name: "OpenAI API", purpose: "GPT dialogue and documents", cadence: "usage", monthlyUsd: openAiUsageMonth, annualUsd: openAiUsageMonth * 12, allowance: "Prepaid / usage-based API", consumed: `${providerCounts.openai ?? 0} projects · ${money(openAiUsageMonth)} entered`, remaining: "Balance needs an organization Admin key", source: openAiUsageMonth ? "manual" : "estimated", href: "https://platform.openai.com/usage" },
+    { name: "ChatGPT Plus", purpose: "Personal ChatGPT subscription", cadence: "monthly", monthlyUsd: chatGptPlusMonthlyUsd, annualUsd: chatGptPlusMonthlyUsd * 12, allowance: "Personal subscription · separate from the OpenAI API", consumed: `${euro(chatGptPlusMonthlyEur)} / month`, remaining: `${euro(chatGptPlusMonthlyEur * 12)} / year projection`, source: "manual", href: "https://chatgpt.com/#settings/Subscription" },
     { name: "Supabase", purpose: "Auth, database and media", cadence: supabaseMonthly ? "monthly" : "free", monthlyUsd: supabaseMonthly, annualUsd: supabaseMonthly * 12, allowance: supabaseMonthly ? "Paid plan" : "Free development plan", consumed: `${projects.length} projects · ${bytes(totalMediaBytes)}`, remaining: "Exact quotas in Supabase Usage", source: "manual", href: "https://supabase.com/dashboard" },
     { name: "Vercel", purpose: "Hosting and deployments", cadence: vercelMonthly ? "monthly" : "free", monthlyUsd: vercelMonthly, annualUsd: vercelMonthly * 12, allowance: vercelMonthly ? "Paid hosting plan" : "Hobby plan", consumed: process.env.VERCEL_ENV ?? "Production", remaining: "Usage API pending", source: "manual", href: "https://vercel.com/carabasai/carabasai-wq8s" },
     { name: "GoDaddy · carabasai.com", purpose: "Carabasai domain and business email", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 31 Jan 2027", consumed: "€21.99 / year", remaining: "Renew by 31 Jan 2027", source: "manual", href: "https://account.godaddy.com/products" },
@@ -128,10 +131,10 @@ export default async function AdminControlRoom() {
     { name: "Tilda Business", purpose: "Website builder subscription", cadence: "annual", monthlyUsd: tildaAnnualUsd / 12, annualUsd: tildaAnnualUsd, allowance: "Paid through 13 Oct 2027", consumed: "₽12,000 / year", remaining: "Renew by 13 Oct 2027", source: "manual", href: "https://tilda.cc/identity/plan/" },
     { name: "Cloudflare Turnstile", purpose: "Bot protection", cadence: "free", monthlyUsd: 0, annualUsd: 0, allowance: "Free", consumed: "Registration and recovery", remaining: "No subscription payment", source: "live", href: "https://dash.cloudflare.com/?to=/:account/turnstile" },
   ];
-  const fixedMonthly = cloudflareBaseMonthly + supabaseMonthly + vercelMonthly + godaddyAnnual / 12 + tildaAnnualUsd / 12;
+  const fixedMonthly = cloudflareBaseMonthly + chatGptPlusMonthlyUsd + supabaseMonthly + vercelMonthly + godaddyAnnual / 12 + tildaAnnualUsd / 12;
   const variableMonthly = cloudflareUsageMonth + anthropicUsageMonth + openAiUsageMonth;
   const monthlyTotal = fixedMonthly + variableMonthly;
-  const annualCommitted = cloudflareBaseMonthly * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual + tildaAnnualUsd;
+  const annualCommitted = cloudflareBaseMonthly * 12 + chatGptPlusMonthlyUsd * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual + tildaAnnualUsd;
   const annualProjection = monthlyTotal * 12;
   const monthlyTotalEur = monthlyTotal / rates.usdPerEur;
   const annualProjectionEur = annualProjection / rates.usdPerEur;
@@ -251,7 +254,7 @@ export default async function AdminControlRoom() {
             <div>
               <p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ALL SUBSCRIPTIONS · EUR</p>
               <h3 className="mt-2 text-xl font-black">Your complete payment picture</h3>
-              <p className="mt-2 text-[10px] leading-5 text-white/40">Cloudflare $5/mo · Claude $5/mo · GPT $5/mo · GoDaddy €43.98/yr · Tilda ₽12,000/yr</p>
+              <p className="mt-2 text-[10px] leading-5 text-white/40">Cloudflare $5/mo · Claude API $5/mo · OpenAI API $5/mo · ChatGPT Plus €23.58/mo · GoDaddy €43.98/yr · Tilda ₽12,000/yr</p>
               <p className="mt-2 text-[9px] text-white/25">Rate {rates.asOf}: €1 = ${rates.usdPerEur.toFixed(4)} · €1 = ₽{rates.rubPerEur.toFixed(4)}. Provider invoices remain the source of truth.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
