@@ -30,6 +30,20 @@ type GeminiImageResponse = {
   error?: { message?: string };
 };
 
+type DynamicImageReference = {
+  data?: string;
+  mimeType?: string;
+};
+
+const NANO_BANANA_STYLE_REFERENCE_COUNT = 10;
+const NANO_BANANA_DYNAMIC_REFERENCE_LIMIT = 4;
+const NANO_BANANA_REFERENCE_MODEL = "gemini-3.1-flash-image";
+const ALLOWED_REFERENCE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 function firstOutputUrl(output: ReplicatePrediction["output"]) {
   if (typeof output === "string") return output;
   if (Array.isArray(output))
@@ -174,10 +188,47 @@ async function waitForPrediction(
   throw new Error("Replicate generation timed out");
 }
 
+function selectStyleReferences<T>(references: T[], count: number) {
+  if (references.length <= count) return references;
+
+  // Sample across the complete portfolio instead of biasing the model toward
+  // the first faces in the collection. For Elias's 20 images this selects
+  // every second portrait and produces exactly ten style references.
+  return Array.from(
+    { length: count },
+    (_, index) => references[Math.floor((index * references.length) / count)],
+  );
+}
+
+function parseDynamicReferences(references?: DynamicImageReference[]) {
+  return (references ?? [])
+    .slice(0, NANO_BANANA_DYNAMIC_REFERENCE_LIMIT)
+    .flatMap((reference) => {
+      const mimeType = reference.mimeType?.trim().toLowerCase() ?? "";
+      const rawData = reference.data?.trim() ?? "";
+      if (!ALLOWED_REFERENCE_MIME_TYPES.has(mimeType) || !rawData) return [];
+
+      const data = rawData.replace(
+        /^data:image\/(?:jpeg|png|webp);base64,/i,
+        "",
+      );
+      if (!/^[a-z0-9+/=\s]+$/i.test(data)) return [];
+
+      // Keep request bodies bounded. Four 8 MB decoded images are already
+      // more than enough for casting references.
+      const estimatedBytes = Math.floor((data.length * 3) / 4);
+      if (estimatedBytes > 8 * 1024 * 1024) return [];
+
+      return [{ inlineData: { mimeType, data } }];
+    });
+}
+
 async function generateWithNanoBanana(
   specialist: (typeof characterCastingSpecialists)[number],
   prompt: string,
   aspectRatio: "9:16" | "1:1" | "16:9",
+  requestedModel?: string,
+  dynamicReferences: DynamicImageReference[] = [],
 ) {
   const apiKey =
     process.env.GEMINI_API_KEY ??
@@ -185,10 +236,26 @@ async function generateWithNanoBanana(
     process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) throw new Error("NANO_BANANA_NOT_CONFIGURED");
 
+  const allowedModels = new Set([
+    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
+    "gemini-3-pro-image",
+    "gemini-2.5-flash-image",
+  ]);
+  const configuredDefault =
+    process.env.NANO_BANANA_MODEL?.trim() || NANO_BANANA_REFERENCE_MODEL;
   const model =
-    process.env.NANO_BANANA_MODEL?.trim() || "gemini-3.1-flash-image";
+    requestedModel && allowedModels.has(requestedModel)
+      ? requestedModel
+      : allowedModels.has(configuredDefault)
+        ? configuredDefault
+        : NANO_BANANA_REFERENCE_MODEL;
+  const selectedStyleReferences = selectStyleReferences(
+    specialist.characterExamples,
+    NANO_BANANA_STYLE_REFERENCE_COUNT,
+  );
   const referenceParts = await Promise.all(
-    specialist.characterExamples.slice(0, 4).map(async (example) => {
+    selectedStyleReferences.map(async (example) => {
       const filePath = path.join(
         process.cwd(),
         "public",
@@ -205,6 +272,7 @@ async function generateWithNanoBanana(
       return { inlineData: { mimeType, data: data.toString("base64") } };
     }),
   );
+  const dynamicReferenceParts = parseDynamicReferences(dynamicReferences);
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -220,9 +288,10 @@ async function generateWithNanoBanana(
             role: "user",
             parts: [
               {
-                text: `${prompt}\n\nThe attached portraits are STYLE REFERENCES ONLY. Do not copy their identities. Match their stylized anatomy, sculptural facial treatment, plain black clothing, clean studio composition and saturated solid-color background. Generate one new full-body casting portrait. No text, labels, props, borders, collage, or watermark.`,
+                text: `${prompt}\n\nREFERENCE ORDER IS IMPORTANT. The first ${referenceParts.length} attached portraits are STYLE REFERENCES ONLY, sampled across the complete R001 portfolio. Never copy their identities. Match their unmistakably caricatured stop-motion puppet anatomy, sculpted silicone/clay facial treatment, realistically detailed hair, plain matte-black clothing, centered head-to-toe studio composition and saturated solid-color background. Any images after those first ${referenceParts.length} are DYNAMIC CHARACTER OR PROJECT REFERENCES: preserve only the explicitly relevant identity, anatomy or project details from them while rendering everything in R001. The result must visibly belong to this exact visual family and must not look like an ordinary real person. Create one new full-body casting portrait. No visible text, labels, props, borders, collage, or visible watermark.`,
               },
               ...referenceParts,
+              ...dynamicReferenceParts,
             ],
           },
         ],
@@ -250,6 +319,13 @@ async function generateWithNanoBanana(
     image: Buffer.from(base64, "base64"),
     generationId: crypto.randomUUID(),
     model,
+    referenceUsage: {
+      style: referenceParts.length,
+      dynamic: dynamicReferenceParts.length,
+      dynamicAvailable:
+        NANO_BANANA_DYNAMIC_REFERENCE_LIMIT - dynamicReferenceParts.length,
+      total: referenceParts.length + dynamicReferenceParts.length,
+    },
   };
 }
 
@@ -274,6 +350,8 @@ export async function POST(request: Request) {
     characterBrief?: string;
     aspectRatio?: "9:16" | "1:1" | "16:9";
     imageProvider?: "flux" | "banana";
+    imageModel?: string;
+    dynamicReferences?: DynamicImageReference[];
   };
   const projectId = body.projectId?.trim();
   const characterBrief = body.characterBrief?.trim().slice(0, 2_500);
@@ -304,11 +382,19 @@ export async function POST(request: Request) {
   const aspectRatio =
     body.aspectRatio ?? specialist.generation.defaultAspectRatio;
   const prompt = buildCharacterCastingPrompt(specialist, normalizedBrief);
-  const imageProvider = body.imageProvider === "banana" ? "banana" : "flux";
+  const imageProvider = body.imageProvider === "flux" ? "flux" : "banana";
   let image: Buffer;
   let generationId: string;
   let model: string;
   let outputUrl = "";
+  let referenceUsage:
+    | {
+        style: number;
+        dynamic: number;
+        dynamicAvailable: number;
+        total: number;
+      }
+    | undefined;
 
   if (imageProvider === "banana") {
     try {
@@ -316,10 +402,13 @@ export async function POST(request: Request) {
         specialist,
         prompt,
         aspectRatio,
+        body.imageModel,
+        body.dynamicReferences,
       );
       image = generated.image;
       generationId = generated.generationId;
       model = generated.model;
+      referenceUsage = generated.referenceUsage;
     } catch (error) {
       console.error("Nano Banana character generation failed", error);
       return NextResponse.json(
@@ -472,5 +561,6 @@ export async function POST(request: Request) {
     specialistId: specialist.id,
     model,
     imageProvider,
+    ...(referenceUsage ? { referenceUsage } : {}),
   });
 }
