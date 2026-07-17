@@ -130,6 +130,7 @@ export default function CharacterCastingPage() {
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
+  const [imageProvider, setImageProvider] = useState<"flux" | "banana">("flux");
   const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
   const [attachments, setAttachments] = useState<Array<{ name: string }>>([]);
@@ -184,6 +185,11 @@ export default function CharacterCastingPage() {
       localStorage.getItem("carabasaiAIProvider") === "openai"
         ? "openai"
         : "anthropic",
+    );
+    setImageProvider(
+      localStorage.getItem("carabasaiCastingImageProvider") === "banana"
+        ? "banana"
+        : "flux",
     );
   }, []);
 
@@ -406,6 +412,11 @@ export default function CharacterCastingPage() {
     localStorage.setItem("carabasaiAIProvider", value);
   }
 
+  function setImageProviderChoice(value: "flux" | "banana") {
+    setImageProvider(value);
+    localStorage.setItem("carabasaiCastingImageProvider", value);
+  }
+
   function choosePortfolioCharacter(
     character: CharacterCastingSpecialist["characterExamples"][number],
   ) {
@@ -565,6 +576,7 @@ export default function CharacterCastingPage() {
         specialistId: specialist.id,
         characterBrief: brief,
         aspectRatio: "9:16",
+        imageProvider,
       }),
     });
     const data = (await response.json()) as {
@@ -615,7 +627,8 @@ export default function CharacterCastingPage() {
       .replace(/\s+/g, " ");
     return [...availableCastingRoles]
       .sort(
-        (left, right) => normalizeRoleKey(right).length - normalizeRoleKey(left).length,
+        (left, right) =>
+          normalizeRoleKey(right).length - normalizeRoleKey(left).length,
       )
       .find((member) => {
         const role = normalizeRoleKey(member);
@@ -803,7 +816,8 @@ export default function CharacterCastingPage() {
         .reverse()
         .find(
           (message) =>
-            message.role === "user" && Boolean(roleMentionedIn(message.content)),
+            message.role === "user" &&
+            Boolean(roleMentionedIn(message.content)),
         );
       const previousRole = previousRequest
         ? roleMentionedIn(previousRequest.content)
@@ -1387,7 +1401,7 @@ export default function CharacterCastingPage() {
             </div>
           )}
           <footer className="shrink-0 border-t border-white/10 p-4">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="mb-2 flex flex-wrap items-end justify-between gap-3">
               <div className="flex gap-2">
                 <button
                   onClick={() => fileRef.current?.click()}
@@ -1406,19 +1420,45 @@ export default function CharacterCastingPage() {
                   RESET
                 </button>
               </div>
-              <div className="flex rounded-full border border-white/10 p-1">
-                <button
-                  onClick={() => setProviderChoice("anthropic")}
-                  className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                >
-                  CLAUDE
-                </button>
-                <button
-                  onClick={() => setProviderChoice("openai")}
-                  className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                >
-                  GPT
-                </button>
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
+                    DIALOGUE
+                  </div>
+                  <div className="flex rounded-full border border-white/10 p-1">
+                    <button
+                      onClick={() => setProviderChoice("anthropic")}
+                      className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
+                    >
+                      CLAUDE
+                    </button>
+                    <button
+                      onClick={() => setProviderChoice("openai")}
+                      className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
+                    >
+                      GPT
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
+                    GENERATION
+                  </div>
+                  <div className="flex rounded-full border border-white/10 p-1">
+                    <button
+                      onClick={() => setImageProviderChoice("flux")}
+                      className={`rounded-full px-4 py-2 text-[8px] font-black ${imageProvider === "flux" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
+                    >
+                      FLUX
+                    </button>
+                    <button
+                      onClick={() => setImageProviderChoice("banana")}
+                      className={`rounded-full px-4 py-2 text-[8px] font-black ${imageProvider === "banana" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
+                    >
+                      BANANA
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <input

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 import {
@@ -14,6 +16,18 @@ type ReplicatePrediction = {
   output?: string | string[];
   error?: string;
   urls?: { get?: string };
+};
+
+type GeminiImageResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        inlineData?: { data?: string; mimeType?: string };
+        inline_data?: { data?: string; mime_type?: string };
+      }>;
+    };
+  }>;
+  error?: { message?: string };
 };
 
 function firstOutputUrl(output: ReplicatePrediction["output"]) {
@@ -160,6 +174,85 @@ async function waitForPrediction(
   throw new Error("Replicate generation timed out");
 }
 
+async function generateWithNanoBanana(
+  specialist: (typeof characterCastingSpecialists)[number],
+  prompt: string,
+  aspectRatio: "9:16" | "1:1" | "16:9",
+) {
+  const apiKey =
+    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) throw new Error("NANO_BANANA_NOT_CONFIGURED");
+
+  const model =
+    process.env.NANO_BANANA_MODEL?.trim() || "gemini-3.1-flash-image";
+  const referenceParts = await Promise.all(
+    specialist.characterExamples.slice(0, 4).map(async (example) => {
+      const filePath = path.join(
+        process.cwd(),
+        "public",
+        example.image.replace(/^\//, ""),
+      );
+      const data = await readFile(filePath);
+      const extension = path.extname(filePath).toLowerCase();
+      const mimeType =
+        extension === ".png"
+          ? "image/png"
+          : extension === ".webp"
+            ? "image/webp"
+            : "image/jpeg";
+      return { inlineData: { mimeType, data: data.toString("base64") } };
+    }),
+  );
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `${prompt}\n\nThe attached portraits are STYLE REFERENCES ONLY. Do not copy their identities. Match their stylized anatomy, sculptural facial treatment, plain black clothing, clean studio composition and saturated solid-color background. Generate one new full-body casting portrait. No text, labels, props, borders, collage, or watermark.`,
+              },
+              ...referenceParts,
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          responseFormat: {
+            image: { aspectRatio, imageSize: "1K" },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(120_000),
+      cache: "no-store",
+    },
+  );
+  const data = (await response.json()) as GeminiImageResponse;
+  if (!response.ok) {
+    console.error("Nano Banana generation failed", response.status, data.error);
+    throw new Error("NANO_BANANA_GENERATION_FAILED");
+  }
+  const part = data.candidates
+    ?.flatMap((candidate) => candidate.content?.parts ?? [])
+    .find((item) => item.inlineData?.data || item.inline_data?.data);
+  const base64 = part?.inlineData?.data ?? part?.inline_data?.data;
+  if (!base64) throw new Error("NANO_BANANA_EMPTY_OUTPUT");
+
+  return {
+    image: Buffer.from(base64, "base64"),
+    generationId: crypto.randomUUID(),
+    model,
+  };
+}
+
 export async function POST(request: Request) {
   let access;
   try {
@@ -175,19 +268,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) {
-    return NextResponse.json(
-      { error: "CHARACTER GENERATION IS NOT CONFIGURED." },
-      { status: 503 },
-    );
-  }
-
   const body = (await request.json()) as {
     projectId?: string;
     specialistId?: string;
     characterBrief?: string;
     aspectRatio?: "9:16" | "1:1" | "16:9";
+    imageProvider?: "flux" | "banana";
   };
   const projectId = body.projectId?.trim();
   const characterBrief = body.characterBrief?.trim().slice(0, 2_500);
@@ -214,98 +300,138 @@ export async function POST(request: Request) {
     );
   }
 
-  const model =
-    process.env[specialist.generation.modelEnvironmentVariable]?.trim();
-  if (
-    !model ||
-    !/^[a-z0-9_.-]+\/[a-z0-9_.-]+(?::[a-f0-9]{64})?$/i.test(model)
-  ) {
-    return NextResponse.json(
-      { error: "THE SELECTED CASTING STYLE IS NOT CONNECTED." },
-      { status: 503 },
-    );
-  }
-
   const normalizedBrief = await normalizeVisualBrief(characterBrief);
-  const [modelSlug, version] = model.split(":");
-  const replicateResponse = await fetch(
-    version
-      ? "https://api.replicate.com/v1/predictions"
-      : `https://api.replicate.com/v1/models/${modelSlug}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=60",
-      },
-      body: JSON.stringify({
-        ...(version ? { version } : {}),
-        input: {
-          prompt: buildCharacterCastingPrompt(specialist, normalizedBrief),
-          aspect_ratio:
-            body.aspectRatio ?? specialist.generation.defaultAspectRatio,
-          lora_scale: specialist.generation.defaultLoraStrength,
-          num_outputs: 1,
-          output_format: "webp",
-          output_quality: 90,
+  const aspectRatio =
+    body.aspectRatio ?? specialist.generation.defaultAspectRatio;
+  const prompt = buildCharacterCastingPrompt(specialist, normalizedBrief);
+  const imageProvider = body.imageProvider === "banana" ? "banana" : "flux";
+  let image: Buffer;
+  let generationId: string;
+  let model: string;
+  let outputUrl = "";
+
+  if (imageProvider === "banana") {
+    try {
+      const generated = await generateWithNanoBanana(
+        specialist,
+        prompt,
+        aspectRatio,
+      );
+      image = generated.image;
+      generationId = generated.generationId;
+      model = generated.model;
+    } catch (error) {
+      console.error("Nano Banana character generation failed", error);
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error &&
+            error.message === "NANO_BANANA_NOT_CONFIGURED"
+              ? "NANO BANANA IS NOT CONNECTED."
+              : "CHARACTER COULD NOT BE GENERATED WITH NANO BANANA.",
         },
-      }),
-      cache: "no-store",
-    },
-  );
+        {
+          status:
+            error instanceof Error &&
+            error.message === "NANO_BANANA_NOT_CONFIGURED"
+              ? 503
+              : 502,
+        },
+      );
+    }
+  } else {
+    const token = process.env.REPLICATE_API_TOKEN;
+    model =
+      process.env[specialist.generation.modelEnvironmentVariable]?.trim() ?? "";
+    if (
+      !token ||
+      !/^[a-z0-9_.-]+\/[a-z0-9_.-]+(?::[a-f0-9]{64})?$/i.test(model)
+    ) {
+      return NextResponse.json(
+        { error: "THE SELECTED CASTING STYLE IS NOT CONNECTED." },
+        { status: 503 },
+      );
+    }
+    const [modelSlug, version] = model.split(":");
+    const replicateResponse = await fetch(
+      version
+        ? "https://api.replicate.com/v1/predictions"
+        : `https://api.replicate.com/v1/models/${modelSlug}/predictions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Prefer: "wait=60",
+        },
+        body: JSON.stringify({
+          ...(version ? { version } : {}),
+          input: {
+            prompt,
+            aspect_ratio: aspectRatio,
+            lora_scale: specialist.generation.defaultLoraStrength,
+            num_outputs: 1,
+            output_format: "webp",
+            output_quality: 90,
+          },
+        }),
+        cache: "no-store",
+      },
+    );
 
-  if (!replicateResponse.ok) {
-    console.error(
-      "Replicate character generation failed",
-      replicateResponse.status,
-      await replicateResponse.text(),
-    );
-    return NextResponse.json(
-      { error: "CHARACTER COULD NOT BE GENERATED." },
-      { status: 502 },
-    );
+    if (!replicateResponse.ok) {
+      console.error(
+        "Replicate character generation failed",
+        replicateResponse.status,
+        await replicateResponse.text(),
+      );
+      return NextResponse.json(
+        { error: "CHARACTER COULD NOT BE GENERATED." },
+        { status: 502 },
+      );
+    }
+
+    let prediction = (await replicateResponse.json()) as ReplicatePrediction;
+    try {
+      prediction = await waitForPrediction(token, prediction);
+    } catch (error) {
+      console.error("Replicate character generation polling failed", error);
+      return NextResponse.json(
+        { error: "CHARACTER GENERATION TIMED OUT." },
+        { status: 504 },
+      );
+    }
+
+    outputUrl = firstOutputUrl(prediction.output);
+    if (prediction.status !== "succeeded" || !outputUrl) {
+      console.error(
+        "Replicate character generation ended without output",
+        prediction.error ?? prediction.status,
+      );
+      return NextResponse.json(
+        { error: "CHARACTER GENERATION FAILED." },
+        { status: 502 },
+      );
+    }
+
+    const imageResponse = await fetch(outputUrl, { cache: "no-store" });
+    if (!imageResponse.ok) {
+      return NextResponse.json(
+        { error: "GENERATED CHARACTER COULD NOT BE DOWNLOADED." },
+        { status: 502 },
+      );
+    }
+
+    image = Buffer.from(await imageResponse.arrayBuffer());
+    generationId = prediction.id ?? crypto.randomUUID();
   }
 
-  let prediction = (await replicateResponse.json()) as ReplicatePrediction;
-  try {
-    prediction = await waitForPrediction(token, prediction);
-  } catch (error) {
-    console.error("Replicate character generation polling failed", error);
-    return NextResponse.json(
-      { error: "CHARACTER GENERATION TIMED OUT." },
-      { status: 504 },
-    );
-  }
-
-  const outputUrl = firstOutputUrl(prediction.output);
-  if (prediction.status !== "succeeded" || !outputUrl) {
-    console.error(
-      "Replicate character generation ended without output",
-      prediction.error ?? prediction.status,
-    );
-    return NextResponse.json(
-      { error: "CHARACTER GENERATION FAILED." },
-      { status: 502 },
-    );
-  }
-
-  const imageResponse = await fetch(outputUrl, { cache: "no-store" });
-  if (!imageResponse.ok) {
-    return NextResponse.json(
-      { error: "GENERATED CHARACTER COULD NOT BE DOWNLOADED." },
-      { status: 502 },
-    );
-  }
-
-  const image = Buffer.from(await imageResponse.arrayBuffer());
   if (!image.length) {
     return NextResponse.json(
       { error: "GENERATED CHARACTER WAS EMPTY." },
       { status: 502 },
     );
   }
-  const generationId = prediction.id ?? crypto.randomUUID();
   const actorName = generateCastingActorName(
     `${characterBrief}\n${normalizedBrief}`,
     generationId,
@@ -345,5 +471,6 @@ export async function POST(request: Request) {
     actorName,
     specialistId: specialist.id,
     model,
+    imageProvider,
   });
 }
