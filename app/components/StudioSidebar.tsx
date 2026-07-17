@@ -138,7 +138,12 @@ export default function StudioSidebar() {
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(session));
     if (session.id) localStorage.setItem(ACTIVE_PROJECT_KEY, session.id);
     setActiveProjectId(session.id ?? null);
-    router.push(session.projectDocument ? "/studio/project" : session.messages?.length ? "/studio/creative-room" : "/studio");
+    const casting = (session as SavedSession & { stage?: string; characterCasting?: unknown }).stage === "casting"
+      || Boolean((session as SavedSession & { characterCasting?: unknown }).characterCasting);
+    const destination = casting ? "/studio/character-casting" : session.projectDocument ? "/studio/project" : session.messages?.length ? "/studio/creative-room" : "/studio";
+    window.dispatchEvent(new Event("carabasai-active-project-change"));
+    if (window.location.pathname === destination) window.location.assign(destination);
+    else router.push(destination);
   }
 
   function persist(next: SavedSession[]) {

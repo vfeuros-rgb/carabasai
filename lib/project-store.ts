@@ -14,7 +14,7 @@ export type StoredProject = {
   notebook?: unknown[];
   projectDocument?: unknown;
   references?: unknown[];
-  stage?: "crew" | "dialogue" | "summary";
+  stage?: "crew" | "dialogue" | "summary" | "casting";
   [key: string]: unknown;
 };
 
@@ -35,6 +35,7 @@ function projectId(project: StoredProject) {
 }
 
 function stageOf(project: StoredProject) {
+  if (project.stage === "casting" || project.characterCasting) return "casting";
   if (project.projectDocument) return "summary";
   if (project.messages?.length) return "dialogue";
   return "crew";

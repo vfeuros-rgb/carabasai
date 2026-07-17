@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ACTIVE_PROJECT_KEY, deleteProject } from "../../lib/project-store";
 import { platformConfirm } from "../../lib/platform-dialog";
 
-type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown };
+type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown; stage?: string; characterCasting?: unknown };
 
 export default function WorkflowNav() {
   const pathname = usePathname();
@@ -35,11 +35,12 @@ export default function WorkflowNav() {
     };
   }, [projectMenuOpen]);
 
-  const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("project") ? "summary" : "";
+  const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("character-casting") ? "casting" : pathname.includes("project") ? "summary" : "";
   const steps = [
     { id: "setup", label: "CREW SETUP", href: "/studio", available: true },
     { id: "dialogue", label: "DIALOGUE", href: "/studio/creative-room", available: Boolean(progress.messages?.length) || active === "dialogue" || active === "summary" },
     { id: "summary", label: "SUMMARY", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
+    { id: "casting", label: "CASTING", href: "/studio/character-casting", available: Boolean(progress.characterCasting) || progress.stage === "casting" || active === "casting" },
   ].filter((step) => step.available);
 
   async function removeCurrentProject() {
