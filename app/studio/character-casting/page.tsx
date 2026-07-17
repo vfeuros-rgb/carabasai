@@ -12,9 +12,10 @@ type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
 type CastMember = { id: string; name: string; role: string; description: string; image?: string; storagePath?: string; source?: "portfolio" | "generated" };
 type Candidate = { image: string; storagePath?: string; source: "portfolio" | "generated"; description?: string };
 type CharacterAttachment = Candidate & { id: string; name: string };
-type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; candidatePool?: Candidate[]; pendingRoleMemberId?: string; initialized?: boolean };
+type GenerationFlow = { stage: "choose-role" | "describe" | "ready" | "candidate" | "rejected"; roleId?: string; roleLabel?: string; brief?: string; russian?: boolean };
+type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; candidatePool?: Candidate[]; pendingRoleMemberId?: string; generationFlow?: GenerationFlow; initialized?: boolean };
 type CastingSession = StoredProject & { projectDocument?: unknown; characterCastingSpecialist?: CharacterCastingSpecialist; characterCasting?: CastingState };
-type BusyMode = "summary" | "reply" | null;
+type BusyMode = "summary" | "reply" | "generation" | null;
 
 const uid = () => crypto.randomUUID();
 
@@ -65,6 +66,7 @@ export default function CharacterCastingPage() {
   const characters = casting.characters ?? [];
   const candidate = casting.candidate;
   const candidatePool = casting.candidatePool ?? [];
+  const generationFlow = casting.generationFlow;
 
   const candidateKey = (item: Candidate) => item.storagePath ?? item.image;
   const addToCandidatePool = (pool: Candidate[], item: Candidate) =>
@@ -122,19 +124,25 @@ export default function CharacterCastingPage() {
 
   function rejectCandidate() {
     if (!session || !candidate) return;
-    persist({ ...session, characterCasting: { ...casting, candidate: undefined, candidatePool: addToCandidatePool(candidatePool, candidate) } });
+    if (!generationFlow?.brief) {
+      persist({ ...session, characterCasting: { ...casting, candidate: undefined, candidatePool: addToCandidatePool(candidatePool, candidate) } });
+      return;
+    }
+    const russian = generationFlow?.russian ?? true;
+    const reply: ChatMessage = { id: uid(), role: "assistant", content: russian ? "Этот кандидат нам не подошёл. Меняем критерии или генерируем ещё раз?" : "This candidate did not fit. Shall we change the criteria or generate another one?" };
+    persist({ ...session, characterCasting: { ...casting, messages: [...messages, reply], candidate: undefined, candidatePool: addToCandidatePool(candidatePool, candidate), generationFlow: { ...generationFlow, stage: "rejected" } } });
   }
 
   async function hireCandidate() {
     if (!session || !candidate) return;
-    const target = characters.find((item) => !item.image);
+    const target = characters.find((item) => item.id === generationFlow?.roleId) ?? characters.find((item) => !item.image);
     const hired: CastMember = target
       ? { ...target, image: candidate.image, storagePath: candidate.storagePath, source: candidate.source }
       : { id: uid(), name: "NEW CAST MEMBER", role: "ROLE TO DEFINE", description: candidate.description ?? "Selected during casting.", image: candidate.image, storagePath: candidate.storagePath, source: candidate.source };
     const hiredCast = target ? characters.map((item) => item.id === target.id ? hired : item) : [...characters, hired];
-    const userPrompt: ChatMessage = { id: uid(), role: "user", content: `I hired the attached candidate. The current role is ${hired.role || "not defined"}. Ask me to confirm or change this role.` };
+    const userPrompt: ChatMessage = { id: uid(), role: "user", content: `I hired the attached candidate for ${hired.role || "an undefined role"}. Confirm briefly that this role is cast and ask which role we cast next.` };
     const next = [...messages, userPrompt];
-    const current: CastingSession = { ...session, characterCasting: { ...casting, messages: next, characters: hiredCast, candidate: undefined, pendingRoleMemberId: hired.id, candidatePool: candidatePool.filter((item) => candidateKey(item) !== candidateKey(candidate)) } };
+    const current: CastingSession = { ...session, characterCasting: { ...casting, messages: next, characters: hiredCast, candidate: undefined, pendingRoleMemberId: generationFlow?.roleId ? undefined : hired.id, generationFlow: undefined, candidatePool: candidatePool.filter((item) => candidateKey(item) !== candidateKey(candidate)) } };
     persist(current);
     setBusyMode("reply");
     try {
@@ -154,19 +162,73 @@ export default function CharacterCastingPage() {
     return { image: data.imageUrl, storagePath: data.storagePath, source: "generated" as const, description: brief };
   }
 
+  function beginGeneration(content: string) {
+    if (!session) return;
+    const russian = /[А-Яа-яЁё]/.test(content);
+    const userMessage: ChatMessage = { id: uid(), role: "user", content };
+    const reply: ChatMessage = { id: uid(), role: "assistant", content: russian ? "На какую роль ищем актёра? Выберите роль из блокнота." : "Which role are we casting? Choose a role from the notebook." };
+    setInput(""); setError("");
+    persist({ ...session, characterCasting: { ...casting, messages: [...messages, userMessage, reply], generationFlow: { stage: "choose-role", russian } } });
+  }
+
+  async function selectGenerationRole(member: CastMember) {
+    if (!session || busy) return;
+    const russian = generationFlow?.russian ?? true;
+    const roleLabel = member.role || member.name;
+    const selected: ChatMessage = { id: uid(), role: "user", content: `${russian ? "РОЛЬ" : "ROLE"}: ${roleLabel}` };
+    const nextMessages = [...messages, selected];
+    const knowsRole = Boolean(member.description && !/Role added manually|added manually|role to cast/i.test(member.description));
+    if (!knowsRole) {
+      const reply: ChatMessage = { id: uid(), role: "assistant", content: russian ? "Эту роль я пока не знаю. Опишите возраст, внешность, телосложение и важные особенности." : "I do not know this role yet. Describe the age, appearance, build and defining features." };
+      persist({ ...session, characterCasting: { ...casting, messages: [...nextMessages, reply], generationFlow: { stage: "describe", roleId: member.id, roleLabel, russian } } });
+      return;
+    }
+    setBusyMode("reply"); setError("");
+    try {
+      const control: ChatMessage = { id: uid(), role: "user", content: `Casting only: propose a concise physical appearance for the role "${roleLabel}" using this known role description: ${member.description}. End by saying the candidate is ready to generate.` };
+      const { reply } = await askAgent(session, [...nextMessages, control]);
+      persist({ ...session, characterCasting: { ...casting, messages: [...nextMessages, reply], generationFlow: { stage: "ready", roleId: member.id, roleLabel, brief: `${roleLabel}. ${member.description}. ${reply.content}`, russian } } });
+    } catch (e) { setError(e instanceof Error ? e.message : "CASTING AGENT COULD NOT RESPOND."); }
+    finally { setBusyMode(null); }
+  }
+
+  async function generateActor() {
+    if (!session || busy || !generationFlow?.brief) return;
+    setBusyMode("generation"); setError("");
+    try {
+      const generated = await generateCandidate(generationFlow.brief, session);
+      const reply: ChatMessage = { id: uid(), role: "assistant", content: generationFlow.russian ? "Кандидат готов. Он появился в блоке CAST слева. Нанимаем или отказываем?" : "The candidate is ready in the CAST tray. Hire or reject?" };
+      persist({ ...session, characterCasting: { ...casting, messages: [...messages, reply], candidate: generated, generationFlow: { ...generationFlow, stage: "candidate" } } });
+    } catch (e) { setError(e instanceof Error ? e.message : "CHARACTER COULD NOT BE GENERATED."); }
+    finally { setBusyMode(null); }
+  }
+
+  function changeGenerationCriteria() {
+    if (!session || !generationFlow) return;
+    const reply: ChatMessage = { id: uid(), role: "assistant", content: generationFlow.russian ? "Что меняем во внешности кандидата? Опишите новые критерии." : "What should change in the candidate's appearance? Describe the new criteria." };
+    persist({ ...session, characterCasting: { ...casting, messages: [...messages, reply], generationFlow: { ...generationFlow, stage: "describe" } } });
+  }
+
   async function sendMessage() {
     const content = input.trim();
     if (!session || !content || busy) return;
+    const wantsGeneration = /сгенер|созда[йт]|сделай.{0,24}(акт[её]р|персонаж|кандидат)|нов(ого|ый) (акт[её]р|персонаж|кандидат)|generate|new (actor|candidate|character)/i.test(content);
+    if (!generationFlow && wantsGeneration) {
+      beginGeneration(content);
+      return;
+    }
     setInput(""); setError(""); setBusyMode("reply");
     const userMessage: ChatMessage = { id: uid(), role: "user", content };
     const nextMessages = [...messages, userMessage];
     let current: CastingSession = { ...session, characterCasting: { ...casting, messages: nextMessages } };
     persist(current);
     try {
-      const wantsGeneration = /сгенер|созда[йт]|нов(ого|ый) персонаж|generate|new candidate/i.test(content);
-      if (wantsGeneration) {
-        const generated = await generateCandidate(content, current);
-        current = { ...current, characterCasting: { ...current.characterCasting, candidate: generated, candidatePool: addToCandidatePool(current.characterCasting?.candidatePool ?? [], generated) } };
+      if (generationFlow?.stage === "describe") {
+        const control: ChatMessage = { id: uid(), role: "user", content: `Casting only: briefly state what actor is needed for the role "${generationFlow.roleLabel}" from the user's appearance criteria. End by saying the candidate is ready to generate.` };
+        const { reply } = await askAgent(current, [...nextMessages, control]);
+        persist({ ...current, characterCasting: { ...current.characterCasting, messages: [...nextMessages, reply], generationFlow: { ...generationFlow, stage: "ready", brief: `${generationFlow.roleLabel}. ${content}. ${reply.content}` } } });
+        setCharacterAttachments([]);
+        return;
       }
       const activeCandidateAttachment: CharacterAttachment[] = current.characterCasting?.candidate ? [{ ...current.characterCasting.candidate, id: uid(), name: "CURRENT CAST CANDIDATE" }] : [];
       const visuals = [...characterAttachments, ...activeCandidateAttachment].filter((item, index, all) => all.findIndex((candidateItem) => candidateItem.image === item.image) === index);
@@ -177,7 +239,7 @@ export default function CharacterCastingPage() {
       if (pendingRoleId) {
         updatedCast = found.map((item) => item.id === pendingRoleId ? { ...item, role: content.slice(0, 80), name: item.name === "NEW CAST MEMBER" ? content.slice(0, 80) : item.name } : item);
         current = { ...current, characterCasting: { ...current.characterCasting, pendingRoleMemberId: undefined } };
-      } else if (currentCandidate && !wantsGeneration && /роль|герой|героин|персонаж|отец|мать|жена|муж|сын|дочь|главн/i.test(content)) {
+      } else if (currentCandidate && /роль|герой|героин|персонаж|отец|мать|жена|муж|сын|дочь|главн/i.test(content)) {
         const target = found.find((item) => !item.image) ?? { id: uid(), name: content.slice(0, 40), role: content, description: "Cast during the session." };
         updatedCast = found.map((item) => item.id === target.id ? { ...item, image: currentCandidate.image, storagePath: currentCandidate.storagePath, source: currentCandidate.source } : item);
         if (!updatedCast.some((item) => item.id === target.id)) updatedCast.push({ ...target, image: currentCandidate.image, storagePath: currentCandidate.storagePath, source: currentCandidate.source });
@@ -222,7 +284,11 @@ export default function CharacterCastingPage() {
       </aside>
       <section className="flex h-[calc(100dvh-105px)] min-h-[620px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0A0A0A]">
         <header className="shrink-0 border-b border-white/10 p-5"><p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">CHARACTER DEVELOPMENT</p><h1 className="mt-2 text-xl font-black">CAST THE PEOPLE WHO CARRY THE STORY.</h1></header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-4">{messages.map((message) => message.role === "assistant" ? <article key={message.id} className="flex gap-3"><Image src={specialist.portrait} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover"/><div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75"><p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">{specialist.name}</p>{message.content}</div></article> : <article key={message.id} className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black">{message.content}</article>)}{busy && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]"/>{specialist.name} {busyMode === "summary" ? "IS STUDYING THE SUMMARY..." : "IS THINKING..."}</div>}<div ref={chatEnd}/></div></div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-4">{messages.map((message) => message.role === "assistant" ? <article key={message.id} className="flex gap-3"><Image src={specialist.portrait} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover"/><div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75"><p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">{specialist.name}</p>{message.content}</div></article> : <article key={message.id} className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black">{message.content}</article>)}
+          {generationFlow?.stage === "choose-role" && <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4"><p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">CHOOSE ROLE FROM NOTEBOOK</p><div className="flex flex-wrap gap-2">{characters.map((member) => <button key={member.id} onClick={() => void selectGenerationRole(member)} disabled={busy} className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/70 transition hover:border-[#FFDF00] hover:text-[#FFDF00] disabled:opacity-30">{member.role || member.name}</button>)}</div>{characters.length === 0 && <p className="text-[9px] text-white/35">ADD A ROLE TO THE CHARACTER NOTEBOOK FIRST.</p>}</div>}
+          {generationFlow?.stage === "ready" && <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 p-3"><button onClick={() => void generateActor()} disabled={busy} className="w-full rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-30">GENERATE ACTOR</button></div>}
+          {generationFlow?.stage === "rejected" && <div className="ml-[52px] grid max-w-[82%] grid-cols-2 gap-2 rounded-[20px] border border-white/10 p-3"><button onClick={changeGenerationCriteria} disabled={busy} className="rounded-full border border-white/15 px-4 py-3 text-[8px] font-black text-white/60 disabled:opacity-30">CHANGE CRITERIA</button><button onClick={() => void generateActor()} disabled={busy || !generationFlow.brief} className="rounded-full bg-[#FFDF00] px-4 py-3 text-[8px] font-black text-black disabled:opacity-30">GENERATE AGAIN</button></div>}
+          {busy && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]"/>{specialist.name} {busyMode === "summary" ? "IS STUDYING THE SUMMARY..." : busyMode === "generation" ? "IS GENERATING AN ACTOR..." : "IS THINKING..."}</div>}<div ref={chatEnd}/></div></div>
         {error && <div className="mx-4 mb-2 rounded-xl border border-red-400/20 bg-red-500/5 p-3 text-[9px] text-red-200">{error}</div>}
         <footer className="shrink-0 border-t border-white/10 p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><button onClick={() => fileRef.current?.click()} className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black">＋ ADD REFERENCES</button><button onClick={() => { setInput(""); setAttachments([]); setCharacterAttachments([]); }} className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/45">RESET</button></div><div className="flex rounded-full border border-white/10 p-1"><button onClick={() => setProviderChoice("anthropic")} className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>CLAUDE</button><button onClick={() => setProviderChoice("openai")} className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>GPT</button></div></div><input ref={fileRef} type="file" multiple className="hidden" onChange={(event) => setAttachments(Array.from(event.target.files ?? []).map((file) => ({ name: file.name })))}/>{(attachments.length > 0 || characterAttachments.length > 0) && <div className="mb-2 flex flex-wrap gap-2">{characterAttachments.map((item) => <button key={item.id} onClick={() => setCharacterAttachments((current) => current.filter((saved) => saved.id !== item.id))} className="flex items-center gap-2 rounded-full border border-[#FFDF00]/35 bg-[#FFDF00]/5 py-1 pl-1 pr-3 text-[8px] font-black text-[#FFDF00]"><Image src={item.image} alt="" width={28} height={28} unoptimized={item.image.startsWith("http")} className="h-7 w-7 rounded-full object-cover object-top"/><span>{item.name}</span><span>×</span></button>)}{attachments.map((item) => <span key={item.name} className="rounded-full border border-white/10 px-3 py-2 text-[8px] text-white/35">{item.name}</span>)}</div>}<div className="flex items-end gap-3 rounded-[20px] border border-white/10 bg-black p-3"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="DIRECT THE CASTING..." className="min-h-12 flex-1 resize-none bg-transparent p-3 text-sm outline-none"/><button onClick={() => void sendMessage()} disabled={!input.trim() || busy} className="rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-25">SEND</button></div></footer>
       </section>
