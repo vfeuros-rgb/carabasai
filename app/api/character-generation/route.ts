@@ -180,7 +180,9 @@ async function generateWithNanoBanana(
   aspectRatio: "9:16" | "1:1" | "16:9",
 ) {
   const apiKey =
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    process.env.GEMINI_API_KEY ??
+    process.env.GOOGLE_AI_API_KEY ??
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) throw new Error("NANO_BANANA_NOT_CONFIGURED");
 
   const model =
@@ -205,7 +207,7 @@ async function generateWithNanoBanana(
   );
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(model)}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
       headers: {
@@ -226,9 +228,7 @@ async function generateWithNanoBanana(
         ],
         generationConfig: {
           responseModalities: ["IMAGE"],
-          responseFormat: {
-            image: { aspectRatio, imageSize: "1K" },
-          },
+          imageConfig: { aspectRatio, imageSize: "1K" },
         },
       }),
       signal: AbortSignal.timeout(120_000),
