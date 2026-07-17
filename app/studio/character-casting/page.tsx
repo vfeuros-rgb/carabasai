@@ -62,6 +62,25 @@ type BusyMode = "summary" | "reply" | "generation" | null;
 
 const uid = () => crypto.randomUUID();
 
+function removeDuplicateCastAssignments(members: CastMember[]) {
+  const assigned = new Set<string>();
+  return members.map((member) => {
+    const key = member.storagePath ?? member.image;
+    if (!key || !assigned.has(key)) {
+      if (key) assigned.add(key);
+      return member;
+    }
+    const {
+      actorName: _actorName,
+      image: _image,
+      storagePath: _storagePath,
+      source: _source,
+      ...roleOnly
+    } = member;
+    return roleOnly;
+  });
+}
+
 export default function CharacterCastingPage() {
   const [session, setSession] = useState<CastingSession | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
@@ -98,7 +117,28 @@ export default function CharacterCastingPage() {
     const raw = sessionStorage.getItem("carabasaiCreativeSession");
     if (!raw) return;
     const restored = JSON.parse(raw) as CastingSession;
-    setSession(restored);
+    const restoredCharacters = restored.characterCasting?.characters ?? [];
+    const cleanedCharacters =
+      removeDuplicateCastAssignments(restoredCharacters);
+    const cleaned = restored.characterCasting
+      ? {
+          ...restored,
+          characterCasting: {
+            ...restored.characterCasting,
+            characters: cleanedCharacters,
+          },
+        }
+      : restored;
+    if (
+      JSON.stringify(cleanedCharacters) !== JSON.stringify(restoredCharacters)
+    ) {
+      sessionStorage.setItem(
+        "carabasaiCreativeSession",
+        JSON.stringify(cleaned),
+      );
+      saveProject(cleaned);
+    }
+    setSession(cleaned);
     setProvider(
       localStorage.getItem("carabasaiAIProvider") === "openai"
         ? "openai"
@@ -174,27 +214,14 @@ export default function CharacterCastingPage() {
         throw new Error(data.error ?? "CASTING AGENT COULD NOT RESPOND.");
       const existing = current.characterCasting?.characters ?? [];
       const detected = (data.characters ?? []).map((item, index) => {
-        const match = existing.find(
-          (member) => member.name.toLowerCase() === item.name.toLowerCase(),
-        );
         return {
-          id: match?.id ?? `story-${index}-${item.name}`,
+          id: `story-${index}-${item.name}`,
           ...item,
-          actorName: match?.actorName,
-          image: match?.image,
-          storagePath: match?.storagePath,
-          source: match?.source,
         } as CastMember;
       });
-      const merged = [
-        ...detected,
-        ...existing.filter(
-          (member) =>
-            !detected.some(
-              (item) => item.name.toLowerCase() === member.name.toLowerCase(),
-            ),
-        ),
-      ];
+      // Once the notebook exists, it is user-owned state. The language model may
+      // discuss it, but it must never reorder roles or move actor assignments.
+      const merged = existing.length > 0 ? existing : detected;
       const reply: ChatMessage = {
         id: uid(),
         role: "assistant",
@@ -527,7 +554,7 @@ export default function CharacterCastingPage() {
             stage: "ready",
             roleId: member.id,
             roleLabel,
-            brief: `${roleLabel}. ${member.description}. ${reply.content}`,
+            brief: `ROLE: ${roleLabel}. ROLE CONTEXT: ${member.description}`,
             russian,
           },
         },
@@ -628,7 +655,7 @@ export default function CharacterCastingPage() {
             generationFlow: {
               ...generationFlow,
               stage: "ready",
-              brief: `${generationFlow.roleLabel}. ${content}. ${reply.content}`,
+              brief: `ROLE: ${generationFlow.roleLabel}. NON-NEGOTIABLE APPEARANCE: ${content}`,
             },
           },
         });
@@ -662,7 +689,6 @@ export default function CharacterCastingPage() {
         false,
         visuals,
       );
-      const currentCandidate = current.characterCasting?.candidate;
       let updatedCast = found;
       const pendingRoleId = current.characterCasting?.pendingRoleMemberId;
       if (pendingRoleId) {
@@ -683,49 +709,6 @@ export default function CharacterCastingPage() {
           characterCasting: {
             ...current.characterCasting,
             pendingRoleMemberId: undefined,
-          },
-        };
-      } else if (
-        currentCandidate &&
-        /роль|герой|героин|персонаж|отец|мать|жена|муж|сын|дочь|главн/i.test(
-          content,
-        )
-      ) {
-        const target = found.find((item) => !item.image) ?? {
-          id: uid(),
-          name: content.slice(0, 40),
-          role: content,
-          description: "Cast during the session.",
-        };
-        updatedCast = found.map((item) =>
-          item.id === target.id
-            ? {
-                ...item,
-                actorName: currentCandidate.actorName,
-                image: currentCandidate.image,
-                storagePath: currentCandidate.storagePath,
-                source: currentCandidate.source,
-              }
-            : item,
-        );
-        if (!updatedCast.some((item) => item.id === target.id))
-          updatedCast.push({
-            ...target,
-            actorName: currentCandidate.actorName,
-            image: currentCandidate.image,
-            storagePath: currentCandidate.storagePath,
-            source: currentCandidate.source,
-          });
-        current = {
-          ...current,
-          characterCasting: {
-            ...current.characterCasting,
-            candidate: undefined,
-            candidatePool: (
-              current.characterCasting?.candidatePool ?? []
-            ).filter(
-              (item) => candidateKey(item) !== candidateKey(currentCandidate),
-            ),
           },
         };
       }

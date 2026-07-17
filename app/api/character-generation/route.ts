@@ -50,6 +50,80 @@ function detectImageType(image: Buffer) {
   return { contentType: "image/webp", extension: "webp" };
 }
 
+async function normalizeVisualBrief(brief: string) {
+  if (!/[А-Яа-яЁё]/.test(brief)) return brief;
+
+  const instruction = `Translate the casting brief below into concise English for an image model.
+Preserve every explicit fact exactly, especially age, apparent gender, ancestry, skin tone, hair color, hair texture, facial hair, height, build and distinguishing features.
+Do not invent, remove, soften or reinterpret any attribute. Output only the English visual description, with no commentary.
+
+CASTING BRIEF:
+${brief}`;
+
+  try {
+    if (process.env.ANTHROPIC_API_KEY) {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+          max_tokens: 300,
+          temperature: 0,
+          messages: [{ role: "user", content: instruction }],
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (response.ok) {
+        const data = (await response.json()) as {
+          content?: Array<{ type?: string; text?: string }>;
+        };
+        const translated = data.content?.find(
+          (item) => item.type === "text",
+        )?.text;
+        if (translated?.trim()) return translated.trim();
+      }
+    }
+
+    if (process.env.OPENAI_API_KEY) {
+      const response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra",
+          instructions:
+            "Translate casting briefs into exact, concise English visual descriptions. Preserve every explicit attribute and output only the translation.",
+          input: brief,
+          reasoning: { effort: "low" },
+          max_output_tokens: 300,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (response.ok) {
+        const data = (await response.json()) as {
+          output?: Array<{
+            content?: Array<{ type?: string; text?: string }>;
+          }>;
+        };
+        const translated = data.output
+          ?.flatMap((item) => item.content ?? [])
+          .find((item) => item.type === "output_text")?.text;
+        if (translated?.trim()) return translated.trim();
+      }
+    }
+  } catch (error) {
+    console.error("Casting brief normalization failed", error);
+  }
+
+  return brief;
+}
+
 async function waitForPrediction(
   token: string,
   prediction: ReplicatePrediction,
@@ -152,6 +226,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const normalizedBrief = await normalizeVisualBrief(characterBrief);
   const [modelSlug, version] = model.split(":");
   const replicateResponse = await fetch(
     version
@@ -167,7 +242,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         ...(version ? { version } : {}),
         input: {
-          prompt: buildCharacterCastingPrompt(specialist, characterBrief),
+          prompt: buildCharacterCastingPrompt(specialist, normalizedBrief),
           aspect_ratio:
             body.aspectRatio ?? specialist.generation.defaultAspectRatio,
           lora_scale: specialist.generation.defaultLoraStrength,

@@ -175,7 +175,17 @@ export function buildCharacterCastingPrompt(
   specialist: CharacterCastingSpecialist,
   characterBrief: string,
 ) {
-  return `${specialist.generation.triggerWord}, ${specialist.visualPromptTemplate}\n\nCHARACTER BRIEF:\n${characterBrief.trim()}\n\nGenerate one full-body character casting portrait on a simple studio background. No text, typography, logos, watermarks, collage or costume design.`;
+  return `${specialist.generation.triggerWord}. ${specialist.generation.triggerWord} character casting portrait.
+
+NON-NEGOTIABLE CHARACTER IDENTITY:
+${characterBrief.trim()}
+
+Follow every explicit identity attribute exactly. Age, apparent gender, ancestry, skin tone, hair color, hair texture, facial hair, height, build and distinguishing features are hard requirements. Never replace, omit, soften or reinterpret them.
+
+CASTING STYLE:
+${specialist.visualPromptTemplate}
+
+One single person, full body from head to toe, centered vertical 9:16 casting portrait, simple neutral studio background, face clearly visible, neutral pre-costume clothing. No text, typography, logos, watermarks, collage, split screen, extra people, elaborate costume, hat, cropped head, cropped feet, beauty-advertising polish or generic fashion-model face.`;
 }
 
 const generatedActorNames = {
