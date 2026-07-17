@@ -11,7 +11,7 @@ import { characterCastingSpecialists, type CharacterCastingSpecialist } from "..
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
 type CastMember = { id: string; name: string; role: string; description: string; image?: string; storagePath?: string; source?: "portfolio" | "generated" };
 type Candidate = { image: string; storagePath?: string; source: "portfolio" | "generated"; description?: string };
-type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; initialized?: boolean };
+type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; candidatePool?: Candidate[]; initialized?: boolean };
 type CastingSession = StoredProject & { projectDocument?: unknown; characterCastingSpecialist?: CharacterCastingSpecialist; characterCasting?: CastingState };
 
 const uid = () => crypto.randomUUID();
@@ -19,6 +19,7 @@ const uid = () => crypto.randomUUID();
 export default function CharacterCastingPage() {
   const [session, setSession] = useState<CastingSession | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [candidatePoolOpen, setCandidatePoolOpen] = useState(false);
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
@@ -54,6 +55,11 @@ export default function CharacterCastingPage() {
   const messages = casting.messages ?? [];
   const characters = casting.characters ?? [];
   const candidate = casting.candidate;
+  const candidatePool = casting.candidatePool ?? [];
+
+  const candidateKey = (item: Candidate) => item.storagePath ?? item.image;
+  const addToCandidatePool = (pool: Candidate[], item: Candidate) =>
+    pool.some((saved) => candidateKey(saved) === candidateKey(item)) ? pool : [item, ...pool];
 
   const askAgent = useCallback(async (current: CastingSession, nextMessages: ChatMessage[], initial = false) => {
     const response = await authenticatedFetch("/api/casting-room", {
@@ -96,8 +102,8 @@ export default function CharacterCastingPage() {
   }
 
   function rejectCandidate() {
-    if (!session) return;
-    persist({ ...session, characterCasting: { ...casting, candidate: undefined } });
+    if (!session || !candidate) return;
+    persist({ ...session, characterCasting: { ...casting, candidate: undefined, candidatePool: addToCandidatePool(candidatePool, candidate) } });
   }
 
   async function hireCandidate() {
@@ -135,7 +141,7 @@ export default function CharacterCastingPage() {
       const wantsGeneration = /сгенер|созда[йт]|нов(ого|ый) персонаж|generate|new candidate/i.test(content);
       if (wantsGeneration) {
         const generated = await generateCandidate(content, current);
-        current = { ...current, characterCasting: { ...current.characterCasting, candidate: generated } };
+        current = { ...current, characterCasting: { ...current.characterCasting, candidate: generated, candidatePool: addToCandidatePool(current.characterCasting?.candidatePool ?? [], generated) } };
       }
       const { reply, characters: found } = await askAgent(current, nextMessages);
       const currentCandidate = current.characterCasting?.candidate;
@@ -144,7 +150,7 @@ export default function CharacterCastingPage() {
         const target = found.find((item) => !item.image) ?? { id: uid(), name: content.slice(0, 40), role: content, description: "Cast during the session." };
         updatedCast = found.map((item) => item.id === target.id ? { ...item, image: currentCandidate.image, storagePath: currentCandidate.storagePath, source: currentCandidate.source } : item);
         if (!updatedCast.some((item) => item.id === target.id)) updatedCast.push({ ...target, image: currentCandidate.image, storagePath: currentCandidate.storagePath, source: currentCandidate.source });
-        current = { ...current, characterCasting: { ...current.characterCasting, candidate: undefined } };
+        current = { ...current, characterCasting: { ...current.characterCasting, candidate: undefined, candidatePool: (current.characterCasting?.candidatePool ?? []).filter((item) => candidateKey(item) !== candidateKey(currentCandidate)) } };
       }
       persist({ ...current, characterCasting: { ...current.characterCasting, messages: [...nextMessages, reply], characters: updatedCast } });
     } catch (e) { setError(e instanceof Error ? e.message : "CASTING AGENT COULD NOT RESPOND."); }
@@ -165,7 +171,7 @@ export default function CharacterCastingPage() {
         <button onClick={() => setPortfolioOpen(true)} className="w-full rounded-[22px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4 text-left"><div className="flex items-center gap-3"><Image src={specialist.portrait} alt="" width={58} height={58} className="h-14 w-14 rounded-[14px] object-cover object-top"/><div><p className="text-[8px] font-black tracking-[.14em] text-[#FFDF00]">CASTING LEAD</p><h2 className="mt-1 text-base font-black">{specialist.name}</h2><p className="mt-1 text-[8px] text-white/35">CHANGE SPECIALIST →</p></div></div></button>
         <button onClick={() => setPortfolioOpen(true)} className="w-full rounded-full border border-white/10 px-5 py-3 text-[9px] font-black hover:border-[#FFDF00]/40">OPEN PORTFOLIO / 20</button>
         <section className="max-h-[280px] overflow-y-auto rounded-[22px] border border-white/10 p-4"><div className="sticky top-0 flex items-center justify-between bg-[#050505] pb-3"><p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">CHARACTER NOTEBOOK</p><button onClick={() => setPortfolioOpen(true)} className="text-lg text-[#FFDF00]">＋</button></div>{characters.length ? <div className="space-y-2">{characters.map((member) => <article key={member.id} className="flex items-center gap-3 rounded-xl border border-white/8 p-2">{member.image ? <Image src={member.image} alt="" width={38} height={38} className="h-9 w-9 rounded-full object-cover object-top"/> : <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-xs">?</div>}<div className="min-w-0 flex-1"><p className="truncate text-[9px] font-black">{member.name}</p><p className="truncate text-[8px] text-white/35">{member.role || "ROLE TO CAST"}</p></div><button onClick={() => removeCharacter(member.id)} className="text-white/25 hover:text-red-300">×</button></article>)}</div> : <p className="text-[10px] leading-5 text-white/30">The specialist is reading the project document.</p>}</section>
-        <section className="rounded-[22px] border border-white/10 p-4"><div className="flex items-center justify-between"><p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">CAST</p><button onClick={() => setPortfolioOpen(true)} className="text-lg text-[#FFDF00]">＋</button></div>{candidate ? <><Image src={candidate.image} alt="Candidate" width={180} height={320} unoptimized={candidate.image.startsWith("http")} className="mt-3 aspect-[9/16] max-h-64 w-full rounded-xl object-cover object-top"/><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={rejectCandidate} className="rounded-full border border-white/10 py-2 text-[8px] font-black">REJECT</button><button onClick={() => void hireCandidate()} className="rounded-full bg-[#FFDF00] py-2 text-[8px] font-black text-black">HIRE</button></div></> : <p className="mt-3 text-[9px] leading-5 text-white/30">A selected or generated candidate appears here before hiring.</p>}</section>
+        <section className="rounded-[22px] border border-white/10 p-4"><div className="flex items-center justify-between"><div><p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">CAST</p><p className="mt-1 text-[7px] text-white/25">CANDIDATE TRAY · {candidatePool.length}</p></div><button onClick={() => setCandidatePoolOpen((value) => !value)} className={`text-lg ${candidatePoolOpen ? "text-white" : "text-[#FFDF00]"}`}>{candidatePoolOpen ? "−" : "＋"}</button></div>{candidatePoolOpen && <div className="mt-3 grid max-h-52 grid-cols-3 gap-1 overflow-y-auto">{candidatePool.length ? candidatePool.map((item) => <button key={candidateKey(item)} onClick={() => { if (!session) return; persist({ ...session, characterCasting: { ...casting, candidate: item } }); setCandidatePoolOpen(false); }} className={`relative aspect-[9/16] overflow-hidden rounded-md border ${candidate && candidateKey(candidate) === candidateKey(item) ? "border-[#FFDF00]" : "border-white/10"}`}><Image src={item.image} alt="Saved casting candidate" fill sizes="90px" unoptimized={item.image.startsWith("http")} className="object-cover object-top"/></button>) : <p className="col-span-3 py-4 text-[8px] leading-4 text-white/25">Generated and rejected candidates will wait here.</p>}</div>}{candidate ? <><Image src={candidate.image} alt="Candidate" width={180} height={320} unoptimized={candidate.image.startsWith("http")} className="mt-3 aspect-[9/16] max-h-64 w-full rounded-xl object-cover object-top"/><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={rejectCandidate} className="rounded-full border border-white/10 py-2 text-[8px] font-black">REJECT</button><button onClick={() => void hireCandidate()} className="rounded-full bg-[#FFDF00] py-2 text-[8px] font-black text-black">HIRE</button></div></> : <p className="mt-3 text-[9px] leading-5 text-white/30">Generate a new candidate or select one from the specialist portfolio.</p>}</section>
       </aside>
       <section className="flex h-[calc(100dvh-105px)] min-h-[620px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0A0A0A]">
         <header className="shrink-0 border-b border-white/10 p-5"><p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">CHARACTER DEVELOPMENT</p><h1 className="mt-2 text-xl font-black">CAST THE PEOPLE WHO CARRY THE STORY.</h1></header>
