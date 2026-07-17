@@ -161,7 +161,7 @@ export const characterCastingSpecialists: CharacterCastingSpecialist[] = [
       { title: "SLEEPY HOLLOW", year: "1999" },
     ],
     visualPromptTemplate:
-      "Apply the trained R001 gothic character-casting look exactly. This is a stylized, sculptural casting portrait with deliberately exaggerated yet believable facial structure, anatomy, posture and body silhouette. Prefer sharp or irregular features, unconventional body types, lived-in tactile skin, expressive asymmetry and raw physical presence. The result must look like a character maquette from the R001 portfolio, not an ordinary realistic person, fashion photograph or beauty portrait. Dress every subject in the same minimal all-black casting uniform: a plain black turtleneck or plain black long-sleeve top, black trousers and simple black shoes. Place the subject against one clean, seamless, richly colored studio backdrop such as burgundy, mustard yellow, cyan, burnt orange, dusty pink, deep red or blue-grey. Use soft diffused cinematic studio lighting. The face and body carry the character; there is no costume design, jewelry, pattern, prop or location yet.",
+      "Full-body studio character portrait in a dark whimsical stop-motion claymation animation language. Exaggerated caricature proportions, sculpted silicone or clay-like skin with visible pores and subtle imperfections, stylized elongated or distorted puppet anatomy, slightly uncanny and doll-like. Hair remains realistically detailed strand by strand. The character wears a plain matte-black long-sleeve turtleneck, plain black trousers and black shoes. Standing straight, arms relaxed at the sides, facing camera, full body visible head to toe and centered. Neutral, deadpan or subtly unsettling expression. Solid vivid saturated seamless studio background chosen from magenta, mustard yellow, teal, cyan, coral, forest green, royal blue, crimson, orange or indigo. Soft studio lighting, slight vignette, photographic 3D render quality and shallow depth of field.",
     generation: {
       triggerWord: "R001",
       modelEnvironmentVariable: "REPLICATE_R001_MODEL",
@@ -177,6 +177,9 @@ export function buildCharacterCastingPrompt(
 ) {
   return `${specialist.generation.triggerWord}. ${specialist.generation.triggerWord} character casting portrait.
 
+CORE STYLE, NEVER OVERRIDE:
+Full-body studio character portrait in the style of stop-motion claymation and dark whimsical puppet animation. This is a CARICATURE, not a realistic human photograph. The proportions must be visibly stylized, elongated, compressed or distorted like a handcrafted stop-motion puppet.
+
 NON-NEGOTIABLE CHARACTER IDENTITY:
 ${characterBrief.trim()}
 
@@ -187,12 +190,13 @@ ${specialist.visualPromptTemplate}
 
 PRESENTATION RULES, ALL REQUIRED:
 - One single person, full body from head to toe, centered in a vertical 9:16 casting portrait.
-- Stylized and sculptural R001 proportions. Do not fall back to ordinary human realism or generic fashion photography.
+- Strongly exaggerated caricature anatomy and sculpted puppet proportions. Never ordinary human realism, generic fashion photography or a conventionally beautiful model.
+- Sculpted silicone or clay-like skin with tactile pores and small imperfections; realistic, finely rendered hair.
 - Plain all-black casting uniform only: black turtleneck or black long-sleeve top, black trousers and black shoes. No other clothing color.
 - One saturated seamless colored studio backdrop in the R001 portfolio language. No real location, scenery, grey background, white background or neutral photographic backdrop.
 - Face clearly visible, soft diffused cinematic studio light, tactile skin and a clean floor-to-background sweep.
 
-No text, typography, logos, watermarks, collage, split screen, extra people, elaborate costume, hat, jewelry, accessories, props, patterns, cropped head, cropped feet, beauty-advertising polish, ordinary realistic proportions or generic fashion-model face.`;
+No visible text, typography, logos, visible watermarks, collage, split screen, extra people, elaborate costume, hat, jewelry, accessories, props, patterns, cropped head, cropped feet, beauty-advertising polish, ordinary realistic proportions or generic fashion-model face.`;
 }
 
 const generatedActorNames = {

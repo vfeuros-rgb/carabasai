@@ -66,6 +66,22 @@ type CastingSession = StoredProject & {
   characterCasting?: CastingState;
 };
 type BusyMode = "summary" | "reply" | "generation" | null;
+type ImageModelId =
+  | "gemini-3.1-flash-image"
+  | "gemini-3-pro-image"
+  | "gemini-2.5-flash-image"
+  | "flux-r001-lora";
+
+const imageModels: Array<{
+  id: ImageModelId;
+  label: string;
+  provider: "flux" | "banana";
+}> = [
+  { id: "gemini-3.1-flash-image", label: "NANO BANANA 2", provider: "banana" },
+  { id: "gemini-3-pro-image", label: "NANO BANANA PRO", provider: "banana" },
+  { id: "gemini-2.5-flash-image", label: "NANO BANANA", provider: "banana" },
+  { id: "flux-r001-lora", label: "FLUX R001 LORA", provider: "flux" },
+];
 
 const uid = () => crypto.randomUUID();
 
@@ -125,12 +141,14 @@ export default function CharacterCastingPage() {
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [myCastOpen, setMyCastOpen] = useState(false);
   const [candidatePreviewOpen, setCandidatePreviewOpen] = useState(false);
-  const [candidatePoolOpen, setCandidatePoolOpen] = useState(false);
   const [accountCast, setAccountCast] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
-  const [imageProvider, setImageProvider] = useState<"flux" | "banana">("flux");
+  const [imageProvider, setImageProvider] = useState<"flux" | "banana">("banana");
+  const [imageModel, setImageModel] = useState<ImageModelId>(
+    "gemini-3.1-flash-image",
+  );
   const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
   const [attachments, setAttachments] = useState<Array<{ name: string }>>([]);
@@ -186,11 +204,13 @@ export default function CharacterCastingPage() {
         ? "openai"
         : "anthropic",
     );
-    setImageProvider(
-      localStorage.getItem("carabasaiCastingImageProvider") === "banana"
-        ? "banana"
-        : "flux",
-    );
+    const storedImageModel = localStorage.getItem(
+      "carabasaiCastingImageModel",
+    ) as ImageModelId | null;
+    const selectedImageModel =
+      imageModels.find((item) => item.id === storedImageModel) ?? imageModels[0];
+    setImageModel(selectedImageModel.id);
+    setImageProvider(selectedImageModel.provider);
   }, []);
 
   useEffect(() => {
@@ -266,6 +286,43 @@ export default function CharacterCastingPage() {
         myCast: addToCandidatePool(projectCast, candidate),
       },
     });
+  }
+
+  async function downloadCandidate() {
+    if (!candidate) return;
+    const response = await fetch(candidate.image);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${candidate.actorName ?? "casting-candidate"}.png`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function shareCandidate() {
+    if (!candidate) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: candidate.actorName ?? "Casting candidate",
+        text: "Casting candidate from Carabasai Studio",
+        url: candidate.image,
+      });
+      return;
+    }
+    await navigator.clipboard.writeText(candidate.image);
+  }
+
+  function deleteCandidate() {
+    if (!session || !candidate) return;
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        candidate: undefined,
+      },
+    });
+    setCandidatePreviewOpen(false);
   }
 
   function chooseMyCastCharacter(item: Candidate) {
@@ -412,9 +469,12 @@ export default function CharacterCastingPage() {
     localStorage.setItem("carabasaiAIProvider", value);
   }
 
-  function setImageProviderChoice(value: "flux" | "banana") {
-    setImageProvider(value);
-    localStorage.setItem("carabasaiCastingImageProvider", value);
+  function setImageModelChoice(value: ImageModelId) {
+    const model = imageModels.find((item) => item.id === value) ?? imageModels[0];
+    setImageModel(model.id);
+    setImageProvider(model.provider);
+    localStorage.setItem("carabasaiCastingImageModel", model.id);
+    localStorage.setItem("carabasaiCastingImageProvider", model.provider);
   }
 
   function choosePortfolioCharacter(
@@ -1014,11 +1074,11 @@ export default function CharacterCastingPage() {
     <main className="min-h-screen bg-[#050505] px-4 pb-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+28px)] md:pt-5">
       <StudioSidebar />
       <WorkflowNav />
-      <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[290px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+      <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[290px_minmax(0,1fr)] lg:gap-5">
+        <aside className="space-y-2 lg:space-y-4">
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="w-full rounded-[22px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4 text-left"
+            className="w-full rounded-[18px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-3 text-left lg:rounded-[22px] lg:p-4"
           >
             <div className="flex items-center gap-3">
               <Image
@@ -1026,7 +1086,7 @@ export default function CharacterCastingPage() {
                 alt=""
                 width={58}
                 height={58}
-                className="h-14 w-14 rounded-[14px] object-cover object-top"
+                className="h-11 w-11 rounded-[12px] object-cover object-top lg:h-14 lg:w-14 lg:rounded-[14px]"
               />
               <div>
                 <p className="text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
@@ -1041,17 +1101,17 @@ export default function CharacterCastingPage() {
           </button>
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="w-full rounded-full border border-white/10 px-5 py-3 text-[9px] font-black hover:border-[#FFDF00]/40"
+            className="w-full rounded-full border border-white/10 px-4 py-2 text-[8px] font-black hover:border-[#FFDF00]/40 lg:px-5 lg:py-3 lg:text-[9px]"
           >
             OPEN PORTFOLIO / 20
           </button>
           <button
             onClick={() => setMyCastOpen(true)}
-            className="w-full rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] px-5 py-3 text-[9px] font-black text-[#FFDF00] hover:border-[#FFDF00]/55"
+            className="w-full rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] px-4 py-2 text-[8px] font-black text-[#FFDF00] hover:border-[#FFDF00]/55 lg:px-5 lg:py-3 lg:text-[9px]"
           >
             OPEN MY CAST / {myCast.length}
           </button>
-          <section className="max-h-[320px] overflow-y-auto rounded-[22px] border border-white/10 p-4">
+          <section className="max-h-[180px] overflow-y-auto rounded-[18px] border border-white/10 p-3 lg:max-h-[320px] lg:rounded-[22px] lg:p-4">
             <div className="sticky top-0 z-10 bg-[#050505] pb-3">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
@@ -1172,59 +1232,17 @@ export default function CharacterCastingPage() {
               </p>
             )}
           </section>
-          <section className="rounded-[22px] border border-white/10 p-4">
+          <section className="rounded-[18px] border border-white/10 p-3 lg:rounded-[22px] lg:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
                   CAST
                 </p>
                 <p className="mt-1 text-[7px] text-white/25">
-                  CANDIDATE TRAY · {candidatePool.length}
+                  CURRENT CANDIDATE
                 </p>
               </div>
-              <button
-                onClick={() => setCandidatePoolOpen((value) => !value)}
-                className={`text-lg ${candidatePoolOpen ? "text-white" : "text-[#FFDF00]"}`}
-              >
-                {candidatePoolOpen ? "−" : "＋"}
-              </button>
             </div>
-            {candidatePoolOpen && (
-              <div className="mt-3 grid max-h-52 grid-cols-3 gap-0 overflow-y-auto">
-                {candidatePool.length ? (
-                  candidatePool.map((item) => (
-                    <button
-                      key={candidateKey(item)}
-                      onClick={() => {
-                        if (!session) return;
-                        persist({
-                          ...session,
-                          characterCasting: { ...casting, candidate: item },
-                        });
-                        setCandidatePoolOpen(false);
-                      }}
-                      className={`relative aspect-[9/16] overflow-hidden border ${candidate && candidateKey(candidate) === candidateKey(item) ? "z-10 border-[#FFDF00] shadow-[0_0_18px_rgba(255,223,0,.35)]" : "border-black"}`}
-                    >
-                      <Image
-                        src={item.image}
-                        alt={item.actorName ?? "Saved casting candidate"}
-                        fill
-                        sizes="90px"
-                        unoptimized={item.image.startsWith("http")}
-                        className="object-cover object-top"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent px-1 pb-1 pt-5 text-left text-[7px] font-black uppercase leading-tight text-white">
-                        {item.actorName ?? "CASTING CANDIDATE"}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="col-span-3 py-4 text-[8px] leading-4 text-white/25">
-                    Generated and rejected candidates will wait here.
-                  </p>
-                )}
-              </div>
-            )}
             {candidate ? (
               <>
                 <button
@@ -1238,7 +1256,7 @@ export default function CharacterCastingPage() {
                     width={180}
                     height={320}
                     unoptimized={candidate.image.startsWith("http")}
-                    className="aspect-[9/16] max-h-64 w-full object-cover object-top"
+                    className="aspect-[9/16] max-h-40 w-full object-cover object-top lg:max-h-64"
                   />
                   <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-3 py-1 text-[7px] font-black text-[#FFDF00]">
                     {candidate.actorName ?? "ATTACHED TO AGENT"}
@@ -1261,51 +1279,124 @@ export default function CharacterCastingPage() {
               </>
             ) : (
               <p className="mt-3 text-[9px] leading-5 text-white/30">
-                Generate a new candidate or select one from the specialist
-                portfolio.
+                Select an actor from Portfolio or My Cast. New generations will
+                also appear here.
               </p>
             )}
           </section>
+          <section className="flex h-[170px] min-h-[170px] flex-col overflow-hidden rounded-[18px] border border-white/10 bg-[#0A0A0A] lg:h-[300px] lg:min-h-[300px] lg:rounded-[22px]">
+            <header className="border-b border-white/10 px-4 py-3">
+              <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
+                ELIAS CONSULTANT
+              </p>
+              <p className="mt-1 text-[7px] text-white/25">
+                CASTING ADVICE ONLY
+              </p>
+            </header>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+              {messages.map((message) => (
+                <article
+                  key={message.id}
+                  className={`rounded-[14px] px-3 py-2 text-[10px] leading-5 ${message.role === "assistant" ? "border border-[#FFDF00]/20 bg-[#17150b] text-white/65" : "ml-6 bg-[#FFDF00] text-black"}`}
+                >
+                  {message.content}
+                </article>
+              ))}
+              {busyMode !== null && busyMode !== "generation" && (
+                <div className="flex items-center gap-2 text-[8px] text-white/35">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]" />
+                  {busyMode === "summary"
+                    ? "ELIAS IS STUDYING THE SUMMARY..."
+                    : "ELIAS IS THINKING..."}
+                </div>
+              )}
+              <div ref={chatEnd} />
+            </div>
+          </section>
         </aside>
-        <section className="flex h-[calc(100dvh-105px)] min-h-[620px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0A0A0A]">
-          <header className="shrink-0 border-b border-white/10 p-5">
+        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0A0A0A] lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
+          <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
             <p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">
-              CHARACTER DEVELOPMENT
+              CHARACTER GENERATION
             </p>
-            <h1 className="mt-2 text-xl font-black">
-              CAST THE PEOPLE WHO CARRY THE STORY.
+            <h1 className="mt-1 text-lg font-black sm:mt-2 sm:text-xl">
+              BUILD THE FACE THAT CARRIES THE STORY.
             </h1>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
-            <div className="space-y-4">
-              {messages.map((message) =>
-                message.role === "assistant" ? (
-                  <article key={message.id} className="flex gap-3">
-                    <Image
-                      src={specialist.portrait}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                    <div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75">
-                      <p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">
-                        {specialist.name}
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7">
+            <div className="mx-auto max-w-5xl space-y-4">
+              <section className="overflow-hidden rounded-[24px] border border-white/10 bg-black">
+                <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+                  <div>
+                    <p className="text-[8px] font-black tracking-[.16em] text-[#FFDF00]">
+                      GENERATION STAGE
+                    </p>
+                    <p className="mt-1 text-sm font-black text-white/85">
+                      {candidate?.actorName ?? "NO CANDIDATE YET"}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/35">
+                    9:16 PORTRAIT
+                  </span>
+                </header>
+                <div className="flex min-h-[280px] items-center justify-center p-3 sm:min-h-[460px] sm:p-5">
+                  {candidate ? (
+                    <button
+                      type="button"
+                      onClick={() => setCandidatePreviewOpen(true)}
+                      className="group relative h-[38dvh] max-h-[570px] min-h-[270px] aspect-[9/16] overflow-hidden rounded-[20px] border border-[#FFDF00]/25 bg-[#111] shadow-[0_0_60px_rgba(255,223,0,.08)] sm:h-[46dvh] sm:min-h-[330px]"
+                    >
+                      <Image
+                        src={candidate.image}
+                        alt={candidate.actorName ?? "Generated candidate"}
+                        fill
+                        unoptimized={candidate.image.startsWith("http")}
+                        sizes="(max-width: 768px) 80vw, 34vw"
+                        className="object-cover object-top transition duration-300 group-hover:scale-[1.015]"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pb-5 pt-16 text-left">
+                        <span className="block text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
+                          CURRENT CANDIDATE
+                        </span>
+                        <span className="mt-1 block text-lg font-black text-white">
+                          {candidate.actorName ?? "UNNAMED ACTOR"}
+                        </span>
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="max-w-md text-center">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#FFDF00]/25 text-2xl text-[#FFDF00]">
+                        +
+                      </div>
+                      <h2 className="mt-5 text-lg font-black">
+                        DESCRIBE THE ACTOR YOU NEED.
+                      </h2>
+                      <p className="mt-3 text-[11px] leading-6 text-white/35">
+                        Add appearance notes below or select a face from Portfolio
+                        or My Cast. The result will appear here.
                       </p>
-                      {message.content}
                     </div>
-                  </article>
-                ) : (
-                  <article
-                    key={message.id}
-                    className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black"
-                  >
-                    {message.content}
-                  </article>
-                ),
-              )}
+                  )}
+                </div>
+                {candidate && (
+                  <footer className="grid grid-cols-2 gap-2 border-t border-white/10 p-4">
+                    <button
+                      onClick={rejectCandidate}
+                      className="rounded-full border border-white/12 py-3 text-[8px] font-black text-white/55"
+                    >
+                      REJECT
+                    </button>
+                    <button
+                      onClick={() => void hireCandidate()}
+                      className="rounded-full bg-[#FFDF00] py-3 text-[8px] font-black text-black"
+                    >
+                      HIRE
+                    </button>
+                  </footer>
+                )}
+              </section>
               {generationFlow?.stage === "choose-role" && (
-                <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
+                <div className="rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
                   <p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
                     CHOOSE ROLE FROM NOTEBOOK
                   </p>
@@ -1329,7 +1420,7 @@ export default function CharacterCastingPage() {
                 </div>
               )}
               {generationFlow?.stage === "hire-role" && (
-                <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
+                <div className="rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
                   <p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
                     CHOOSE ROLE FROM NOTEBOOK
                   </p>
@@ -1353,7 +1444,7 @@ export default function CharacterCastingPage() {
                 </div>
               )}
               {generationFlow?.stage === "ready" && (
-                <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 p-3">
+                <div className="rounded-[20px] border border-[#FFDF00]/25 p-3">
                   <button
                     onClick={() => void generateActor()}
                     disabled={busy}
@@ -1364,7 +1455,7 @@ export default function CharacterCastingPage() {
                 </div>
               )}
               {generationFlow?.stage === "rejected" && (
-                <div className="ml-[52px] grid max-w-[82%] grid-cols-2 gap-2 rounded-[20px] border border-white/10 p-3">
+                <div className="grid grid-cols-2 gap-2 rounded-[20px] border border-white/10 p-3">
                   <button
                     onClick={changeGenerationCriteria}
                     disabled={busy}
@@ -1381,18 +1472,12 @@ export default function CharacterCastingPage() {
                   </button>
                 </div>
               )}
-              {busy && (
+              {busyMode === "generation" && (
                 <div className="flex items-center gap-3 text-[9px] text-white/35">
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]" />
-                  {specialist.name}{" "}
-                  {busyMode === "summary"
-                    ? "IS STUDYING THE SUMMARY..."
-                    : busyMode === "generation"
-                      ? "IS GENERATING AN ACTOR..."
-                      : "IS THINKING..."}
+                  GENERATING ACTOR...
                 </div>
               )}
-              <div ref={chatEnd} />
             </div>
           </div>
           {error && (
@@ -1400,9 +1485,9 @@ export default function CharacterCastingPage() {
               {error}
             </div>
           )}
-          <footer className="shrink-0 border-t border-white/10 p-4">
-            <div className="mb-2 flex flex-wrap items-end justify-between gap-3">
-              <div className="flex gap-2">
+          <footer className="shrink-0 border-t border-white/10 p-2.5 sm:p-4">
+            <div className="mb-2 flex flex-nowrap items-end justify-between gap-2 overflow-x-auto sm:flex-wrap sm:gap-3">
+              <div className="flex shrink-0 gap-2">
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black"
@@ -1420,7 +1505,7 @@ export default function CharacterCastingPage() {
                   RESET
                 </button>
               </div>
-              <div className="flex flex-wrap items-end gap-3">
+              <div className="flex shrink-0 flex-nowrap items-end gap-2 sm:flex-wrap sm:gap-3">
                 <div>
                   <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
                     DIALOGUE
@@ -1442,22 +1527,21 @@ export default function CharacterCastingPage() {
                 </div>
                 <div>
                   <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
-                    GENERATION
+                    IMAGE MODEL
                   </div>
-                  <div className="flex rounded-full border border-white/10 p-1">
-                    <button
-                      onClick={() => setImageProviderChoice("flux")}
-                      className={`rounded-full px-4 py-2 text-[8px] font-black ${imageProvider === "flux" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                    >
-                      FLUX
-                    </button>
-                    <button
-                      onClick={() => setImageProviderChoice("banana")}
-                      className={`rounded-full px-4 py-2 text-[8px] font-black ${imageProvider === "banana" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                    >
-                      BANANA
-                    </button>
-                  </div>
+                  <select
+                    value={imageModel}
+                    onChange={(event) =>
+                      setImageModelChoice(event.target.value as ImageModelId)
+                    }
+                    className="h-9 min-w-[165px] rounded-full border border-white/10 bg-black px-3 text-[8px] font-black text-[#FFDF00] outline-none sm:h-[42px] sm:min-w-[190px] sm:px-4"
+                  >
+                    {imageModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -1508,7 +1592,7 @@ export default function CharacterCastingPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-3 rounded-[20px] border border-white/10 bg-black p-3">
+            <div className="flex items-end gap-2 rounded-[18px] border border-white/10 bg-black p-2 sm:gap-3 sm:rounded-[20px] sm:p-3">
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -1518,13 +1602,27 @@ export default function CharacterCastingPage() {
                     void sendMessage();
                   }
                 }}
-                placeholder="DIRECT THE CASTING..."
-                className="min-h-12 flex-1 resize-none bg-transparent p-3 text-sm outline-none"
+                placeholder="DESCRIBE THE ACTOR OR ASK ELIAS..."
+                rows={1}
+                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-sm outline-none sm:min-h-12 sm:p-3"
               />
+              <button
+                onClick={() => {
+                  if (generationFlow?.brief) {
+                    void generateActor();
+                    return;
+                  }
+                  void sendMessage();
+                }}
+                disabled={busy || (!generationFlow?.brief && !input.trim())}
+                className="rounded-full border border-[#FFDF00]/45 px-4 py-3 text-[8px] font-black text-[#FFDF00] disabled:opacity-25 sm:px-5 sm:py-4 sm:text-[9px]"
+              >
+                GENERATE
+              </button>
               <button
                 onClick={() => void sendMessage()}
                 disabled={!input.trim() || busy}
-                className="rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-25"
+                className="rounded-full bg-[#FFDF00] px-4 py-3 text-[8px] font-black text-black disabled:opacity-25 sm:px-6 sm:py-4 sm:text-[9px]"
               >
                 SEND
               </button>
@@ -1685,7 +1783,37 @@ export default function CharacterCastingPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              <button
+                onClick={() => void downloadCandidate()}
+                className="rounded-full border border-white/15 bg-black/55 px-3 py-3 text-[8px] font-black text-white"
+              >
+                DOWNLOAD
+              </button>
+              <button
+                onClick={() => void shareCandidate()}
+                className="rounded-full border border-white/15 bg-black/55 px-3 py-3 text-[8px] font-black text-white"
+              >
+                SHARE
+              </button>
+              <button
+                onClick={addCandidateToMyCast}
+                className="rounded-full border border-[#FFDF00]/45 bg-[#FFDF00]/10 px-3 py-3 text-[8px] font-black text-[#FFDF00]"
+              >
+                {myCast.some(
+                  (item) => candidateKey(item) === candidateKey(candidate),
+                )
+                  ? "FAVORITE ✓"
+                  : "FAVORITE"}
+              </button>
+              <button
+                onClick={deleteCandidate}
+                className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-3 text-[8px] font-black text-red-200"
+              >
+                DELETE
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
               <button
                 onClick={() => {
                   rejectCandidate();

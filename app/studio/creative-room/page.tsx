@@ -710,7 +710,7 @@ export default function CreativeRoomPage() {
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
       )}
-      <div className="mx-auto grid h-[calc(100dvh-10rem)] w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-3 md:h-[calc(100dvh-5.5rem)] lg:grid-cols-[320px_1fr] lg:grid-rows-1 lg:gap-5">
+      <div className="mx-auto grid h-[calc(100dvh-6.25rem)] w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-2 md:h-[calc(100dvh-5.5rem)] lg:grid-cols-[320px_1fr] lg:grid-rows-1 lg:gap-5">
         <aside className="hidden space-y-4 lg:block lg:max-h-full lg:self-start lg:overflow-y-auto lg:pr-1">
           {agents.map(([agent, member], index) => (
             <div
@@ -848,7 +848,7 @@ export default function CreativeRoomPage() {
           </details>
         </aside>
 
-        <section className="grid grid-cols-2 gap-2 lg:hidden" aria-label="Conversation participants">
+        <section className="grid grid-cols-2 gap-1.5 lg:hidden" aria-label="Conversation participants">
           {agents.map(([agent, member], index) => (
             <button
               key={member.name}
@@ -856,7 +856,7 @@ export default function CreativeRoomPage() {
               role="switch"
               aria-checked={enabledAgents[agent]}
               onClick={() => toggleAgent(agent)}
-              className={`flex min-w-0 items-center gap-2 rounded-[16px] border px-2.5 py-2 text-left transition ${enabledAgents[agent] ? "border-[#FFDF00]/30 bg-[#FFDF00]/6" : "border-white/8 bg-white/[0.02] opacity-45"}`}
+              className={`flex min-w-0 items-center gap-1.5 rounded-[14px] border px-2 py-1.5 text-left transition ${enabledAgents[agent] ? "border-[#FFDF00]/30 bg-[#FFDF00]/6" : "border-white/8 bg-white/[0.02] opacity-45"}`}
             >
               <div className="scale-[0.72]">
                 <Portrait member={member} />
@@ -871,13 +871,13 @@ export default function CreativeRoomPage() {
         </section>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] sm:rounded-[28px]">
-          <div className="flex flex-col gap-5 border-b border-white/10 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-2 border-b border-white/10 px-4 py-3 sm:gap-5 sm:px-7 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">CREATIVE DEVELOPMENT</p>
-              <h1 className="mt-2 text-2xl font-black uppercase tracking-[-0.04em] sm:text-3xl">DEVELOP THE TREATMENT WITH YOUR TEAM.</h1>
+              <h1 className="mt-1 text-lg font-black uppercase tracking-[-0.04em] sm:mt-2 sm:text-3xl">DEVELOP THE TREATMENT WITH YOUR TEAM.</h1>
               {relationship && (
-                <div className="group relative mt-4 inline-flex">
-                  <span className="cursor-help rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/5 px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#FFDF00]">
+                <div className="group relative mt-2 inline-flex sm:mt-4">
+                  <span className="cursor-help rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-[#FFDF00] sm:px-4 sm:py-2 sm:text-[9px]">
                     ✦ {relationship.label}
                   </span>
                   <div className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-64 rounded-[14px] border border-white/10 bg-[#111] p-3 text-[10px] normal-case leading-5 text-white/55 shadow-2xl group-hover:block">
@@ -888,7 +888,7 @@ export default function CreativeRoomPage() {
             </div>
           </div>
 
-          <div ref={messagesScrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-7">
+          <div ref={messagesScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:space-y-5 sm:p-7">
             {messages
               .filter((message) => !message.hidden)
               .map((message) => {
@@ -985,9 +985,9 @@ export default function CreativeRoomPage() {
 
           <form
             onSubmit={sendMessage}
-            className="border-t border-white/10 p-4 sm:p-5"
+            className="border-t border-white/10 p-2.5 sm:p-5"
           >
-            <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
+            <div className="mb-2 flex min-h-8 items-center justify-between gap-2 sm:mb-3 sm:min-h-9 sm:gap-3">
               <AIProviderSwitch />
               {notebook.some((note) => note.accepted) && (
               <div className="flex justify-end">
@@ -1004,7 +1004,7 @@ export default function CreativeRoomPage() {
               )}
             </div>
             {attachments.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
+              <div className="mb-2 flex flex-wrap gap-2 sm:mb-3">
                 {attachments.map((file) => (
                   <div key={file.name} className="relative">
                     <AttachmentPreview file={file} />
@@ -1020,7 +1020,7 @@ export default function CreativeRoomPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-3 rounded-[22px] border border-white/10 bg-black/30 p-3">
+            <div className="flex items-end gap-2 rounded-[18px] border border-white/10 bg-black/30 p-2 sm:gap-3 sm:rounded-[22px] sm:p-3">
               <input
                 ref={attachmentInputRef}
                 type="file"
@@ -1056,13 +1056,13 @@ export default function CreativeRoomPage() {
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="DIRECT THE CONVERSATION..."
-                rows={2}
-                className="min-h-14 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/20"
+                rows={1}
+                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-white outline-none placeholder:text-white/20 sm:min-h-14 sm:py-2"
               />
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
-                className="min-h-12 shrink-0 rounded-full bg-[#FFDF00] px-6 text-xs font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
+                className="min-h-10 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[10px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-12 sm:px-6 sm:text-xs"
               >
                 SEND
               </button>
