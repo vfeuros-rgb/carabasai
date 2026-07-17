@@ -1,8 +1,30 @@
 import { NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 
 type CastingMessage = { role: "user" | "assistant"; content: string };
 type CastCharacter = { name: string; role: string; description: string };
+type VisualAttachment = { image: string; label?: string };
+
+async function imageAsDataUrl(item: VisualAttachment, request: Request) {
+  const src = item.image;
+  let bytes: Buffer;
+  let mime = "image/jpeg";
+  if (src.startsWith("/")) {
+    const safe = path.normalize(src).replace(/^(\.\.(\/|\\|$))+/, "");
+    bytes = await readFile(path.join(process.cwd(), "public", safe));
+    if (src.endsWith(".png")) mime = "image/png";
+    else if (src.endsWith(".webp")) mime = "image/webp";
+  } else {
+    const response = await fetch(new URL(src, request.url), { signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error("attachment fetch failed");
+    mime = response.headers.get("content-type")?.split(";")[0] || mime;
+    bytes = Buffer.from(await response.arrayBuffer());
+  }
+  if (bytes.byteLength > 8_000_000) throw new Error("attachment too large");
+  return { dataUrl: `data:${mime};base64,${bytes.toString("base64")}`, mime, base64: bytes.toString("base64") };
+}
 
 const schema = {
   type: "object",
@@ -34,6 +56,7 @@ export async function POST(request: Request) {
     specialist?: { name?: string; biography?: string; visualPromptTemplate?: string };
     messages?: CastingMessage[];
     cast?: CastCharacter[];
+    attachments?: VisualAttachment[];
     initial?: boolean;
   };
   const provider = body.provider === "openai" ? "openai" : "anthropic";
@@ -52,18 +75,39 @@ CURRENT CAST NOTEBOOK: ${JSON.stringify(body.cast ?? [])}`;
     ? [{ role: "user" as const, content: "Read the project document now. Identify and count every story character, then begin the casting session." }]
     : history;
   try {
+    const visuals = await Promise.all((body.attachments ?? []).slice(0, 4).map((item) => imageAsDataUrl(item, request).then((image) => ({ ...item, ...image }))));
+    const anthropicInput = input.map((message, index) => index === input.length - 1 && visuals.length > 0 && message.role === "user" ? {
+      role: message.role,
+      content: [
+        { type: "text", text: message.content },
+        ...visuals.flatMap((item) => [
+          { type: "text", text: `Visual casting reference: ${item.label ?? "candidate"}` },
+          { type: "image", source: { type: "base64", media_type: item.mime, data: item.base64 } },
+        ]),
+      ],
+    } : message);
+    const openAiInput = input.map((message, index) => index === input.length - 1 && visuals.length > 0 && message.role === "user" ? {
+      role: message.role,
+      content: [
+        { type: "input_text", text: message.content },
+        ...visuals.flatMap((item) => [
+          { type: "input_text", text: `Visual casting reference: ${item.label ?? "candidate"}` },
+          { type: "input_image", image_url: item.dataUrl },
+        ]),
+      ],
+    } : message);
     const response = await fetch(provider === "openai" ? "https://api.openai.com/v1/responses" : "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: provider === "openai"
         ? { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }
         : { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       body: JSON.stringify(provider === "openai" ? {
-        model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra", instructions, input,
+        model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra", instructions, input: openAiInput,
         reasoning: { effort: "low" }, max_output_tokens: 900,
         text: { format: { type: "json_schema", name: "casting_room", strict: true, schema } },
       } : {
         model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6", system: instructions,
-        messages: input, max_tokens: 900,
+        messages: anthropicInput, max_tokens: 900,
         output_config: { format: { type: "json_schema", schema } },
       }),
       signal: AbortSignal.timeout(45000),
