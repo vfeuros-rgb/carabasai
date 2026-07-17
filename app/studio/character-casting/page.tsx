@@ -12,7 +12,7 @@ type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
 type CastMember = { id: string; name: string; role: string; description: string; image?: string; storagePath?: string; source?: "portfolio" | "generated" };
 type Candidate = { image: string; storagePath?: string; source: "portfolio" | "generated"; description?: string };
 type CharacterAttachment = Candidate & { id: string; name: string };
-type GenerationFlow = { stage: "choose-role" | "describe" | "ready" | "candidate" | "rejected"; roleId?: string; roleLabel?: string; brief?: string; russian?: boolean };
+type GenerationFlow = { stage: "choose-role" | "hire-role" | "describe" | "ready" | "candidate" | "rejected"; roleId?: string; roleLabel?: string; brief?: string; russian?: boolean };
 type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; candidatePool?: Candidate[]; pendingRoleMemberId?: string; generationFlow?: GenerationFlow; initialized?: boolean };
 type CastingSession = StoredProject & { projectDocument?: unknown; characterCastingSpecialist?: CharacterCastingSpecialist; characterCasting?: CastingState };
 type BusyMode = "summary" | "reply" | "generation" | null;
@@ -128,7 +128,21 @@ export default function CharacterCastingPage() {
 
   function choosePortfolioCharacter(image: string) {
     if (!session) return;
-    persist({ ...session, characterCasting: { ...casting, candidate: { image, source: "portfolio" } } });
+    const russian = /[А-Яа-яЁё]/.test(JSON.stringify(session.projectDocument ?? ""));
+    const question: ChatMessage = {
+      id: uid(),
+      role: "assistant",
+      content: russian ? "На какую роль берём?" : "Which role are we casting?",
+    };
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        messages: [...messages, question],
+        candidate: { image, source: "portfolio" },
+        generationFlow: { stage: "hire-role", russian },
+      },
+    });
     setPreview(""); setPortfolioOpen(false);
   }
 
@@ -149,23 +163,37 @@ export default function CharacterCastingPage() {
     persist({ ...session, characterCasting: { ...casting, messages: [...messages, reply], candidate: undefined, candidatePool: addToCandidatePool(candidatePool, candidate), generationFlow: { ...generationFlow, stage: "rejected" } } });
   }
 
-  async function hireCandidate() {
+  function hireCandidate() {
     if (!session || !candidate) return;
-    const target = characters.find((item) => item.id === generationFlow?.roleId) ?? characters.find((item) => !item.image);
-    const hired: CastMember = target
-      ? { ...target, image: candidate.image, storagePath: candidate.storagePath, source: candidate.source }
-      : { id: uid(), name: "NEW CAST MEMBER", role: "ROLE TO DEFINE", description: candidate.description ?? "Selected during casting.", image: candidate.image, storagePath: candidate.storagePath, source: candidate.source };
-    const hiredCast = target ? characters.map((item) => item.id === target.id ? hired : item) : [...characters, hired];
-    const userPrompt: ChatMessage = { id: uid(), role: "user", content: `I hired the attached candidate for ${hired.role || "an undefined role"}. Confirm briefly that this role is cast and ask which role we cast next.` };
-    const next = [...messages, userPrompt];
-    const current: CastingSession = { ...session, characterCasting: { ...casting, messages: next, characters: hiredCast, candidate: undefined, pendingRoleMemberId: generationFlow?.roleId ? undefined : hired.id, generationFlow: undefined, candidatePool: candidatePool.filter((item) => candidateKey(item) !== candidateKey(candidate)) } };
-    persist(current);
-    setBusyMode("reply");
-    try {
-      const { reply } = await askAgent(current, next, false, [{ ...candidate, id: uid(), name: hired.name }]);
-      persist({ ...current, characterCasting: { ...current.characterCasting, messages: [...next, reply] } });
-    } catch (e) { setError(e instanceof Error ? e.message : "CASTING AGENT COULD NOT RESPOND."); }
-    finally { setBusyMode(null); }
+    const knownRole = characters.find((item) => item.id === generationFlow?.roleId);
+    if (knownRole) {
+      assignCandidateToRole(knownRole);
+      return;
+    }
+    if (generationFlow?.stage === "hire-role") return;
+    const russian = generationFlow?.russian ?? /[А-Яа-яЁё]/.test(JSON.stringify(session.projectDocument ?? ""));
+    const question: ChatMessage = { id: uid(), role: "assistant", content: russian ? "На какую роль берём?" : "Which role are we casting?" };
+    persist({ ...session, characterCasting: { ...casting, messages: [...messages, question], generationFlow: { stage: "hire-role", russian } } });
+  }
+
+  function assignCandidateToRole(member: CastMember) {
+    if (!session || !candidate) return;
+    const russian = generationFlow?.russian ?? true;
+    const hired: CastMember = { ...member, image: candidate.image, storagePath: candidate.storagePath, source: candidate.source };
+    const selected: ChatMessage = { id: uid(), role: "user", content: `${russian ? "РОЛЬ" : "ROLE"}: ${member.role || member.name}` };
+    const confirmation: ChatMessage = { id: uid(), role: "assistant", content: russian ? `Берём на роль «${member.role || member.name}». Кто следующий?` : `Cast as “${member.role || member.name}”. Who is next?` };
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        messages: [...messages, selected, confirmation],
+        characters: characters.map((item) => item.id === member.id ? hired : item),
+        candidate: undefined,
+        pendingRoleMemberId: undefined,
+        generationFlow: undefined,
+        candidatePool: candidatePool.filter((item) => candidateKey(item) !== candidateKey(candidate)),
+      },
+    });
   }
 
   async function generateCandidate(brief: string, current: CastingSession) {
@@ -302,6 +330,7 @@ export default function CharacterCastingPage() {
         <header className="shrink-0 border-b border-white/10 p-5"><p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">CHARACTER DEVELOPMENT</p><h1 className="mt-2 text-xl font-black">CAST THE PEOPLE WHO CARRY THE STORY.</h1></header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-4">{messages.map((message) => message.role === "assistant" ? <article key={message.id} className="flex gap-3"><Image src={specialist.portrait} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover"/><div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75"><p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">{specialist.name}</p>{message.content}</div></article> : <article key={message.id} className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black">{message.content}</article>)}
           {generationFlow?.stage === "choose-role" && <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4"><p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">CHOOSE ROLE FROM NOTEBOOK</p><div className="flex flex-wrap gap-2">{characters.map((member) => <button key={member.id} onClick={() => void selectGenerationRole(member)} disabled={busy} className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/70 transition hover:border-[#FFDF00] hover:text-[#FFDF00] disabled:opacity-30">{member.role || member.name}</button>)}</div>{characters.length === 0 && <p className="text-[9px] text-white/35">ADD A ROLE TO THE CHARACTER NOTEBOOK FIRST.</p>}</div>}
+          {generationFlow?.stage === "hire-role" && <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4"><p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">CHOOSE ROLE FROM NOTEBOOK</p><div className="flex flex-wrap gap-2">{characters.map((member) => <button key={member.id} onClick={() => assignCandidateToRole(member)} disabled={busy || !candidate} className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/70 transition hover:border-[#FFDF00] hover:text-[#FFDF00] disabled:opacity-30">{member.role || member.name}</button>)}</div>{characters.length === 0 && <p className="text-[9px] text-white/35">ADD A ROLE TO THE CHARACTER NOTEBOOK FIRST.</p>}</div>}
           {generationFlow?.stage === "ready" && <div className="ml-[52px] max-w-[82%] rounded-[20px] border border-[#FFDF00]/25 p-3"><button onClick={() => void generateActor()} disabled={busy} className="w-full rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-30">GENERATE ACTOR</button></div>}
           {generationFlow?.stage === "rejected" && <div className="ml-[52px] grid max-w-[82%] grid-cols-2 gap-2 rounded-[20px] border border-white/10 p-3"><button onClick={changeGenerationCriteria} disabled={busy} className="rounded-full border border-white/15 px-4 py-3 text-[8px] font-black text-white/60 disabled:opacity-30">CHANGE CRITERIA</button><button onClick={() => void generateActor()} disabled={busy || !generationFlow.brief} className="rounded-full bg-[#FFDF00] px-4 py-3 text-[8px] font-black text-black disabled:opacity-30">GENERATE AGAIN</button></div>}
           {busy && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]"/>{specialist.name} {busyMode === "summary" ? "IS STUDYING THE SUMMARY..." : busyMode === "generation" ? "IS GENERATING AN ACTOR..." : "IS THINKING..."}</div>}<div ref={chatEnd}/></div></div>
