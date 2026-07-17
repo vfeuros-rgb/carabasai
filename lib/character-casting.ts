@@ -12,7 +12,7 @@ export type CharacterCastingSpecialist = {
   notFor: string;
   stats: Array<{ label: string; value: number }>;
   portrait: string;
-  characterExamples: Array<{ image: string; alt: string }>;
+  characterExamples: Array<{ image: string; alt: string; name: string }>;
   referenceWorks: Array<{ title: string; year: string }>;
   visualPromptTemplate: string;
   generation: {
@@ -29,15 +29,23 @@ export const characterCastingSpecialists: CharacterCastingSpecialist[] = [
     rosterCode: "R001",
     name: "ELIAS MARROW",
     specialty: "GOTHIC CHARACTER CASTING",
-    quote: '“Before the costume, there is the bone. I find the face first — everything else is just fabric.”',
+    quote:
+      "“Before the costume, there is the bone. I find the face first — everything else is just fabric.”",
     biography:
       "A casting master for gothic and theatrical stories. He does not design costumes: he finds the face, anatomy and physical presence that make a character believable before the costume department arrives.",
     inspiredBy:
       "Alexander McQueen + Guillermo del Toro — the dramatic sharpness of one and the warm obsession with unusual faces of the other.",
     signature: "Every face is chosen for what it hides, not what it shows.",
-    tags: ["SHARP FEATURES", "UNCONVENTIONAL BODY TYPES", "RAW PRESENCE", "PRE-COSTUME CASTING"],
-    bestFor: "Gothic drama, theatrical ensembles and character-driven stories where the face carries the story.",
-    notFor: "Cute or cheerful cartoon looks and casts built around one uniform beauty standard.",
+    tags: [
+      "SHARP FEATURES",
+      "UNCONVENTIONAL BODY TYPES",
+      "RAW PRESENCE",
+      "PRE-COSTUME CASTING",
+    ],
+    bestFor:
+      "Gothic drama, theatrical ensembles and character-driven stories where the face carries the story.",
+    notFor:
+      "Cute or cheerful cartoon looks and casts built around one uniform beauty standard.",
     stats: [
       { label: "EXPRESSIVENESS", value: 8 },
       { label: "COMPLEXITY", value: 6 },
@@ -47,26 +55,106 @@ export const characterCastingSpecialists: CharacterCastingSpecialist[] = [
     ],
     portrait: "/crew/character-casting/specialists/elias-marrow.png",
     characterExamples: [
-      { image: "/crew/character-casting/elias-marrow/R001001.jpeg", alt: "Elias Marrow casting sample 1" },
-      { image: "/crew/character-casting/elias-marrow/R001002.jpeg", alt: "Elias Marrow casting sample 2" },
-      { image: "/crew/character-casting/elias-marrow/R001003.jpeg", alt: "Elias Marrow casting sample 3" },
-      { image: "/crew/character-casting/elias-marrow/R001004.jpeg", alt: "Elias Marrow casting sample 4" },
-      { image: "/crew/character-casting/elias-marrow/R001005.jpeg", alt: "Elias Marrow casting sample 5" },
-      { image: "/crew/character-casting/elias-marrow/R001006.jpeg", alt: "Elias Marrow casting sample 6" },
-      { image: "/crew/character-casting/elias-marrow/R001007.jpeg", alt: "Elias Marrow casting sample 7" },
-      { image: "/crew/character-casting/elias-marrow/R001008.jpeg", alt: "Elias Marrow casting sample 8" },
-      { image: "/crew/character-casting/elias-marrow/R001009.png", alt: "Elias Marrow casting sample 9" },
-      { image: "/crew/character-casting/elias-marrow/R001010.png", alt: "Elias Marrow casting sample 10" },
-      { image: "/crew/character-casting/elias-marrow/R001011.png", alt: "Elias Marrow casting sample 11" },
-      { image: "/crew/character-casting/elias-marrow/R001012.png", alt: "Elias Marrow casting sample 12" },
-      { image: "/crew/character-casting/elias-marrow/R001013.png", alt: "Elias Marrow casting sample 13" },
-      { image: "/crew/character-casting/elias-marrow/R001014.png", alt: "Elias Marrow casting sample 14" },
-      { image: "/crew/character-casting/elias-marrow/R001015.png", alt: "Elias Marrow casting sample 15" },
-      { image: "/crew/character-casting/elias-marrow/R001016.png", alt: "Elias Marrow casting sample 16" },
-      { image: "/crew/character-casting/elias-marrow/R001017.jpeg", alt: "Elias Marrow casting sample 17" },
-      { image: "/crew/character-casting/elias-marrow/R001018.jpeg", alt: "Elias Marrow casting sample 18" },
-      { image: "/crew/character-casting/elias-marrow/R001019.png", alt: "Elias Marrow casting sample 19" },
-      { image: "/crew/character-casting/elias-marrow/R001020.png", alt: "Elias Marrow casting sample 20" },
+      {
+        image: "/crew/character-casting/elias-marrow/R001001.jpeg",
+        alt: "Alistair Vane",
+        name: "Alistair Vane",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001002.jpeg",
+        alt: "Darius Okafor",
+        name: "Darius Okafor",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001003.jpeg",
+        alt: "Elara Finch",
+        name: "Elara Finch",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001004.jpeg",
+        alt: "Mirella Costa",
+        name: "Mirella Costa",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001005.jpeg",
+        alt: "Viktor Drake",
+        name: "Viktor Drake",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001006.jpeg",
+        alt: "Hana Mori",
+        name: "Hana Mori",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001007.jpeg",
+        alt: "Isaiah Cole",
+        name: "Isaiah Cole",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001008.jpeg",
+        alt: "Sabine Krall",
+        name: "Sabine Krall",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001009.png",
+        alt: "Oswald Pike",
+        name: "Oswald Pike",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001010.png",
+        alt: "Fergus Rowan",
+        name: "Fergus Rowan",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001011.png",
+        alt: "Kemal Arslan",
+        name: "Kemal Arslan",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001012.png",
+        alt: "Mei-Lin Zhao",
+        name: "Mei-Lin Zhao",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001013.png",
+        alt: "Rory Kavanagh",
+        name: "Rory Kavanagh",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001014.png",
+        alt: "Silas Wren",
+        name: "Silas Wren",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001015.png",
+        alt: "Kwame Adebayo",
+        name: "Kwame Adebayo",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001016.png",
+        alt: "Agnes Bell",
+        name: "Agnes Bell",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001017.jpeg",
+        alt: "Niko Petrov",
+        name: "Niko Petrov",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001018.jpeg",
+        alt: "Lucien Vale",
+        name: "Lucien Vale",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001019.png",
+        alt: "Bernard Holt",
+        name: "Bernard Holt",
+      },
+      {
+        image: "/crew/character-casting/elias-marrow/R001020.png",
+        alt: "Evelyn Okoye",
+        name: "Evelyn Okoye",
+      },
     ],
     referenceWorks: [
       { title: "PAN'S LABYRINTH", year: "2006" },
@@ -88,4 +176,167 @@ export function buildCharacterCastingPrompt(
   characterBrief: string,
 ) {
   return `${specialist.generation.triggerWord}, ${specialist.visualPromptTemplate}\n\nCHARACTER BRIEF:\n${characterBrief.trim()}\n\nGenerate one full-body character casting portrait on a simple studio background. No text, typography, logos, watermarks, collage or costume design.`;
+}
+
+const generatedActorNames = {
+  eastAsian: {
+    female: [
+      "Hana Mori",
+      "Mei-Lin Zhao",
+      "Yuna Park",
+      "Aiko Tanaka",
+      "Linh Tran",
+    ],
+    male: [
+      "Kenji Sato",
+      "Min-Jun Park",
+      "Wei Chen",
+      "Haruto Mori",
+      "Daniel Kim",
+    ],
+  },
+  black: {
+    female: [
+      "Amara Okoye",
+      "Nia Adebayo",
+      "Imani Cole",
+      "Zuri Mensah",
+      "Evelyn Okafor",
+    ],
+    male: [
+      "Darius Okafor",
+      "Kwame Adebayo",
+      "Isaiah Cole",
+      "Malik Mensah",
+      "Solomon Adeyemi",
+    ],
+  },
+  southAsian: {
+    female: [
+      "Priya Nair",
+      "Anika Mehta",
+      "Leela Kapoor",
+      "Maya Rao",
+      "Sana Qureshi",
+    ],
+    male: [
+      "Arjun Mehta",
+      "Dev Kapoor",
+      "Rohan Nair",
+      "Kabir Rao",
+      "Sameer Qureshi",
+    ],
+  },
+  middleEastern: {
+    female: [
+      "Layla Mansour",
+      "Noor Haddad",
+      "Samira Khalil",
+      "Dalia Rahman",
+      "Yasmin Farouk",
+    ],
+    male: [
+      "Omar Haddad",
+      "Karim Mansour",
+      "Tariq Khalil",
+      "Sami Rahman",
+      "Nabil Farouk",
+    ],
+  },
+  latino: {
+    female: [
+      "Sofia Reyes",
+      "Camila Alvarez",
+      "Ines Navarro",
+      "Lucia Morales",
+      "Elena Cruz",
+    ],
+    male: [
+      "Mateo Alvarez",
+      "Diego Reyes",
+      "Rafael Navarro",
+      "Tomas Morales",
+      "Gabriel Cruz",
+    ],
+  },
+  slavic: {
+    female: [
+      "Irina Sokolova",
+      "Mila Petrova",
+      "Anya Volkova",
+      "Vera Markovic",
+      "Lena Kovacs",
+    ],
+    male: [
+      "Nikolai Volkov",
+      "Anton Petrov",
+      "Luka Markovic",
+      "Viktor Sokolov",
+      "Marek Kovacs",
+    ],
+  },
+  international: {
+    female: [
+      "Elara Finch",
+      "Sabine Krall",
+      "Mirella Costa",
+      "Agnes Bell",
+      "Clara Voss",
+      "Evelyn Hart",
+      "Nora Vale",
+    ],
+    male: [
+      "Alistair Vane",
+      "Lucien Vale",
+      "Bernard Holt",
+      "Silas Wren",
+      "Fergus Rowan",
+      "Oswald Pike",
+      "Niko Arden",
+    ],
+  },
+};
+
+function stableNameIndex(value: string, length: number) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1)
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  return hash % length;
+}
+
+export function generateCastingActorName(characterBrief: string, seed: string) {
+  const brief = characterBrief.toLowerCase();
+  const pool =
+    /east asian|asian|chinese|japanese|korean|vietnam|азиат|китай|япон|коре/.test(
+      brief,
+    )
+      ? generatedActorNames.eastAsian
+      : /black|african|afro|темнокож|африкан/.test(brief)
+        ? generatedActorNames.black
+        : /south asian|indian|pakistan|bangladesh|индий|пакистан/.test(brief)
+          ? generatedActorNames.southAsian
+          : /middle eastern|arab|persian|араб|ближневост|перс/.test(brief)
+            ? generatedActorNames.middleEastern
+            : /latino|latina|hispanic|латино|испан/.test(brief)
+              ? generatedActorNames.latino
+              : /slavic|russian|ukrain|polish|русск|славян|украин|поляк/.test(
+                    brief,
+                  )
+                ? generatedActorNames.slavic
+                : generatedActorNames.international;
+  const isFemale =
+    /woman|girl|female|mother|wife|daughter|женщ|девуш|девоч|мать|жена|дочь|героин/.test(
+      brief,
+    );
+  const isMale =
+    /man|boy|male|father|husband|son|мужчин|парень|мальчик|отец|муж|сын|герой/.test(
+      brief,
+    );
+  const names =
+    isFemale && !isMale
+      ? pool.female
+      : isMale && !isFemale
+        ? pool.male
+        : [...pool.female, ...pool.male];
+  return names[stableNameIndex(`${seed}:${brief}`, names.length)];
 }
