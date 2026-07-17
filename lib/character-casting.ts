@@ -161,7 +161,7 @@ export const characterCastingSpecialists: CharacterCastingSpecialist[] = [
       { title: "SLEEPY HOLLOW", year: "1999" },
     ],
     visualPromptTemplate:
-      "Apply the R001 gothic character-casting style. Begin with the face, skull structure, posture, anatomy and body silhouette before any wardrobe decision. Prefer sharp or irregular features, unconventional but believable body types, lived-in skin, expressive asymmetry and a raw physical presence. The character must feel emotionally legible and personally specific rather than conventionally beautiful. Use cinematic photorealism with tactile skin and restrained, low-saturation color. Keep clothing neutral, simple and pre-costume: no designed outfit, fashion styling, decorative accessories or costume concept yet. Avoid cute cartoon proportions, glossy beauty advertising, generic model faces and a uniform cast.",
+      "Apply the trained R001 gothic character-casting look exactly. This is a stylized, sculptural casting portrait with deliberately exaggerated yet believable facial structure, anatomy, posture and body silhouette. Prefer sharp or irregular features, unconventional body types, lived-in tactile skin, expressive asymmetry and raw physical presence. The result must look like a character maquette from the R001 portfolio, not an ordinary realistic person, fashion photograph or beauty portrait. Dress every subject in the same minimal all-black casting uniform: a plain black turtleneck or plain black long-sleeve top, black trousers and simple black shoes. Place the subject against one clean, seamless, richly colored studio backdrop such as burgundy, mustard yellow, cyan, burnt orange, dusty pink, deep red or blue-grey. Use soft diffused cinematic studio lighting. The face and body carry the character; there is no costume design, jewelry, pattern, prop or location yet.",
     generation: {
       triggerWord: "R001",
       modelEnvironmentVariable: "REPLICATE_R001_MODEL",
@@ -182,10 +182,17 @@ ${characterBrief.trim()}
 
 Follow every explicit identity attribute exactly. Age, apparent gender, ancestry, skin tone, hair color, hair texture, facial hair, height, build and distinguishing features are hard requirements. Never replace, omit, soften or reinterpret them.
 
-CASTING STYLE:
+MANDATORY R001 CASTING STYLE:
 ${specialist.visualPromptTemplate}
 
-One single person, full body from head to toe, centered vertical 9:16 casting portrait, simple neutral studio background, face clearly visible, neutral pre-costume clothing. No text, typography, logos, watermarks, collage, split screen, extra people, elaborate costume, hat, cropped head, cropped feet, beauty-advertising polish or generic fashion-model face.`;
+PRESENTATION RULES, ALL REQUIRED:
+- One single person, full body from head to toe, centered in a vertical 9:16 casting portrait.
+- Stylized and sculptural R001 proportions. Do not fall back to ordinary human realism or generic fashion photography.
+- Plain all-black casting uniform only: black turtleneck or black long-sleeve top, black trousers and black shoes. No other clothing color.
+- One saturated seamless colored studio backdrop in the R001 portfolio language. No real location, scenery, grey background, white background or neutral photographic backdrop.
+- Face clearly visible, soft diffused cinematic studio light, tactile skin and a clean floor-to-background sweep.
+
+No text, typography, logos, watermarks, collage, split screen, extra people, elaborate costume, hat, jewelry, accessories, props, patterns, cropped head, cropped feet, beauty-advertising polish, ordinary realistic proportions or generic fashion-model face.`;
 }
 
 const generatedActorNames = {
