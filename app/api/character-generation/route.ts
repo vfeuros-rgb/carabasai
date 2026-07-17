@@ -23,6 +23,33 @@ function firstOutputUrl(output: ReplicatePrediction["output"]) {
   return "";
 }
 
+function detectImageType(image: Buffer) {
+  if (
+    image.length >= 12 &&
+    image.subarray(0, 4).toString("ascii") === "RIFF" &&
+    image.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return { contentType: "image/webp", extension: "webp" };
+  }
+  if (
+    image.length >= 3 &&
+    image[0] === 0xff &&
+    image[1] === 0xd8 &&
+    image[2] === 0xff
+  ) {
+    return { contentType: "image/jpeg", extension: "jpg" };
+  }
+  if (
+    image.length >= 8 &&
+    image
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return { contentType: "image/png", extension: "png" };
+  }
+  return { contentType: "image/webp", extension: "webp" };
+}
+
 async function waitForPrediction(
   token: string,
   prediction: ReplicatePrediction,
@@ -197,18 +224,32 @@ export async function POST(request: Request) {
   }
 
   const image = Buffer.from(await imageResponse.arrayBuffer());
+  if (!image.length) {
+    return NextResponse.json(
+      { error: "GENERATED CHARACTER WAS EMPTY." },
+      { status: 502 },
+    );
+  }
   const generationId = prediction.id ?? crypto.randomUUID();
   const actorName = generateCastingActorName(characterBrief, generationId);
-  const storagePath = `${access.user.id}/${projectId}/characters/${generationId}.webp`;
+  const imageType = detectImageType(image);
+  const storagePath = `${access.user.id}/${projectId}/characters/${generationId}.${imageType.extension}`;
   const { error: uploadError } = await access.supabase.storage
     .from("carabasai-media")
     .upload(storagePath, image, {
-      contentType: imageResponse.headers.get("content-type") ?? "image/webp",
+      contentType: imageType.contentType,
       cacheControl: "86400",
-      upsert: false,
+      upsert: true,
     });
   if (uploadError) {
-    console.error("Generated character upload failed", uploadError.message);
+    console.error("Generated character upload failed", {
+      message: uploadError.message,
+      name: uploadError.name,
+      storagePath,
+      contentType: imageType.contentType,
+      bytes: image.length,
+      userId: access.user.id,
+    });
     return NextResponse.json(
       { error: "GENERATED CHARACTER COULD NOT BE SAVED." },
       { status: 502 },
