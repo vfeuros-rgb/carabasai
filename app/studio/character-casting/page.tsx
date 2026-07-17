@@ -1310,14 +1310,14 @@ export default function CharacterCastingPage() {
               </button>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto bg-black">
-              <div className="grid min-h-full grid-cols-3 gap-0 sm:h-full sm:grid-cols-5 sm:grid-rows-4">
+              <div className="grid grid-cols-3 gap-0 sm:grid-cols-5">
                 {specialist.characterExamples.map((character) => {
                   const selected = preview === character.image;
                   return (
                     <button
                       key={character.image}
                       onClick={() => setPreview(character.image)}
-                      className={`group relative min-h-0 overflow-hidden border-0 bg-black transition ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
+                      className={`group relative aspect-[9/16] min-h-0 overflow-hidden border-0 bg-black transition ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
                     >
                       <Image
                         src={character.image}
