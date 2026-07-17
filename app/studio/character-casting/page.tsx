@@ -5,7 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
-import { saveProject, type StoredProject } from "../../../lib/project-store";
+import {
+  getCachedProjects,
+  projectChangeEvent,
+  saveProject,
+  syncProjects,
+  type StoredProject,
+} from "../../../lib/project-store";
 import {
   characterCastingSpecialists,
   type CharacterCastingSpecialist,
@@ -49,6 +55,7 @@ type CastingState = {
   characters?: CastMember[];
   candidate?: Candidate;
   candidatePool?: Candidate[];
+  myCast?: Candidate[];
   pendingRoleMemberId?: string;
   generationFlow?: GenerationFlow;
   initialized?: boolean;
@@ -84,7 +91,10 @@ function removeDuplicateCastAssignments(members: CastMember[]) {
 export default function CharacterCastingPage() {
   const [session, setSession] = useState<CastingSession | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [myCastOpen, setMyCastOpen] = useState(false);
+  const [candidatePreviewOpen, setCandidatePreviewOpen] = useState(false);
   const [candidatePoolOpen, setCandidatePoolOpen] = useState(false);
+  const [accountCast, setAccountCast] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
@@ -170,6 +180,7 @@ export default function CharacterCastingPage() {
   const characters = casting.characters ?? [];
   const candidate = casting.candidate;
   const candidatePool = casting.candidatePool ?? [];
+  const projectCast = casting.myCast ?? [];
   const generationFlow = casting.generationFlow;
 
   const candidateKey = (item: Candidate) => item.storagePath ?? item.image;
@@ -177,6 +188,67 @@ export default function CharacterCastingPage() {
     pool.some((saved) => candidateKey(saved) === candidateKey(item))
       ? pool
       : [item, ...pool];
+  const myCast = [...projectCast, ...accountCast].filter(
+    (item, index, all) =>
+      all.findIndex((saved) => candidateKey(saved) === candidateKey(item)) ===
+      index,
+  );
+
+  useEffect(() => {
+    const collect = (projects: CastingSession[]) => {
+      const actors = projects.flatMap(
+        (project) => project.characterCasting?.myCast ?? [],
+      );
+      setAccountCast(
+        actors.filter(
+          (item, index, all) =>
+            all.findIndex(
+              (saved) =>
+                (saved.storagePath ?? saved.image) ===
+                (item.storagePath ?? item.image),
+            ) === index,
+        ),
+      );
+    };
+    const refresh = () => collect(getCachedProjects<CastingSession>());
+    refresh();
+    void syncProjects<CastingSession>().then(collect).catch(console.error);
+    window.addEventListener(projectChangeEvent, refresh);
+    return () => window.removeEventListener(projectChangeEvent, refresh);
+  }, []);
+
+  function addCandidateToMyCast() {
+    if (!session || !candidate) return;
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        myCast: addToCandidatePool(projectCast, candidate),
+      },
+    });
+  }
+
+  function chooseMyCastCharacter(item: Candidate) {
+    if (!session) return;
+    const russian = /[А-Яа-яЁё]/.test(
+      JSON.stringify(session.projectDocument ?? ""),
+    );
+    const question: ChatMessage = {
+      id: uid(),
+      role: "assistant",
+      content: russian ? "На какую роль берём?" : "Which role are we casting?",
+    };
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        messages: [...messages, question],
+        candidate: item,
+        generationFlow: { stage: "hire-role", russian },
+      },
+    });
+    setMyCastOpen(false);
+  }
 
   const askAgent = useCallback(
     async (
@@ -818,6 +890,12 @@ export default function CharacterCastingPage() {
           >
             OPEN PORTFOLIO / 20
           </button>
+          <button
+            onClick={() => setMyCastOpen(true)}
+            className="w-full rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] px-5 py-3 text-[9px] font-black text-[#FFDF00] hover:border-[#FFDF00]/55"
+          >
+            OPEN MY CAST / {myCast.length}
+          </button>
           <section className="max-h-[320px] overflow-y-auto rounded-[22px] border border-white/10 p-4">
             <div className="sticky top-0 z-10 bg-[#050505] pb-3">
               <div className="flex items-center justify-between">
@@ -994,19 +1072,23 @@ export default function CharacterCastingPage() {
             )}
             {candidate ? (
               <>
-                <div className="relative mt-3">
+                <button
+                  type="button"
+                  onClick={() => setCandidatePreviewOpen(true)}
+                  className="relative mt-3 block w-full overflow-hidden rounded-xl text-left transition hover:ring-1 hover:ring-[#FFDF00]/60"
+                >
                   <Image
                     src={candidate.image}
                     alt={candidate.actorName ?? "Candidate"}
                     width={180}
                     height={320}
                     unoptimized={candidate.image.startsWith("http")}
-                    className="aspect-[9/16] max-h-64 w-full rounded-xl object-cover object-top"
+                    className="aspect-[9/16] max-h-64 w-full object-cover object-top"
                   />
                   <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-3 py-1 text-[7px] font-black text-[#FFDF00]">
                     {candidate.actorName ?? "ATTACHED TO AGENT"}
                   </span>
-                </div>
+                </button>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     onClick={rejectCandidate}
@@ -1325,6 +1407,132 @@ export default function CharacterCastingPage() {
                   );
                 })}
               </div>
+            </div>
+          </section>
+        </div>
+      )}
+      {myCastOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[10000] bg-black/90 p-3 backdrop-blur-md"
+        >
+          <section className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[#090909]">
+            <header className="flex shrink-0 items-center justify-between p-5">
+              <div>
+                <p className="text-[9px] font-black text-[#FFDF00]">MY CAST</p>
+                <h2 className="mt-2 text-xl font-black">
+                  CHOOSE FROM YOUR SAVED ACTORS.
+                </h2>
+              </div>
+              <button
+                onClick={() => setMyCastOpen(false)}
+                className="text-3xl text-white/45"
+              >
+                ×
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-black">
+              {myCast.length ? (
+                <div className="grid grid-cols-3 gap-0 sm:grid-cols-5">
+                  {myCast.map((item) => (
+                    <button
+                      key={candidateKey(item)}
+                      onClick={() => chooseMyCastCharacter(item)}
+                      className="group relative aspect-[9/16] overflow-hidden bg-black hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00]"
+                    >
+                      <Image
+                        src={item.image}
+                        alt={item.actorName ?? "My cast actor"}
+                        fill
+                        sizes="20vw"
+                        unoptimized={item.image.startsWith("http")}
+                        className="object-cover object-top"
+                      />
+                      <span className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/90 to-transparent px-2 pb-6 pt-2 text-left text-[8px] font-black uppercase text-white">
+                        {item.actorName ?? "CASTING ACTOR"}
+                      </span>
+                      <span className="absolute inset-x-0 bottom-0 translate-y-full bg-[#FFDF00] py-3 text-[9px] font-black text-black transition-transform group-hover:translate-y-0">
+                        SELECT
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-white/35">
+                  Open a generated candidate and choose ADD TO MY CAST.
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+      {candidatePreviewOpen && candidate && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[11000] flex items-center justify-center overflow-y-auto p-4 sm:p-8"
+        >
+          <Image
+            src={candidate.image}
+            alt=""
+            fill
+            unoptimized={candidate.image.startsWith("http")}
+            className="-z-20 scale-110 object-cover blur-3xl"
+          />
+          <div className="absolute inset-0 -z-10 bg-black/75 backdrop-blur-xl" />
+          <button
+            aria-label="Close candidate preview"
+            onClick={() => setCandidatePreviewOpen(false)}
+            className="fixed right-5 top-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-2xl text-white/60"
+          >
+            ×
+          </button>
+          <section className="w-full max-w-[430px]">
+            <div className="relative mx-auto aspect-[9/16] max-h-[72dvh] overflow-hidden rounded-[24px] border border-white/15 bg-black shadow-2xl">
+              <Image
+                src={candidate.image}
+                alt={candidate.actorName ?? "Casting candidate"}
+                fill
+                sizes="430px"
+                unoptimized={candidate.image.startsWith("http")}
+                className="object-cover object-top"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/35 to-transparent px-5 pb-5 pt-20">
+                <p className="text-lg font-black text-white">
+                  {candidate.actorName ?? "CASTING CANDIDATE"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <button
+                onClick={() => {
+                  rejectCandidate();
+                  setCandidatePreviewOpen(false);
+                }}
+                className="rounded-full border border-white/15 bg-black/55 px-3 py-3 text-[8px] font-black text-white"
+              >
+                REJECT
+              </button>
+              <button
+                onClick={() => {
+                  void hireCandidate();
+                  setCandidatePreviewOpen(false);
+                }}
+                className="rounded-full bg-[#FFDF00] px-3 py-3 text-[8px] font-black text-black"
+              >
+                HIRE
+              </button>
+              <button
+                onClick={addCandidateToMyCast}
+                className="rounded-full border border-[#FFDF00]/45 bg-[#FFDF00]/10 px-3 py-3 text-[8px] font-black text-[#FFDF00]"
+              >
+                {myCast.some(
+                  (item) => candidateKey(item) === candidateKey(candidate),
+                )
+                  ? "IN MY CAST ✓"
+                  : "ADD TO MY CAST"}
+              </button>
             </div>
           </section>
         </div>
