@@ -607,6 +607,60 @@ export default function CharacterCastingPage() {
     });
   }
 
+  function roleMentionedIn(text: string) {
+    const normalizedText = text
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/[«»"'`.,:;!?()[\]{}]/g, " ")
+      .replace(/\s+/g, " ");
+    return [...availableCastingRoles]
+      .sort(
+        (left, right) => normalizeRoleKey(right).length - normalizeRoleKey(left).length,
+      )
+      .find((member) => {
+        const role = normalizeRoleKey(member);
+        return role.length > 1 && normalizedText.includes(role);
+      });
+  }
+
+  function prepareGenerationForRole(
+    member: CastMember,
+    appearance: string,
+    submittedContent: string,
+  ) {
+    if (!session) return;
+    const russian = /[А-Яа-яЁё]/.test(`${appearance} ${submittedContent}`);
+    const roleLabel = member.role || member.name;
+    const userMessage: ChatMessage = {
+      id: uid(),
+      role: "user",
+      content: submittedContent,
+    };
+    const reply: ChatMessage = {
+      id: uid(),
+      role: "assistant",
+      content: russian
+        ? `Критерии для роли «${roleLabel}» зафиксированы. Запустите настоящую генерацию кнопкой ниже.`
+        : `The criteria for “${roleLabel}” are ready. Start the real generation with the button below.`,
+    };
+    setInput("");
+    setError("");
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        messages: [...messages, userMessage, reply],
+        generationFlow: {
+          stage: "ready",
+          roleId: member.id,
+          roleLabel,
+          brief: `ROLE: ${roleLabel}. NON-NEGOTIABLE APPEARANCE: ${appearance}`,
+          russian,
+        },
+      },
+    });
+  }
+
   async function selectGenerationRole(member: CastMember) {
     if (!session || busy) return;
     const russian = generationFlow?.russian ?? true;
@@ -735,8 +789,57 @@ export default function CharacterCastingPage() {
       /сгенер|созда[йт]|сделай.{0,24}(акт[её]р|персонаж|кандидат)|нов(ого|ый) (акт[её]р|персонаж|кандидат)|generate|new (actor|candidate|character)/i.test(
         content,
       );
+    const directlyMentionedRole = roleMentionedIn(content);
+    if (!generationFlow && directlyMentionedRole) {
+      prepareGenerationForRole(directlyMentionedRole, content, content);
+      return;
+    }
+    const confirmsGeneration =
+      /^(да|давай|ок|окей|генерируй|запускай|yes|ok|okay|generate|go)[.!\s]*$/i.test(
+        content,
+      );
+    if (!generationFlow && confirmsGeneration) {
+      const previousRequest = [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role === "user" && Boolean(roleMentionedIn(message.content)),
+        );
+      const previousRole = previousRequest
+        ? roleMentionedIn(previousRequest.content)
+        : undefined;
+      if (previousRequest && previousRole) {
+        prepareGenerationForRole(
+          previousRole,
+          previousRequest.content,
+          content,
+        );
+        return;
+      }
+    }
     if (!generationFlow && wantsGeneration) {
       beginGeneration(content);
+      return;
+    }
+    if (generationFlow?.stage === "ready" && confirmsGeneration) {
+      const userMessage: ChatMessage = { id: uid(), role: "user", content };
+      const reply: ChatMessage = {
+        id: uid(),
+        role: "assistant",
+        content: generationFlow.russian
+          ? "Генерация ещё не запускалась. Нажмите кнопку GENERATE CANDIDATE ниже."
+          : "Generation has not started yet. Press GENERATE CANDIDATE below.",
+      };
+      setInput("");
+      setError("");
+      persist({
+        ...session,
+        characterCasting: {
+          ...casting,
+          messages: [...messages, userMessage, reply],
+          generationFlow,
+        },
+      });
       return;
     }
     setInput("");
