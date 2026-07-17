@@ -14,6 +14,7 @@ type Candidate = { image: string; storagePath?: string; source: "portfolio" | "g
 type CharacterAttachment = Candidate & { id: string; name: string };
 type CastingState = { specialistId?: string; messages?: ChatMessage[]; characters?: CastMember[]; candidate?: Candidate; candidatePool?: Candidate[]; pendingRoleMemberId?: string; initialized?: boolean };
 type CastingSession = StoredProject & { projectDocument?: unknown; characterCastingSpecialist?: CharacterCastingSpecialist; characterCasting?: CastingState };
+type BusyMode = "summary" | "reply" | null;
 
 const uid = () => crypto.randomUUID();
 
@@ -24,7 +25,7 @@ export default function CharacterCastingPage() {
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
-  const [busy, setBusy] = useState(false);
+  const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
   const [attachments, setAttachments] = useState<Array<{ name: string }>>([]);
   const [characterAttachments, setCharacterAttachments] = useState<CharacterAttachment[]>([]);
@@ -32,6 +33,8 @@ export default function CharacterCastingPage() {
   const [roleDraft, setRoleDraft] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const chatEnd = useRef<HTMLDivElement>(null);
+  const initialRequestRef = useRef("");
+  const busy = busyMode !== null;
 
   const persist = useCallback((next: CastingSession) => {
     const normalized = { ...next, stage: "casting" as const };
@@ -68,6 +71,7 @@ export default function CharacterCastingPage() {
   const askAgent = useCallback(async (current: CastingSession, nextMessages: ChatMessage[], initial = false, visualAttachments: CharacterAttachment[] = []) => {
     const response = await authenticatedFetch("/api/casting-room", {
       method: "POST", headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(65000),
       body: JSON.stringify({ provider, summary: current.projectDocument, specialist: current.characterCastingSpecialist ?? specialist, messages: nextMessages.map(({ role, content }) => ({ role, content })), cast: current.characterCasting?.characters ?? [], attachments: visualAttachments.map(({ image, name }) => ({ image, label: name })), initial }),
     });
     const data = await response.json() as { reply?: string; characters?: Array<{ name: string; role: string; description: string }>; error?: string };
@@ -83,15 +87,18 @@ export default function CharacterCastingPage() {
   }, [provider, specialist]);
 
   useEffect(() => {
-    if (!session || casting.initialized || busy) return;
-    let active = true;
-    setBusy(true); setError("");
+    if (!session || casting.initialized) return;
+    const requestKey = `${session.id}:${specialist.id}`;
+    if (initialRequestRef.current === requestKey) return;
+    initialRequestRef.current = requestKey;
+    setBusyMode("summary"); setError("");
     void askAgent(session, [], true).then(({ reply, characters: found }) => {
-      if (!active) return;
       persist({ ...session, characterCasting: { ...casting, specialistId: specialist.id, initialized: true, messages: [reply], characters: found } });
-    }).catch((e: Error) => active && setError(e.message)).finally(() => active && setBusy(false));
-    return () => { active = false; };
-  }, [session, casting, specialist.id, busy, askAgent, persist]);
+    }).catch((e: Error) => {
+      setError(e.name === "TimeoutError" ? "THE CASTING AGENT TOOK TOO LONG TO STUDY THE SUMMARY. YOU CAN STILL SEND A MESSAGE." : e.message);
+      persist({ ...session, characterCasting: { ...casting, specialistId: specialist.id, initialized: true } });
+    }).finally(() => setBusyMode(null));
+  }, [session, casting, specialist.id, askAgent, persist]);
 
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, busy]);
 
@@ -127,12 +134,12 @@ export default function CharacterCastingPage() {
     const next = [...messages, userPrompt];
     const current: CastingSession = { ...session, characterCasting: { ...casting, messages: next, characters: hiredCast, candidate: undefined, pendingRoleMemberId: hired.id, candidatePool: candidatePool.filter((item) => candidateKey(item) !== candidateKey(candidate)) } };
     persist(current);
-    setBusy(true);
+    setBusyMode("reply");
     try {
       const { reply } = await askAgent(current, next, false, [{ ...candidate, id: uid(), name: hired.name }]);
       persist({ ...current, characterCasting: { ...current.characterCasting, messages: [...next, reply] } });
     } catch (e) { setError(e instanceof Error ? e.message : "CASTING AGENT COULD NOT RESPOND."); }
-    finally { setBusy(false); }
+    finally { setBusyMode(null); }
   }
 
   async function generateCandidate(brief: string, current: CastingSession) {
@@ -148,7 +155,7 @@ export default function CharacterCastingPage() {
   async function sendMessage() {
     const content = input.trim();
     if (!session || !content || busy) return;
-    setInput(""); setError(""); setBusy(true);
+    setInput(""); setError(""); setBusyMode("reply");
     const userMessage: ChatMessage = { id: uid(), role: "user", content };
     const nextMessages = [...messages, userMessage];
     let current: CastingSession = { ...session, characterCasting: { ...casting, messages: nextMessages } };
@@ -177,7 +184,7 @@ export default function CharacterCastingPage() {
       persist({ ...current, characterCasting: { ...current.characterCasting, messages: [...nextMessages, reply], characters: updatedCast } });
       setCharacterAttachments([]);
     } catch (e) { setError(e instanceof Error ? e.message : "CASTING AGENT COULD NOT RESPOND."); }
-    finally { setBusy(false); }
+    finally { setBusyMode(null); }
   }
 
   function removeCharacter(id: string) {
@@ -204,7 +211,7 @@ export default function CharacterCastingPage() {
       </aside>
       <section className="flex h-[calc(100dvh-105px)] min-h-[620px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0A0A0A]">
         <header className="shrink-0 border-b border-white/10 p-5"><p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">CHARACTER DEVELOPMENT</p><h1 className="mt-2 text-xl font-black">CAST THE PEOPLE WHO CARRY THE STORY.</h1></header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-4">{messages.map((message) => message.role === "assistant" ? <article key={message.id} className="flex gap-3"><Image src={specialist.portrait} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover"/><div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75"><p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">{specialist.name}</p>{message.content}</div></article> : <article key={message.id} className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black">{message.content}</article>)}{busy && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]"/>{specialist.name} IS THINKING...</div>}<div ref={chatEnd}/></div></div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-4">{messages.map((message) => message.role === "assistant" ? <article key={message.id} className="flex gap-3"><Image src={specialist.portrait} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover"/><div className="max-w-[82%] rounded-[20px] border border-[#FFDF00]/20 bg-[#17150b] p-4 text-sm leading-6 text-white/75"><p className="mb-2 text-[8px] font-black tracking-[.12em] text-[#FFDF00]">{specialist.name}</p>{message.content}</div></article> : <article key={message.id} className="ml-auto max-w-[80%] rounded-[20px] bg-[#FFDF00] p-4 text-sm leading-6 text-black">{message.content}</article>)}{busy && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]"/>{specialist.name} {busyMode === "summary" ? "IS STUDYING THE SUMMARY..." : "IS THINKING..."}</div>}<div ref={chatEnd}/></div></div>
         {error && <div className="mx-4 mb-2 rounded-xl border border-red-400/20 bg-red-500/5 p-3 text-[9px] text-red-200">{error}</div>}
         <footer className="shrink-0 border-t border-white/10 p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><button onClick={() => fileRef.current?.click()} className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black">＋ ADD REFERENCES</button><button onClick={() => { setInput(""); setAttachments([]); setCharacterAttachments([]); }} className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/45">RESET</button></div><div className="flex rounded-full border border-white/10 p-1"><button onClick={() => setProviderChoice("anthropic")} className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>CLAUDE</button><button onClick={() => setProviderChoice("openai")} className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}>GPT</button></div></div><input ref={fileRef} type="file" multiple className="hidden" onChange={(event) => setAttachments(Array.from(event.target.files ?? []).map((file) => ({ name: file.name })))}/>{(attachments.length > 0 || characterAttachments.length > 0) && <div className="mb-2 flex flex-wrap gap-2">{characterAttachments.map((item) => <button key={item.id} onClick={() => setCharacterAttachments((current) => current.filter((saved) => saved.id !== item.id))} className="flex items-center gap-2 rounded-full border border-[#FFDF00]/35 bg-[#FFDF00]/5 py-1 pl-1 pr-3 text-[8px] font-black text-[#FFDF00]"><Image src={item.image} alt="" width={28} height={28} unoptimized={item.image.startsWith("http")} className="h-7 w-7 rounded-full object-cover object-top"/><span>{item.name}</span><span>×</span></button>)}{attachments.map((item) => <span key={item.name} className="rounded-full border border-white/10 px-3 py-2 text-[8px] text-white/35">{item.name}</span>)}</div>}<div className="flex items-end gap-3 rounded-[20px] border border-white/10 bg-black p-3"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="DIRECT THE CASTING..." className="min-h-12 flex-1 resize-none bg-transparent p-3 text-sm outline-none"/><button onClick={() => void sendMessage()} disabled={!input.trim() || busy} className="rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-25">SEND</button></div></footer>
       </section>
