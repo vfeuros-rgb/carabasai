@@ -306,7 +306,10 @@ export async function POST(request: Request) {
     );
   }
   const generationId = prediction.id ?? crypto.randomUUID();
-  const actorName = generateCastingActorName(characterBrief, generationId);
+  const actorName = generateCastingActorName(
+    `${characterBrief}\n${normalizedBrief}`,
+    generationId,
+  );
   const imageType = detectImageType(image);
   const storagePath = `${access.user.id}/${projectId}/characters/${generationId}.${imageType.extension}`;
   const { error: uploadError } = await access.supabase.storage

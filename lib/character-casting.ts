@@ -321,6 +321,56 @@ function stableNameIndex(value: string, length: number) {
   return hash % length;
 }
 
+type CastingGender = "female" | "male" | "unknown";
+
+const explicitFemaleMarkers = [
+  /\b(?:woman|women|girl|female|mother|wife|daughter|actress|lady|sister|grandmother)\b/i,
+  /(?:^|[^а-яё])(?:женщина|девушка|девочка|мать|мама|жена|дочь|актриса|героиня|сестра|бабушка|старушка)(?:$|[^а-яё])/iu,
+];
+
+const explicitMaleMarkers = [
+  /\b(?:man|men|boy|male|father|husband|son|actor|gentleman|brother|grandfather)\b/i,
+  /(?:^|[^а-яё])(?:мужчина|парень|мальчик|отец|папа|муж|сын|актёр|актер|герой|брат|дедушка|старик)(?:$|[^а-яё])/iu,
+];
+
+const supportingFemaleMarkers = [
+  /(?:^|[^а-яё])(?:молодая|высокая|рыжая|кудрявая|стройная|полная)(?:$|[^а-яё])/iu,
+];
+
+const supportingMaleMarkers = [
+  /\b(?:beard|bearded|moustache|mustache)\b/i,
+  /(?:^|[^а-яё])(?:молодой|высокий|рыжий|кудрявый|усы|усами|борода|бородой)(?:$|[^а-яё])/iu,
+];
+
+function firstMarkerIndex(value: string, patterns: RegExp[]) {
+  let first = Number.POSITIVE_INFINITY;
+  for (const pattern of patterns) {
+    const match = pattern.exec(value);
+    if (match && match.index < first) first = match.index;
+  }
+  return first;
+}
+
+export function detectCastingGender(characterBrief: string): CastingGender {
+  const brief = characterBrief.toLowerCase();
+  const femaleIndex = firstMarkerIndex(brief, explicitFemaleMarkers);
+  const maleIndex = firstMarkerIndex(brief, explicitMaleMarkers);
+
+  if (femaleIndex !== maleIndex)
+    return femaleIndex < maleIndex ? "female" : "male";
+
+  const hasFemaleSupport = supportingFemaleMarkers.some((pattern) =>
+    pattern.test(brief),
+  );
+  const hasMaleSupport = supportingMaleMarkers.some((pattern) =>
+    pattern.test(brief),
+  );
+
+  if (hasFemaleSupport !== hasMaleSupport)
+    return hasFemaleSupport ? "female" : "male";
+  return "unknown";
+}
+
 export function generateCastingActorName(characterBrief: string, seed: string) {
   const brief = characterBrief.toLowerCase();
   const pool =
@@ -341,18 +391,11 @@ export function generateCastingActorName(characterBrief: string, seed: string) {
                   )
                 ? generatedActorNames.slavic
                 : generatedActorNames.international;
-  const isFemale =
-    /woman|girl|female|mother|wife|daughter|женщ|девуш|девоч|мать|жена|дочь|героин/.test(
-      brief,
-    );
-  const isMale =
-    /man|boy|male|father|husband|son|мужчин|парень|мальчик|отец|муж|сын|герой/.test(
-      brief,
-    );
+  const gender = detectCastingGender(brief);
   const names =
-    isFemale && !isMale
+    gender === "female"
       ? pool.female
-      : isMale && !isFemale
+      : gender === "male"
         ? pool.male
         : [...pool.female, ...pool.male];
   return names[stableNameIndex(`${seed}:${brief}`, names.length)];
