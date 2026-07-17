@@ -69,9 +69,41 @@ type BusyMode = "summary" | "reply" | "generation" | null;
 
 const uid = () => crypto.randomUUID();
 
-function removeDuplicateCastAssignments(members: CastMember[]) {
+function normalizeRoleKey(member: CastMember) {
+  return (member.role || member.name)
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[«»"'`.,:;!?()[\]{}]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizeCastNotebook(members: CastMember[]): CastMember[] {
+  const uniqueRoles: CastMember[] = [];
+  const roleIndexes = new Map<string, number>();
+
+  for (const member of members) {
+    const roleKey = normalizeRoleKey(member) || member.id;
+    const existingIndex = roleIndexes.get(roleKey);
+    if (existingIndex === undefined) {
+      roleIndexes.set(roleKey, uniqueRoles.length);
+      uniqueRoles.push(member);
+      continue;
+    }
+
+    const existing = uniqueRoles[existingIndex];
+    if (!existing.image && member.image) {
+      uniqueRoles[existingIndex] = {
+        ...existing,
+        actorName: member.actorName,
+        image: member.image,
+        storagePath: member.storagePath,
+        source: member.source,
+      };
+    }
+  }
+
   const assigned = new Set<string>();
-  return members.map((member) => {
+  return uniqueRoles.map((member) => {
     const key = member.storagePath ?? member.image;
     if (!key || !assigned.has(key)) {
       if (key) assigned.add(key);
@@ -128,8 +160,7 @@ export default function CharacterCastingPage() {
     if (!raw) return;
     const restored = JSON.parse(raw) as CastingSession;
     const restoredCharacters = restored.characterCasting?.characters ?? [];
-    const cleanedCharacters =
-      removeDuplicateCastAssignments(restoredCharacters);
+    const cleanedCharacters = normalizeCastNotebook(restoredCharacters);
     const cleaned = restored.characterCasting
       ? {
           ...restored,
@@ -177,7 +208,10 @@ export default function CharacterCastingPage() {
     characterCastingSpecialists[0];
   const casting = session?.characterCasting ?? {};
   const messages = casting.messages ?? [];
-  const characters = casting.characters ?? [];
+  const characters = normalizeCastNotebook(casting.characters ?? []);
+  const availableCastingRoles = characters.filter(
+    (member) => !member.image && !member.storagePath,
+  );
   const candidate = casting.candidate;
   const candidatePool = casting.candidatePool ?? [];
   const projectCast = casting.myCast ?? [];
@@ -284,13 +318,17 @@ export default function CharacterCastingPage() {
       };
       if (!response.ok || !data.reply)
         throw new Error(data.error ?? "CASTING AGENT COULD NOT RESPOND.");
-      const existing = current.characterCasting?.characters ?? [];
-      const detected = (data.characters ?? []).map((item, index) => {
-        return {
-          id: `story-${index}-${item.name}`,
-          ...item,
-        } as CastMember;
-      });
+      const existing = normalizeCastNotebook(
+        current.characterCasting?.characters ?? [],
+      );
+      const detected = normalizeCastNotebook(
+        (data.characters ?? []).map((item, index) => {
+          return {
+            id: `story-${index}-${item.name}`,
+            ...item,
+          } as CastMember;
+        }),
+      );
       // Once the notebook exists, it is user-owned state. The language model may
       // discuss it, but it must never reorder roles or move actor assignments.
       const merged = existing.length > 0 ? existing : detected;
@@ -1155,7 +1193,7 @@ export default function CharacterCastingPage() {
                     CHOOSE ROLE FROM NOTEBOOK
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {characters.map((member) => (
+                    {availableCastingRoles.map((member) => (
                       <button
                         key={member.id}
                         onClick={() => void selectGenerationRole(member)}
@@ -1166,9 +1204,9 @@ export default function CharacterCastingPage() {
                       </button>
                     ))}
                   </div>
-                  {characters.length === 0 && (
+                  {availableCastingRoles.length === 0 && (
                     <p className="text-[9px] text-white/35">
-                      ADD A ROLE TO THE CHARACTER NOTEBOOK FIRST.
+                      ALL NOTEBOOK ROLES ARE CAST. ADD A NEW ROLE TO CONTINUE.
                     </p>
                   )}
                 </div>
@@ -1179,7 +1217,7 @@ export default function CharacterCastingPage() {
                     CHOOSE ROLE FROM NOTEBOOK
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {characters.map((member) => (
+                    {availableCastingRoles.map((member) => (
                       <button
                         key={member.id}
                         onClick={() => assignCandidateToRole(member)}
@@ -1190,9 +1228,9 @@ export default function CharacterCastingPage() {
                       </button>
                     ))}
                   </div>
-                  {characters.length === 0 && (
+                  {availableCastingRoles.length === 0 && (
                     <p className="text-[9px] text-white/35">
-                      ADD A ROLE TO THE CHARACTER NOTEBOOK FIRST.
+                      ALL NOTEBOOK ROLES ARE CAST. ADD A NEW ROLE TO CONTINUE.
                     </p>
                   )}
                 </div>
