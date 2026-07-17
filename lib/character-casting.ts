@@ -166,7 +166,7 @@ export const characterCastingSpecialists: CharacterCastingSpecialist[] = [
       triggerWord: "R001",
       modelEnvironmentVariable: "REPLICATE_R001_MODEL",
       defaultAspectRatio: "9:16",
-      defaultLoraStrength: 0.85,
+      defaultLoraStrength: 1,
     },
   },
 ];
