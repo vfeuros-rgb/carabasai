@@ -60,7 +60,13 @@ export default function CharacterCastingPage() {
     return () => window.removeEventListener("carabasai-active-project-change", loadSession);
   }, [loadSession]);
 
-  const specialist = session?.characterCastingSpecialist ?? characterCastingSpecialists[0];
+  const savedSpecialist = session?.characterCastingSpecialist;
+  const savedSpecialistId = session?.characterCasting?.specialistId ?? savedSpecialist?.id;
+  // Resolve saved selections against the current roster. Older projects contain
+  // a serialized Elias profile with only four portfolio images.
+  const specialist = characterCastingSpecialists.find((item) => item.id === savedSpecialistId)
+    ?? savedSpecialist
+    ?? characterCastingSpecialists[0];
   const casting = session?.characterCasting ?? {};
   const messages = casting.messages ?? [];
   const characters = casting.characters ?? [];
@@ -76,7 +82,7 @@ export default function CharacterCastingPage() {
     const response = await authenticatedFetch("/api/casting-room", {
       method: "POST", headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(65000),
-      body: JSON.stringify({ provider, summary: current.projectDocument, specialist: current.characterCastingSpecialist ?? specialist, messages: nextMessages.map(({ role, content }) => ({ role, content })), cast: current.characterCasting?.characters ?? [], attachments: visualAttachments.map(({ image, name }) => ({ image, label: name })), initial }),
+      body: JSON.stringify({ provider, summary: current.projectDocument, specialist, messages: nextMessages.map(({ role, content }) => ({ role, content })), cast: current.characterCasting?.characters ?? [], attachments: visualAttachments.map(({ image, name }) => ({ image, label: name })), initial }),
     });
     const data = await response.json() as { reply?: string; characters?: Array<{ name: string; role: string; description: string }>; error?: string };
     if (!response.ok || !data.reply) throw new Error(data.error ?? "CASTING AGENT COULD NOT RESPOND.");
@@ -91,16 +97,26 @@ export default function CharacterCastingPage() {
   }, [provider, specialist]);
 
   useEffect(() => {
+    if (!session) return;
+    const saved = session.characterCastingSpecialist;
+    const portfolioIsCurrent = saved?.id === specialist.id
+      && saved.characterExamples.length === specialist.characterExamples.length
+      && saved.characterExamples.every((item, index) => item.image === specialist.characterExamples[index]?.image);
+    if (portfolioIsCurrent) return;
+    persist({ ...session, characterCastingSpecialist: specialist });
+  }, [session, specialist, persist]);
+
+  useEffect(() => {
     if (!session || casting.initialized) return;
     const requestKey = `${session.id}:${specialist.id}`;
     if (initialRequestRef.current === requestKey) return;
     initialRequestRef.current = requestKey;
     setBusyMode("summary"); setError("");
     void askAgent(session, [], true).then(({ reply, characters: found }) => {
-      persist({ ...session, characterCasting: { ...casting, specialistId: specialist.id, initialized: true, messages: [reply], characters: found } });
+      persist({ ...session, characterCastingSpecialist: specialist, characterCasting: { ...casting, specialistId: specialist.id, initialized: true, messages: [reply], characters: found } });
     }).catch((e: Error) => {
       setError(e.name === "TimeoutError" ? "THE CASTING AGENT TOOK TOO LONG TO STUDY THE SUMMARY. YOU CAN STILL SEND A MESSAGE." : e.message);
-      persist({ ...session, characterCasting: { ...casting, specialistId: specialist.id, initialized: true } });
+      persist({ ...session, characterCastingSpecialist: specialist, characterCasting: { ...casting, specialistId: specialist.id, initialized: true } });
     }).finally(() => setBusyMode(null));
   }, [session, casting, specialist.id, askAgent, persist]);
 
