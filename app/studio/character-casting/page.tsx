@@ -1713,7 +1713,7 @@ export default function CharacterCastingPage() {
                   {activeConversation.length > 0 ? (
                     activeConversation.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`flex max-w-[82%] flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+                        <div className={`flex max-w-full flex-col sm:max-w-[82%] ${message.role === "user" ? "items-end" : "items-start"}`}>
                           {message.role === "user" && (
                             <button
                               type="button"
@@ -1837,7 +1837,7 @@ export default function CharacterCastingPage() {
               {error}
             </div>
           )}
-          <footer className="shrink-0 border-t border-white/10 p-2.5 sm:p-4">
+          <footer className="shrink-0 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4">
             <div className="mb-2 flex flex-nowrap items-end justify-between gap-2 overflow-x-auto sm:flex-wrap sm:gap-3">
               <div className="flex shrink-0 gap-2">
                 <button
@@ -1959,7 +1959,7 @@ export default function CharacterCastingPage() {
                 }}
                 placeholder={interactionMode === "specialist" ? `ASK ${specialist.name.toUpperCase()}...` : "DESCRIBE THE ACTOR..."}
                 rows={1}
-                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-sm outline-none sm:min-h-12 sm:p-3"
+                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-base outline-none sm:min-h-12 sm:p-3 sm:text-sm"
               />
               <button
                 onClick={() => void (interactionMode === "specialist" ? sendMessage() : generateFromMainInput())}

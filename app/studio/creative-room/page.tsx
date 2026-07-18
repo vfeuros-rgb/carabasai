@@ -712,7 +712,7 @@ export default function CreativeRoomPage() {
         <button type="button" onPointerDown={resizeHistory} onPointerUp={() => localStorage.setItem("carabasaiHistoryWidth", String(historyWidth))} className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20" aria-label="Resize session history" />
       </nav>
       )}
-      <div className="mx-auto grid h-[calc(100dvh-6.25rem)] w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-2 md:h-[calc(100dvh-5.5rem)] lg:grid-cols-[320px_1fr] lg:grid-rows-1 lg:gap-5">
+      <div className="mx-auto grid h-[calc(100dvh-11.25rem)] min-h-[540px] w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-2 md:h-[calc(100dvh-5.5rem)] md:min-h-0 lg:grid-cols-[320px_1fr] lg:grid-rows-1 lg:gap-5">
         <aside className="hidden space-y-4 lg:block lg:max-h-full lg:self-start lg:overflow-y-auto lg:pr-1">
           {agents.map(([agent, member], index) => (
             <div
@@ -1059,7 +1059,7 @@ export default function CreativeRoomPage() {
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="DIRECT THE CONVERSATION..."
                 rows={1}
-                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-white outline-none placeholder:text-white/20 sm:min-h-14 sm:py-2"
+                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent px-2 py-1.5 text-base leading-6 text-white outline-none placeholder:text-white/20 sm:min-h-14 sm:py-2 sm:text-sm"
               />
               <button
                 type="submit"

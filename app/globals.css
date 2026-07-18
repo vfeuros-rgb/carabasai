@@ -143,6 +143,10 @@ button:disabled,
 }
 
 @media (max-width: 767px) {
+  .site-shell main {
+    overflow-x: clip;
+  }
+
   .site-shell__background {
     background-position: 58% center;
   }
