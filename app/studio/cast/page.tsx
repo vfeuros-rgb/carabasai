@@ -68,39 +68,41 @@ export default function CastLibraryPage() {
           </span>
         </div>
 
-        {actors.length ? (
-          <div className="mt-8 grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
-            {actors.map((actor) => (
-              <button
-                key={actorKey(actor)}
-                onClick={() => setPreview(actor)}
-                className="group relative aspect-[9/16] overflow-hidden bg-[#080808] hover:z-10 hover:shadow-[0_0_35px_8px_rgba(255,223,0,.35)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00]"
-              >
-                <Image
-                  src={actor.image}
-                  alt={actor.actorName ?? "Saved actor"}
-                  fill
-                  sizes="20vw"
-                  unoptimized={actor.image.startsWith("http")}
-                  className="object-cover object-top"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent px-3 pb-3 pt-20 text-left">
-                  <p className="text-xs font-black">
-                    {actor.actorName ?? "CASTING ACTOR"}
-                  </p>
-                  <p className="mt-1 text-[7px] font-black text-[#FFDF00]">
-                    {actor.source.toUpperCase()}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-8 flex min-h-[360px] items-center justify-center rounded-[26px] border border-white/10 text-center text-sm text-white/30">
-            Open a generated candidate in Character Casting and choose ADD TO MY
-            CAST.
-          </div>
-        )}
+        <section className="mt-8 min-h-[420px] rounded-[26px] border border-white/12 bg-[#080808]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,.28)] sm:p-6">
+          {actors.length ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+              {actors.map((actor) => (
+                <button
+                  key={actorKey(actor)}
+                  onClick={() => setPreview(actor)}
+                  className="group relative aspect-[9/16] overflow-hidden rounded-[16px] border border-white/10 bg-[#080808] transition hover:z-10 hover:border-[#FFDF00] hover:shadow-[0_0_30px_rgba(255,223,0,.22)]"
+                >
+                  <Image
+                    src={actor.image}
+                    alt={actor.actorName ?? "Saved actor"}
+                    fill
+                    sizes="20vw"
+                    unoptimized={actor.image.startsWith("http")}
+                    className="object-cover object-top"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent px-3 pb-3 pt-20 text-left">
+                    <p className="text-xs font-black">
+                      {actor.actorName ?? "CASTING ACTOR"}
+                    </p>
+                    <p className="mt-1 text-[7px] font-black text-[#FFDF00]">
+                      {actor.source.toUpperCase()}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[360px] items-center justify-center text-center text-sm text-white/30">
+              Open a generated candidate in Character Casting and choose ADD TO MY
+              CAST.
+            </div>
+          )}
+        </section>
       </div>
 
       {preview && (
