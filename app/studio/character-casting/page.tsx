@@ -17,7 +17,7 @@ import {
   characterCastingSpecialists,
   type CharacterCastingSpecialist,
 } from "../../../lib/character-casting";
-import { platformConfirm } from "../../../lib/platform-dialog";
+import { platformConfirm, platformNotice } from "../../../lib/platform-dialog";
 
 type ChatMessage = {
   id: string;
@@ -286,8 +286,21 @@ export default function CharacterCastingPage() {
     return () => window.removeEventListener(projectChangeEvent, refresh);
   }, []);
 
-  function addCandidateToMyCast(item: Candidate | undefined = candidate) {
+  async function addCandidateToMyCast(
+    item: Candidate | undefined = candidate,
+  ) {
     if (!session || !item) return;
+    if (
+      myCast.some((saved) => candidateKey(saved) === candidateKey(item))
+    ) {
+      await platformNotice({
+        eyebrow: "MY CAST",
+        title: "ALREADY IN YOUR CAST",
+        message: `${item.actorName ?? "Этот персонаж"} уже находится в вашем касте.`,
+        confirmLabel: "OK",
+      });
+      return;
+    }
     persist({
       ...session,
       characterCasting: {
