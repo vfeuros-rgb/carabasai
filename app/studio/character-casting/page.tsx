@@ -1832,7 +1832,7 @@ export default function CharacterCastingPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 onClick={() => void downloadCandidate()}
                 className="rounded-full border border-white/15 bg-black/55 px-3 py-3 text-[8px] font-black text-white"
@@ -1845,24 +1845,8 @@ export default function CharacterCastingPage() {
               >
                 SHARE
               </button>
-              <button
-                onClick={addCandidateToMyCast}
-                className="rounded-full border border-[#FFDF00]/45 bg-[#FFDF00]/10 px-3 py-3 text-[8px] font-black text-[#FFDF00]"
-              >
-                {myCast.some(
-                  (item) => candidateKey(item) === candidateKey(candidate),
-                )
-                  ? "FAVORITE ✓"
-                  : "FAVORITE"}
-              </button>
-              <button
-                onClick={deleteCandidate}
-                className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-3 text-[8px] font-black text-red-200"
-              >
-                DELETE
-              </button>
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
                   rejectCandidate();
@@ -1880,16 +1864,6 @@ export default function CharacterCastingPage() {
                 className="rounded-full bg-[#FFDF00] px-3 py-3 text-[8px] font-black text-black"
               >
                 HIRE
-              </button>
-              <button
-                onClick={addCandidateToMyCast}
-                className="rounded-full border border-[#FFDF00]/45 bg-[#FFDF00]/10 px-3 py-3 text-[8px] font-black text-[#FFDF00]"
-              >
-                {myCast.some(
-                  (item) => candidateKey(item) === candidateKey(candidate),
-                )
-                  ? "IN MY CAST ✓"
-                  : "ADD TO MY CAST"}
               </button>
             </div>
           </section>
