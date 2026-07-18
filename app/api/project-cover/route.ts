@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
+import { deriveProjectTitle } from "../../../lib/project-title";
 
 export const runtime = "nodejs";
 const COVER_MODEL = "flux-2-dev-16x9-v3";
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
 
-  const generatedTitle = await createProjectTitle(accountId, apiToken, brief);
+  const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
   const { data: projectRow } = await access.supabase
     .from("projects")
     .select("project_document")

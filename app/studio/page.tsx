@@ -6,6 +6,7 @@ import AIProviderSwitch, { currentAIProvider } from "./AIProviderSwitch";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
 import StudioSidebar from "../components/StudioSidebar";
 import WorkflowNav from "../components/WorkflowNav";
+import { deriveProjectTitle } from "../../lib/project-title";
 import { createClient } from "../../lib/supabase/client";
 import { ACTIVE_PROJECT_KEY, deleteProject, getCachedProjects, saveProjects, setProjectFavorite, syncProjects } from "../../lib/project-store";
 import { platformConfirm } from "../../lib/platform-dialog";
@@ -824,7 +825,7 @@ export default function StudioPage() {
       const creativeSession = {
         id: createId(),
         startedAt: Date.now(),
-        title: notes.trim().slice(0, 42),
+        title: deriveProjectTitle(notes),
         notes: notes.trim(),
         secondDirector: selectedSecondDirector,
         screenwriter: selectedScreenwriter,
@@ -907,7 +908,7 @@ export default function StudioPage() {
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       })));
-      const creativeSession = { id: createId(), startedAt: Date.now(), title: notes.trim().slice(0, 42), notes: notes.trim(), secondDirector, screenwriter, references: storedReferences, notebook: [], messages: [] };
+      const creativeSession = { id: createId(), startedAt: Date.now(), title: deriveProjectTitle(notes), notes: notes.trim(), secondDirector, screenwriter, references: storedReferences, notebook: [], messages: [] };
       const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

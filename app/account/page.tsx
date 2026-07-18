@@ -256,12 +256,12 @@ export default function AccountPage() {
       { id: "summary", label: "SUMMARY", reached: reachedSummary },
     ];
     const image = (project.id ? projectCoverUrls[project.id] : undefined) || project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
-    return <div key={key} className={`relative min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
+    return <div key={key} className={`relative h-full min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>
       {favoriteRevealed && <button type="button" onClick={() => toggleProjectFavorite(project)} className="absolute bottom-0 left-0 top-0 flex w-16 items-center justify-center text-xl text-[#FFDF00] md:hidden" aria-label="Add project to favorites">★</button>}
       {deleteRevealed && <button type="button" onClick={() => void removeAccountProject(project)} className="absolute bottom-0 right-0 top-0 flex w-16 items-center justify-center text-lg text-red-400 md:hidden" aria-label="Delete project">⌫</button>}
       <article
         data-disable-menu-swipe
-        className={`relative min-w-0 w-full max-w-full overflow-visible rounded-[20px] border border-white/10 bg-[#0B0B0B] transition-all md:translate-x-0 md:hover:-translate-y-1 md:hover:border-[#FFDF00]/30 ${deleteRevealed ? "-translate-x-16" : favoriteRevealed ? "translate-x-16" : "translate-x-0"}`}
+        className={`relative flex h-full min-w-0 w-full max-w-full flex-col overflow-visible rounded-[20px] border border-white/10 bg-[#0B0B0B] transition-all md:translate-x-0 md:hover:-translate-y-1 md:hover:border-[#FFDF00]/30 ${deleteRevealed ? "-translate-x-16" : favoriteRevealed ? "translate-x-16" : "translate-x-0"}`}
         onTouchStart={(event) => { const touch = event.touches[0]; projectSwipeMoved.current = false; projectSwipeRef.current = { x: touch.clientX, y: touch.clientY, id: key }; }}
         onTouchEnd={(event) => {
           const start = projectSwipeRef.current;
@@ -277,21 +277,21 @@ export default function AccountPage() {
           projectSwipeRef.current = null;
         }}
       >
-        <div role="button" tabIndex={0} onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openProject(project); }} className="block min-w-0 w-full max-w-full cursor-pointer overflow-hidden rounded-[20px] text-left">
+        <div role="button" tabIndex={0} onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openProject(project); }} className="flex min-w-0 w-full max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[20px] text-left">
           <div
             className="flex aspect-video w-full items-center justify-center rounded-t-[20px] bg-[#101010] bg-cover bg-center"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           >
             {!image && <span className="px-3 text-center text-[7px] font-black tracking-[0.12em] text-white/20">GENERATING COVER...</span>}
           </div>
-          <div className="min-w-0 p-4 md:p-5">
+          <div className="flex min-w-0 flex-1 flex-col p-4 md:p-5">
             <p className="text-[8px] font-black tracking-[0.12em] text-[#FFDF00]">IN PROGRESS</p>
-            <h3 className="mt-2 line-clamp-2 pr-8 text-base font-black uppercase leading-tight text-white md:mt-3 md:text-lg">{project.title || "UNTITLED PROJECT"}</h3>
-            <details onClick={(event) => event.stopPropagation()} className="group mt-3 text-[10px] leading-5 text-white/35">
+            <h3 className="mt-2 min-h-10 line-clamp-2 pr-8 text-base font-black uppercase leading-tight text-white md:mt-3 md:min-h-[45px] md:text-lg">{project.title || "UNTITLED PROJECT"}</h3>
+            <details onClick={(event) => event.stopPropagation()} className="group mt-3 min-h-[58px] text-[10px] leading-5 text-white/35">
               <summary className="line-clamp-2 cursor-pointer list-none pr-3 marker:hidden group-open:line-clamp-none">{project.notes || "NO PROJECT BRIEF"}</summary>
               <span className="mt-1 block text-[8px] font-black text-[#FFDF00]/60 group-open:hidden">SHOW FULL BRIEF</span>
             </details>
-            <div className="mt-4 flex items-center justify-between text-[9px] font-black tracking-[0.1em]"><span className="text-white/55">{currentStage}</span><span className="text-white/35">{progress}%</span></div>
+            <div className="mt-auto flex items-center justify-between pt-4 text-[9px] font-black tracking-[0.1em]"><span className="text-white/55">{currentStage}</span><span className="text-white/35">{progress}%</span></div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-[#FFDF00]" style={{ width: `${progress}%` }} /></div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "./supabase/client";
+import { normalizeAutomaticProjectTitle } from "./project-title";
 
 export type StoredProject = {
   id?: string;
@@ -43,7 +44,10 @@ function stageOf(project: StoredProject) {
 
 function readLocal(): StoredProject[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as StoredProject[];
+    return (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as StoredProject[]).map((project) => ({
+      ...project,
+      title: normalizeAutomaticProjectTitle(project.title, project.notes),
+    }));
   } catch {
     return [];
   }
@@ -173,9 +177,9 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
   if (error) throw error;
   const remote = (data ?? []).map((row) => {
     const snapshot = row.project_document?.carabasai_session as StoredProject | undefined;
-    return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite, stage: row.stage } : {
+    return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite, stage: row.stage, title: normalizeAutomaticProjectTitle(snapshot.title, snapshot.notes) } : {
       id: row.id,
-      title: row.title,
+      title: normalizeAutomaticProjectTitle(row.title, row.brief),
       notes: row.brief,
       startedAt: new Date(row.created_at).getTime(),
       favorite: row.favorite,
