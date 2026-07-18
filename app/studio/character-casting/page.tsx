@@ -9,6 +9,7 @@ import {
   getCachedProjects,
   projectChangeEvent,
   saveProject,
+  saveProjects,
   syncProjects,
   type StoredProject,
 } from "../../../lib/project-store";
@@ -381,6 +382,32 @@ export default function CharacterCastingPage() {
       },
     });
     setMyCastOpen(false);
+  }
+
+  function fireMyCastCharacter(item: Candidate) {
+    if (!session) return;
+    const key = candidateKey(item);
+    const updatedProjects = getCachedProjects<CastingSession>().map(
+      (project) => ({
+        ...project,
+        characterCasting: project.characterCasting
+          ? {
+              ...project.characterCasting,
+              myCast: (project.characterCasting.myCast ?? []).filter(
+                (saved) => candidateKey(saved) !== key,
+              ),
+            }
+          : project.characterCasting,
+      }),
+    );
+    saveProjects(updatedProjects);
+    setAccountCast((current) =>
+      current.filter((saved) => candidateKey(saved) !== key),
+    );
+    const updatedSession = updatedProjects.find(
+      (project) => project.id === session.id,
+    );
+    if (updatedSession) persist(updatedSession);
   }
 
   const askAgent = useCallback(
@@ -1761,9 +1788,8 @@ export default function CharacterCastingPage() {
               {myCast.length ? (
                 <div className="grid grid-cols-3 gap-0 sm:grid-cols-5">
                   {myCast.map((item) => (
-                    <button
+                    <div
                       key={candidateKey(item)}
-                      onClick={() => chooseMyCastCharacter(item)}
                       className="group relative aspect-[9/16] overflow-hidden bg-black hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00]"
                     >
                       <Image
@@ -1777,10 +1803,23 @@ export default function CharacterCastingPage() {
                       <span className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/90 to-transparent px-2 pb-6 pt-2 text-left text-[8px] font-black uppercase text-white">
                         {item.actorName ?? "CASTING ACTOR"}
                       </span>
-                      <span className="absolute inset-x-0 bottom-0 translate-y-full bg-[#FFDF00] py-3 text-[9px] font-black text-black transition-transform group-hover:translate-y-0">
-                        SELECT
-                      </span>
-                    </button>
+                      <div className="absolute inset-x-0 bottom-0 grid translate-y-full grid-cols-2 transition-transform group-hover:translate-y-0">
+                        <button
+                          type="button"
+                          onClick={() => chooseMyCastCharacter(item)}
+                          className="bg-[#FFDF00] py-3 text-[9px] font-black text-black"
+                        >
+                          SELECT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fireMyCastCharacter(item)}
+                          className="bg-red-600 py-3 text-[9px] font-black text-white hover:bg-red-500"
+                        >
+                          FIRE
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
