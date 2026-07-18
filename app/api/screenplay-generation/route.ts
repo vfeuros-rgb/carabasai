@@ -5,18 +5,12 @@ export const maxDuration = 300;
 
 const DIRECTOR_PROFILES: Record<string, string> = {
   "GRISHA PRAVDIN": "grisha_pravdin",
-  "MARCO ABSURDO": "marco_absurdo",
   "AMBROSE PEAK": "ambrose_peak",
-  "DANTE NOIR": "dante_noir",
-  "ZUZU TOON": "zuzu_toon",
 };
 
 const SCREENWRITER_PROFILES: Record<string, string> = {
-  "STUDIO SCREENWRITER": "default_screenwriter",
   "VERA SUVOROVA": "vera_suvorova",
   "CLARA WAKE": "clara_wake",
-  "LEO CUT": "leo_cut",
-  "IRIS VOID": "iris_void",
 };
 
 type Payload = {
@@ -126,8 +120,11 @@ export async function POST(request: Request) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 240_000);
   try {
-    const directorId = DIRECTOR_PROFILES[directorName] ?? "default_director";
-    const writerId = SCREENWRITER_PROFILES[writerName] ?? "default_screenwriter";
+    const directorId = DIRECTOR_PROFILES[directorName];
+    const writerId = SCREENWRITER_PROFILES[writerName];
+    if (!directorId || !writerId) {
+      return NextResponse.json({ error: "SELECTED SPECIALIST IS NO LONGER AVAILABLE." }, { status: 400 });
+    }
     const [directorResponse, writerResponse] = await Promise.all([
       fetch(`${serviceUrl}/profiles/${directorId}`, { headers: serviceHeaders(), signal: controller.signal }),
       fetch(`${serviceUrl}/profiles/${writerId}`, { headers: serviceHeaders(), signal: controller.signal }),

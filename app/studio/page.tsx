@@ -77,7 +77,7 @@ function readableText(value: string) {
   return lower.charAt(0).toLocaleUpperCase() + lower.slice(1);
 }
 
-const secondDirectors: CrewMember[] = [
+const secondDirectorRoster: CrewMember[] = [
   {
     id: "marco",
     name: "MARCO ABSURDO",
@@ -249,7 +249,7 @@ const secondDirectors: CrewMember[] = [
   },
 ];
 
-const screenwriters: CrewMember[] = [
+const screenwriterRoster: CrewMember[] = [
   {
     id: "vera",
     name: "VERA PLOT",
@@ -414,6 +414,13 @@ const screenwriters: CrewMember[] = [
       "OPPOSES LORE WITHOUT CONSEQUENCE, TECHNOLOGY AS MAGIC, FALSE PROFUNDITY AND TWISTS THAT BREAK THE WORLD'S OWN RULES.",
   },
 ];
+
+const secondDirectors = secondDirectorRoster.filter((member) =>
+  ["grisha", "ambrose"].includes(member.id),
+);
+const screenwriters = screenwriterRoster.filter((member) =>
+  ["suvorova", "clara"].includes(member.id),
+);
 
 const roleConfigs: Record<CrewRole, RoleConfig> = {
   secondDirector: {
