@@ -48,7 +48,7 @@ export default function PlatformDialogHost() {
   if (!current) return null;
   const danger = current.tone === "danger";
 
-  return <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 px-5 py-8 backdrop-blur-sm" role="presentation">
+  return <div className="fixed inset-0 z-[30000] flex items-center justify-center bg-black/80 px-5 py-8 backdrop-blur-sm" role="presentation">
     <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="platform-dialog-title" className={`w-full max-w-[520px] overflow-hidden rounded-[28px] border bg-[#090909] shadow-[0_30px_100px_rgba(0,0,0,.75)] ${danger ? "border-red-400/25" : "border-[#FFDF00]/25"}`}>
       <div className="h-1 w-full bg-[#FFDF00]" />
       <div className="p-7 sm:p-9">

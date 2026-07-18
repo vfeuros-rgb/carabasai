@@ -588,3 +588,54 @@ STRICT FLUX BACKGROUND RULES, NEVER OVERRIDE:
     ...(referenceUsage ? { referenceUsage } : {}),
   });
 }
+
+export async function DELETE(request: Request) {
+  let access;
+  try {
+    access = await authenticateAiRequest(request);
+  } catch (error) {
+    const accessError =
+      error instanceof AiAccessError
+        ? error
+        : new AiAccessError("AUTHENTICATION FAILED.", 401);
+    return NextResponse.json(
+      { error: accessError.message },
+      { status: accessError.status },
+    );
+  }
+
+  const body = (await request.json()) as {
+    projectId?: string;
+    storagePath?: string;
+  };
+  const projectId = body.projectId?.trim() ?? "";
+  const storagePath = body.storagePath?.trim() ?? "";
+  const allowedPrefix = `${access.user.id}/${projectId}/characters/`;
+  if (
+    !/^[0-9a-f-]{36}$/i.test(projectId) ||
+    !storagePath.startsWith(allowedPrefix) ||
+    storagePath.includes("..")
+  ) {
+    return NextResponse.json(
+      { error: "VALID GENERATED CHARACTER PATH IS REQUIRED." },
+      { status: 400 },
+    );
+  }
+
+  const { error } = await access.supabase.storage
+    .from("carabasai-media")
+    .remove([storagePath]);
+  if (error) {
+    console.error("Generated character deletion failed", {
+      message: error.message,
+      storagePath,
+      userId: access.user.id,
+    });
+    return NextResponse.json(
+      { error: "GENERATED CHARACTER COULD NOT BE DELETED." },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ deleted: true, storagePath });
+}

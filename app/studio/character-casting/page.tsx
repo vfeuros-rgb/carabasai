@@ -467,6 +467,92 @@ export default function CharacterCastingPage() {
     });
   }
 
+  async function permanentlyDeleteGeneratedMessage(message: ChatMessage) {
+    if (!session || !message.candidate?.storagePath) {
+      await platformNotice({
+        eyebrow: "GENERATION HISTORY",
+        title: "IMAGE CANNOT BE DELETED",
+        message: "The permanent storage path for this older image is unavailable.",
+        confirmLabel: "OK",
+      });
+      return;
+    }
+    const confirmed = await platformConfirm({
+      eyebrow: "GENERATION HISTORY",
+      title: "DELETE THIS MESSAGE FOREVER?",
+      message: "This generated image and its message will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "DELETE FOREVER",
+      cancelLabel: "CANCEL",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+
+    const storagePath = message.candidate.storagePath;
+    const response = await authenticatedFetch("/api/character-generation", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: session.id, storagePath }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      await platformNotice({
+        eyebrow: "GENERATION HISTORY",
+        title: "IMAGE WAS NOT DELETED",
+        message: result.error ?? "The image could not be removed from storage.",
+        confirmLabel: "OK",
+      });
+      return;
+    }
+
+    const key = storagePath;
+    const updatedProjects = getCachedProjects<CastingSession>().map((project) => {
+      const state = project.characterCasting;
+      if (!state) return project;
+      return {
+        ...project,
+        characterCasting: {
+          ...state,
+          generationMessages: (state.generationMessages ?? []).filter(
+            (saved) => saved.candidate?.storagePath !== key,
+          ),
+          candidate:
+            state.candidate?.storagePath === key ? undefined : state.candidate,
+          candidatePool: (state.candidatePool ?? []).filter(
+            (saved) => saved.storagePath !== key,
+          ),
+          myCast: (state.myCast ?? []).filter(
+            (saved) => saved.storagePath !== key,
+          ),
+          characters: (state.characters ?? []).map((member) =>
+            member.storagePath === key
+              ? {
+                  ...member,
+                  actorName: undefined,
+                  image: undefined,
+                  storagePath: undefined,
+                  source: undefined,
+                }
+              : member,
+          ),
+        },
+      };
+    });
+    saveProjects(updatedProjects);
+    setAccountCast((current) =>
+      current.filter((saved) => saved.storagePath !== key),
+    );
+    setMessageReferences((current) => {
+      const next = { ...current };
+      delete next[message.id];
+      return next;
+    });
+    const updatedSession = updatedProjects.find(
+      (project) => project.id === session.id,
+    );
+    if (updatedSession) persist(updatedSession);
+    if (candidate?.storagePath === key) setCandidatePreviewOpen(false);
+  }
+
   function deleteCandidate() {
     if (!session || !candidate) return;
     persist({
@@ -1640,7 +1726,16 @@ export default function CharacterCastingPage() {
                           </p>
                           <p className="mt-2 text-sm leading-6">{message.content}</p>
                           {message.image && message.candidate && (
-                            <div className="mt-3 max-w-full">
+                            <div className="relative mt-3 max-w-full">
+                              <button
+                                type="button"
+                                onClick={() => void permanentlyDeleteGeneratedMessage(message)}
+                                aria-label="Delete generated image forever"
+                                title="Delete generated image forever"
+                                className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-red-300/35 bg-red-600/90 text-base font-black leading-none text-white shadow-[0_6px_20px_rgba(0,0,0,.5)] transition hover:scale-105 hover:bg-red-500"
+                              >
+                                ×
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
