@@ -28,11 +28,12 @@ type ProjectSession = {
   draftQuestion?: string;
   screenplay?: string;
   screenplayDirectorNotes?: string;
+  dialogueAudit?: string;
   dialogueFeedback?: DialogueFeedback[];
 };
 
 const GOOD_DIALOGUE_CATEGORIES = ["NATURAL", "SUBTEXT", "DISTINCT VOICE", "LOGICAL REACTION", "PLAYABLE", "POWER SHIFT"];
-const BAD_DIALOGUE_CATEGORIES = ["EXPOSITION", "UNNATURAL", "OUT OF CHARACTER", "ILLOGICAL REPLY", "SAME VOICE", "TOO LITERARY", "NO INTENTION", "CONTINUITY ERROR"];
+const BAD_DIALOGUE_CATEGORIES = ["CRINGE", "BANAL", "ILLOGICAL", "STUPID", "MEANINGLESS", "EXPOSITION", "UNNATURAL", "OUT OF CHARACTER", "ILLOGICAL REPLY", "SAME VOICE", "TOO LITERARY", "NO INTENTION", "CONTINUITY ERROR"];
 
 function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
@@ -131,6 +132,18 @@ export default function ProjectPage() {
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
+    void authenticatedFetch("/api/dialogue-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: session.id ?? "unsaved-project",
+        specialist_id: session.screenwriter.name,
+        text: feedback.text,
+        sentiment: feedback.sentiment,
+        category: feedback.category,
+        context: screenplayDraft.slice(Math.max(0, feedback.start - 350), Math.min(screenplayDraft.length, feedback.end + 350)),
+      }),
+    }).catch(() => undefined);
     setSelectedScriptText(null);
     setFeedbackSentiment(null);
     screenplayRef.current?.focus();
@@ -186,9 +199,9 @@ export default function ProjectPage() {
           team: { secondDirector: session.secondDirector.name, screenwriter: session.screenwriter.name },
         }),
       });
-      const data = await response.json() as { screenplay?: string; director_notes?: string; error?: string };
+      const data = await response.json() as { screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
       if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
-      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes };
+      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
@@ -226,9 +239,9 @@ export default function ProjectPage() {
           dialogueFeedback: session.dialogueFeedback,
         }),
       });
-      const data = await response.json() as { screenplay?: string; director_notes?: string; error?: string };
+      const data = await response.json() as { screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
       if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE REWRITTEN.");
-      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueFeedback: [] };
+      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, dialogueFeedback: [] };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
@@ -415,6 +428,7 @@ export default function ProjectPage() {
                 <textarea ref={screenplayRef} value={screenplayDraft} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="mt-6 min-h-[70vh] w-full resize-y rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable screenplay" />
                 {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE TRAINING FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">These ratings are saved with the project and will guide the next rewrite.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE WITH FEEDBACK"}</button></div><div className="mt-4 space-y-2">{session.dialogueFeedback?.map((item) => <div key={item.id} className="flex items-start gap-3 rounded-[12px] border border-white/5 px-3 py-2"><span className={`mt-0.5 rounded-full px-2 py-1 text-[7px] font-black ${item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{item.sentiment.toUpperCase()} · {item.category}</span><p className="min-w-0 flex-1 truncate text-[10px] text-white/40">{item.text.replace(/\s+/g, " ")}</p><button type="button" onClick={() => removeDialogueFeedback(item.id)} className="text-sm text-white/20 hover:text-red-300">×</button></div>)}</div></section>}
                 {session.screenplayDirectorNotes && <details className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-white/40">DIRECTOR NOTES</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.screenplayDirectorNotes}</p></details>}
+                {session.dialogueAudit && <details className="mt-3 rounded-[18px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">AUTOMATIC DIALOGUE AUDIT</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.dialogueAudit}</p></details>}
               </div>
             ) : (
             <>
