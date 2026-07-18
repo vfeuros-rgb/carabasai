@@ -299,7 +299,7 @@ export default function CharacterCastingPage() {
       await platformNotice({
         eyebrow: "MY CAST",
         title: "ALREADY IN YOUR CAST",
-        message: `${item.actorName ?? "Этот персонаж"} уже находится в вашем касте.`,
+        message: `${item.actorName ?? "This character"} is already in your cast.`,
         confirmLabel: "OK",
       });
       return;
@@ -386,7 +386,7 @@ export default function CharacterCastingPage() {
     const question: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian ? "На какую роль берём?" : "Which role are we casting?",
+      content: "Which role are we casting?",
     };
     persist({
       ...session,
@@ -405,7 +405,7 @@ export default function CharacterCastingPage() {
     const confirmed = await platformConfirm({
       eyebrow: "MY CAST",
       title: "FIRE THIS ACTOR?",
-      message: `Вы уверены, что хотите уволить ${item.actorName ?? "этого персонажа"}? Персонаж исчезнет из MY CAST, но останется в SCREEN TESTS.`,
+      message: `Are you sure you want to fire ${item.actorName ?? "this character"}? The character will be removed from MY CAST but will remain in SCREEN TESTS.`,
       confirmLabel: "FIRE",
       cancelLabel: "CANCEL",
       tone: "danger",
@@ -572,7 +572,7 @@ export default function CharacterCastingPage() {
     const question: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian ? "На какую роль берём?" : "Which role are we casting?",
+      content: "Which role are we casting?",
     };
     persist({
       ...session,
@@ -628,9 +628,7 @@ export default function CharacterCastingPage() {
     const reply: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian
-        ? "Этот кандидат нам не подошёл. Меняем критерии или генерируем ещё раз?"
-        : "This candidate did not fit. Shall we change the criteria or generate another one?",
+      content: "This candidate did not fit. Shall we change the criteria or generate another one?",
     };
     persist({
       ...session,
@@ -660,7 +658,7 @@ export default function CharacterCastingPage() {
     const question: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian ? "На какую роль берём?" : "Which role are we casting?",
+      content: "Which role are we casting?",
     };
     persist({
       ...session,
@@ -678,7 +676,7 @@ export default function CharacterCastingPage() {
       const replaceActor = await platformConfirm({
         eyebrow: "CHARACTER NOTEBOOK",
         title: "THIS ROLE IS ALREADY CAST",
-        message: `Роль «${member.role || member.name}» уже занята${member.actorName ? ` актёром ${member.actorName}` : ""}. Хотите заменить актёра?`,
+        message: `The role “${member.role || member.name}” is already cast${member.actorName ? ` with ${member.actorName}` : ""}. Do you want to replace the actor?`,
         confirmLabel: "REPLACE ACTOR",
         cancelLabel: "CANCEL",
         tone: "danger",
@@ -696,14 +694,12 @@ export default function CharacterCastingPage() {
     const selected: ChatMessage = {
       id: uid(),
       role: "user",
-      content: `${russian ? "РОЛЬ" : "ROLE"}: ${member.role || member.name}`,
+      content: `ROLE: ${member.role || member.name}`,
     };
     const confirmation: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian
-        ? `Берём ${candidate.actorName ?? "кандидата"} на роль «${member.role || member.name}». Кто следующий?`
-        : `Cast ${candidate.actorName ?? "this candidate"} as “${member.role || member.name}”. Who is next?`,
+      content: `Cast ${candidate.actorName ?? "this candidate"} as “${member.role || member.name}”. Who is next?`,
     };
     persist({
       ...session,
@@ -788,9 +784,7 @@ export default function CharacterCastingPage() {
     const reply: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian
-        ? "На какую роль ищем актёра? Выберите роль из блокнота."
-        : "Which role are we casting? Choose a role from the notebook.",
+      content: "Which role are we casting? Choose a role from the notebook.",
     };
     setInput("");
     setError("");
@@ -837,9 +831,7 @@ export default function CharacterCastingPage() {
     const reply: ChatMessage = {
       id: uid(),
       role: "assistant",
-      content: russian
-        ? `Критерии для роли «${roleLabel}» зафиксированы. Запустите настоящую генерацию кнопкой ниже.`
-        : `The criteria for “${roleLabel}” are ready. Start the real generation with the button below.`,
+      content: `The criteria for “${roleLabel}” are ready. Start the real generation with the button below.`,
     };
     setInput("");
     setError("");
@@ -866,7 +858,7 @@ export default function CharacterCastingPage() {
     const selected: ChatMessage = {
       id: uid(),
       role: "user",
-      content: `${russian ? "РОЛЬ" : "ROLE"}: ${roleLabel}`,
+      content: `ROLE: ${roleLabel}`,
     };
     const nextMessages = [...messages, selected];
     const knowsRole = Boolean(
@@ -879,9 +871,7 @@ export default function CharacterCastingPage() {
       const reply: ChatMessage = {
         id: uid(),
         role: "assistant",
-        content: russian
-          ? "Эту роль я пока не знаю. Опишите возраст, внешность, телосложение и важные особенности."
-          : "I do not know this role yet. Describe the age, appearance, build and defining features.",
+        content: "I do not know this role yet. Describe the age, appearance, build and defining features.",
       };
       persist({
         ...session,
@@ -939,9 +929,7 @@ export default function CharacterCastingPage() {
       const reply: ChatMessage = {
         id: uid(),
         role: "assistant",
-        content: generationFlow.russian
-          ? "Кандидат готов. Он появился в блоке CAST слева. Нанимаем или отказываем?"
-          : "The candidate is ready in the CAST tray. Hire or reject?",
+        content: "The candidate is ready in the CAST tray. Hire or reject?",
       };
       persist({
         ...session,
@@ -987,7 +975,7 @@ export default function CharacterCastingPage() {
       const generatedMessage: ChatMessage = {
         id: uid(),
         role: "assistant",
-        content: russian ? "Новый кандидат готов." : "The new candidate is ready.",
+        content: "The new candidate is ready.",
         image: generated.image,
         candidate: generated,
       };
@@ -1059,9 +1047,7 @@ export default function CharacterCastingPage() {
       const reply: ChatMessage = {
         id: uid(),
         role: "assistant",
-        content: generationFlow.russian
-          ? "Генерация ещё не запускалась. Нажмите кнопку GENERATE CANDIDATE ниже."
-          : "Generation has not started yet. Press GENERATE CANDIDATE below.",
+        content: "Generation has not started yet. Press GENERATE CANDIDATE below.",
       };
       setInput("");
       setError("");
@@ -1205,7 +1191,7 @@ export default function CharacterCastingPage() {
     const keepBoth = await platformConfirm({
       eyebrow: "CHARACTER NOTEBOOK",
       title: "THIS ROLE ALREADY EXISTS",
-      message: `Роль «${role}» уже есть. Измените название или оставьте обе роли.`,
+      message: `The role “${role}” already exists. Change the name or keep both roles.`,
       confirmLabel: "KEEP BOTH",
       cancelLabel: "CHANGE NAME",
     });
@@ -1530,12 +1516,12 @@ export default function CharacterCastingPage() {
                         />
                       </div>
                       <h2 className="mt-5 text-lg font-black">
-                        ОПИШИТЕ НУЖНОГО АКТЁРА.
+                        DESCRIBE THE ACTOR YOU NEED.
                       </h2>
                       <p className="mt-3 text-[11px] leading-6 text-white/35">
-                        Добавьте описание внешности, и наш специалист подберёт
-                        подходящих актёров для кастинга. Или выберите кандидата
-                        из его портфолио.
+                        Add appearance notes and our specialist will find actors
+                        who fit the casting brief. Or choose a candidate from
+                        the specialist&apos;s portfolio.
                       </p>
                     </div>
                   )}
