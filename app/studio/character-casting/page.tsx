@@ -1292,8 +1292,8 @@ export default function CharacterCastingPage() {
           >
             OPEN MY CAST / {myCast.length}
           </button>
-          <section className="max-h-[180px] overflow-y-auto rounded-[18px] border border-white/10 p-3 lg:max-h-[320px] lg:rounded-[22px] lg:p-4">
-            <div className="sticky top-0 z-10 bg-[#050505] pb-3">
+          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/10 p-3 lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
+            <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/5 bg-[#050505] px-3 pb-3 pt-3 lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
                   CHARACTER NOTEBOOK
@@ -1422,13 +1422,13 @@ export default function CharacterCastingPage() {
                   </article>
                 ))}
                 {generationFlow?.stage === "hire-role" && candidate && (
-                  <div className="mt-3 rounded-[16px] border border-[#FFDF00]/30 bg-[#FFDF00]/[.035] p-3">
+                  <div className="mt-4 rounded-[18px] border border-[#FFDF00]/30 bg-[#FFDF00]/[.035] p-4">
                     <p className="text-[8px] font-black tracking-[.12em] text-[#FFDF00]">READY TO HIRE</p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <img src={candidate.image} alt={candidate.actorName ?? "Candidate to hire"} className="h-20 w-14 rounded-lg object-cover object-top" />
+                    <div className="mt-3 flex items-center gap-4">
+                      <img src={candidate.image} alt={candidate.actorName ?? "Candidate to hire"} className="h-32 w-24 shrink-0 rounded-xl object-cover object-top" />
                       <div className="min-w-0">
-                        <p className="truncate text-[9px] font-black text-white/80">{candidate.actorName ?? "NEW CANDIDATE"}</p>
-                        <p className="mt-1 text-[8px] leading-4 text-white/35">CLICK A ROLE CIRCLE TO ASSIGN THIS ACTOR.</p>
+                        <p className="truncate text-[10px] font-black text-white/80">{candidate.actorName ?? "NEW CANDIDATE"}</p>
+                        <p className="mt-2 text-[9px] leading-5 text-white/35">CLICK A ROLE CIRCLE TO ASSIGN THIS ACTOR.</p>
                       </div>
                     </div>
                     <button
