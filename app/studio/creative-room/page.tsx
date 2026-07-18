@@ -828,7 +828,7 @@ export default function CreativeRoomPage() {
             </div>
           </div>
 
-          <details className="group overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.025]">
+          <details className="director-brief-panel group overflow-hidden rounded-[20px] border border-white/10 bg-[#090909]">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 marker:hidden">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/45">DIRECTOR&apos;S BRIEF</p>
@@ -898,7 +898,7 @@ export default function CreativeRoomPage() {
                   return (
                     <div
                       key={message.id}
-                      className="ml-auto max-w-[92%] rounded-[22px] bg-[#FFDF00] px-5 py-4 text-black sm:max-w-[82%]"
+                      className="chat-message-user ml-auto max-w-[92%] rounded-[22px] bg-[#FFDF00] px-5 py-4 text-black sm:max-w-[82%]"
                     >
                       <p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] opacity-50">
                         YOU / DIRECTOR
@@ -930,7 +930,7 @@ export default function CreativeRoomPage() {
                       <Portrait member={member} />
                     </div>
                     <div
-                      className={`rounded-[22px] border px-5 py-4 text-white ${
+                      className={`rounded-[22px] border px-5 py-4 text-white ${isDirector ? "chat-message-director" : "chat-message-screenwriter"} ${
                         isDirector
                           ? "border-[#FFDF00]/15 bg-[#17150d]"
                           : "border-[#8EA6B8]/15 bg-[#11161a]"

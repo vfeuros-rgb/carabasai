@@ -1723,7 +1723,7 @@ export default function CharacterCastingPage() {
                               REFILL INPUT
                             </button>
                           )}
-                          <div className={`w-full rounded-[20px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-black/38 text-white/70"}`}>
+                          <div className={`w-full rounded-[20px] border ${message.role === "user" ? "chat-message-user border-[#FFDF00] bg-[#FFDF00] p-4 text-black" : message.image ? "generated-image-message border-transparent bg-transparent p-0 text-white/70" : "chat-message-specialist border-[#FFDF00]/20 bg-[#17150d] p-4 text-white/70"}`}>
                           <p className="text-[8px] font-black tracking-[.12em] opacity-55">
                             {message.role === "user" ? "YOU / DIRECTOR" : specialist.name}
                           </p>
@@ -1745,7 +1745,7 @@ export default function CharacterCastingPage() {
                                   persist({ ...session, characterCasting: { ...casting, candidate: message.candidate } });
                                   setCandidatePreviewOpen(true);
                                 }}
-                                className="block overflow-hidden rounded-[16px] border border-white/10"
+                                className="block overflow-hidden rounded-[16px]"
                               >
                                 <img src={message.image} alt={message.candidate.actorName ?? "Generated candidate"} className="max-h-[620px] w-full object-contain" />
                               </button>

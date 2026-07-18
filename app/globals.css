@@ -110,6 +110,35 @@ button:disabled,
   background-color: #303030 !important;
 }
 
+/* Chat colors are semantic and must not be flattened by the generic panel rules. */
+.site-shell main .chat-message-user {
+  background: #ffdf00 !important;
+  border-color: #ffdf00 !important;
+  color: #080808 !important;
+}
+
+.site-shell main .chat-message-director,
+.site-shell main .chat-message-specialist {
+  background: #17150d !important;
+  border-color: rgba(255, 223, 0, 0.2) !important;
+}
+
+.site-shell main .chat-message-screenwriter {
+  background: #111a22 !important;
+  border-color: rgba(142, 166, 184, 0.24) !important;
+}
+
+.site-shell main .generated-image-message {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.site-shell main .director-brief-panel {
+  background: #090909 !important;
+}
+
 @media (max-width: 767px) {
   .site-shell__background {
     background-position: 58% center;
