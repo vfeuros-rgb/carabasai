@@ -30,6 +30,7 @@ export default function StudioSidebar() {
   const router = useRouter();
   const [width, setWidth] = useState(260);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [castMenuOpen, setCastMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -54,6 +55,10 @@ export default function StudioSidebar() {
       setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
       setHistoryOpen(
         localStorage.getItem("carabasaiSharedHistoryOpen") !== "false",
+      );
+      setCastMenuOpen(
+        localStorage.getItem("carabasaiCastMenuOpen") === "true" ||
+          window.location.pathname.startsWith("/studio/cast"),
       );
       setAccountMenuOpen(
         localStorage.getItem("carabasaiAccountMenuOpen") === "true" ||
@@ -292,7 +297,7 @@ export default function StudioSidebar() {
   }
 
   const workspaceActive = pathname === "/account";
-  const castActive = pathname === "/studio/cast";
+  const castActive = pathname.startsWith("/studio/cast");
   const accountActive = pathname.startsWith("/account/");
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item =
@@ -350,13 +355,36 @@ export default function StudioSidebar() {
           >
             WORKSPACE <span>▦</span>
           </Link>
-          <Link
-            href="/studio/cast"
-            onClick={() => setMobileOpen(false)}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !castMenuOpen;
+              setCastMenuOpen(next);
+              localStorage.setItem("carabasaiCastMenuOpen", String(next));
+            }}
             className={`${item} ${castActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
           >
-            CAST <span>◉</span>
-          </Link>
+            CAST
+            <span className={`transition-transform ${castMenuOpen ? "rotate-180" : ""}`}>⌄</span>
+          </button>
+          {castMenuOpen && (
+            <div className="grid gap-1.5 pl-3">
+              <Link
+                href="/studio/cast"
+                onClick={() => setMobileOpen(false)}
+                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/studio/cast" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
+              >
+                MY CAST <span>◉</span>
+              </Link>
+              <Link
+                href="/studio/cast/screen-tests"
+                onClick={() => setMobileOpen(false)}
+                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/studio/cast/screen-tests" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
+              >
+                SCREEN TESTS <span>▣</span>
+              </Link>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {
