@@ -107,7 +107,7 @@ export default function CastLibraryPage() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[11000] flex items-center justify-center overflow-y-auto p-4 sm:p-8"
+          className="fixed inset-0 z-[11000] flex items-start justify-center overflow-y-auto p-4 sm:p-8 lg:items-center"
         >
           <Image
             src={preview.image}
@@ -123,8 +123,8 @@ export default function CastLibraryPage() {
           >
             ×
           </button>
-          <section className="w-full max-w-[430px]">
-            <div className="relative mx-auto aspect-[9/16] max-h-[78dvh] overflow-hidden rounded-[24px] border border-white/15 bg-black shadow-2xl">
+          <section className="grid w-full max-w-[980px] gap-4 lg:grid-cols-[minmax(320px,430px)_minmax(0,1fr)] lg:gap-6">
+            <div className="relative mx-auto aspect-[9/16] max-h-[82dvh] w-full max-w-[430px] overflow-hidden rounded-[28px] border border-white/15 bg-black shadow-2xl">
               <Image
                 src={preview.image}
                 alt={preview.actorName ?? "Saved actor"}
@@ -133,12 +133,54 @@ export default function CastLibraryPage() {
                 unoptimized={preview.image.startsWith("http")}
                 className="object-cover object-top"
               />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/35 to-transparent px-5 pb-5 pt-20">
-                <p className="text-lg font-black">
-                  {preview.actorName ?? "CASTING ACTOR"}
-                </p>
-              </div>
             </div>
+            <aside className="flex min-h-[420px] flex-col rounded-[28px] border border-white/15 bg-black/45 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-3xl sm:p-8">
+              <div className="border-b border-white/10 pb-6">
+                <p className="text-[8px] font-black tracking-[.18em] text-[#FFDF00]">
+                  CASTING PROFILE
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-[-.04em] sm:text-4xl">
+                  {preview.actorName ?? "CASTING ACTOR"}
+                </h2>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/5 px-3 py-2 text-[7px] font-black text-[#FFDF00]">
+                    ACTIVE CAST
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/[.035] px-3 py-2 text-[7px] font-black text-white/45">
+                    R001 · SATIRE &amp; CARICATURE
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 py-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black tracking-[.18em] text-white/35">
+                      PROJECTS
+                    </p>
+                    <h3 className="mt-2 text-lg font-black">SCREEN CREDITS.</h3>
+                  </div>
+                  <span className="text-[8px] font-black text-white/25">0 PROJECTS</span>
+                </div>
+                <div className="mt-5 flex min-h-[190px] items-center justify-center rounded-[22px] border border-dashed border-white/15 bg-white/[.025] p-6 text-center">
+                  <div>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/25 text-lg text-white/25">
+                      ▶
+                    </div>
+                    <p className="mt-4 text-[9px] font-black tracking-[.1em] text-white/50">
+                      NO PROJECT CREDITS YET
+                    </p>
+                    <p className="mx-auto mt-2 max-w-xs text-[9px] leading-5 text-white/25">
+                      Projects will appear here when this character is selected for video generation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="border-t border-white/10 pt-5 text-[8px] leading-4 text-white/20">
+                PROJECT HISTORY TEMPLATE · VIDEO CASTING CONNECTION COMING LATER
+              </p>
+            </aside>
           </section>
         </div>
       )}
