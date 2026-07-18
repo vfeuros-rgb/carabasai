@@ -151,7 +151,6 @@ export default function CharacterCastingPage() {
   const [accountCast, setAccountCast] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
-  const [consultantInput, setConsultantInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
   const [imageProvider, setImageProvider] = useState<"flux" | "banana">("banana");
   const [imageModel, setImageModel] = useState<ImageModelId>(
@@ -168,7 +167,6 @@ export default function CharacterCastingPage() {
   const [addingRole, setAddingRole] = useState(false);
   const [newRoleDraft, setNewRoleDraft] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const chatEnd = useRef<HTMLDivElement>(null);
   const initialRequestRef = useRef("");
   const busy = busyMode !== null;
 
@@ -468,10 +466,6 @@ export default function CharacterCastingPage() {
       })
       .finally(() => setBusyMode(null));
   }, [session, casting, specialist.id, askAgent, persist]);
-
-  useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, busy]);
 
   function setProviderChoice(value: "anthropic" | "openai") {
     setProvider(value);
@@ -1060,13 +1054,6 @@ export default function CharacterCastingPage() {
     }
   }
 
-  function sendConsultantMessage() {
-    const content = consultantInput.trim();
-    if (!content || busy) return;
-    setConsultantInput("");
-    void sendMessage(content);
-  }
-
   function removeCharacter(id: string) {
     if (!session) return;
     persist({
@@ -1281,109 +1268,6 @@ export default function CharacterCastingPage() {
                 The specialist is reading the project document.
               </p>
             )}
-          </section>
-          <section className="rounded-[18px] border border-white/10 p-3 lg:rounded-[22px] lg:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
-                  CAST
-                </p>
-                <p className="mt-1 text-[7px] text-white/25">
-                  CURRENT CANDIDATE
-                </p>
-              </div>
-            </div>
-            {candidate ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCandidatePreviewOpen(true)}
-                  className="relative mt-3 block w-full overflow-hidden rounded-xl text-left transition hover:ring-1 hover:ring-[#FFDF00]/60"
-                >
-                  <Image
-                    src={candidate.image}
-                    alt={candidate.actorName ?? "Candidate"}
-                    width={180}
-                    height={320}
-                    unoptimized={candidate.image.startsWith("http")}
-                    className="aspect-[9/16] max-h-40 w-full object-cover object-top lg:max-h-64"
-                  />
-                  <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-3 py-1 text-[7px] font-black text-[#FFDF00]">
-                    {candidate.actorName ?? "ATTACHED TO AGENT"}
-                  </span>
-                </button>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={rejectCandidate}
-                    className="rounded-full border border-white/10 py-2 text-[8px] font-black"
-                  >
-                    REJECT
-                  </button>
-                  <button
-                    onClick={() => void hireCandidate()}
-                    className="rounded-full bg-[#FFDF00] py-2 text-[8px] font-black text-black"
-                  >
-                    HIRE
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="mt-3 text-[9px] leading-5 text-white/30">
-                Select an actor from Portfolio or My Cast. New generations will
-                also appear here.
-              </p>
-            )}
-          </section>
-          <section className="flex h-[170px] min-h-[170px] flex-col overflow-hidden rounded-[18px] border border-white/10 bg-[#0A0A0A] lg:h-[300px] lg:min-h-[300px] lg:rounded-[22px]">
-            <header className="border-b border-white/10 px-4 py-3">
-              <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
-                ELIAS CONSULTANT
-              </p>
-              <p className="mt-1 text-[7px] text-white/25">
-                CASTING ADVICE ONLY
-              </p>
-            </header>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-              {messages.map((message) => (
-                <article
-                  key={message.id}
-                  className={`rounded-[14px] px-3 py-2 text-[10px] leading-5 ${message.role === "assistant" ? "border border-[#FFDF00]/20 bg-[#17150b] text-white/65" : "ml-6 bg-[#FFDF00] text-black"}`}
-                >
-                  {message.content}
-                </article>
-              ))}
-              {busyMode !== null && busyMode !== "generation" && (
-                <div className="flex items-center gap-2 text-[8px] text-white/35">
-                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]" />
-                  {busyMode === "summary"
-                    ? "ELIAS IS STUDYING THE SUMMARY..."
-                    : "ELIAS IS THINKING..."}
-                </div>
-              )}
-              <div ref={chatEnd} />
-            </div>
-            <div className="shrink-0 border-t border-white/10 p-3">
-              <textarea
-                value={consultantInput}
-                onChange={(event) => setConsultantInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    sendConsultantMessage();
-                  }
-                }}
-                placeholder="ASK ELIAS..."
-                rows={2}
-                className="w-full resize-none rounded-[12px] border border-white/10 bg-black px-3 py-2 text-[10px] leading-5 outline-none focus:border-[#FFDF00]/45"
-              />
-              <button
-                onClick={sendConsultantMessage}
-                disabled={!consultantInput.trim() || busy}
-                className="mt-2 w-full rounded-full bg-[#FFDF00] py-2.5 text-[8px] font-black text-black disabled:opacity-25"
-              >
-                SEND TO ELIAS
-              </button>
-            </div>
           </section>
         </aside>
         <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0A0A0A] lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
