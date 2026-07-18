@@ -180,6 +180,8 @@ export default function CharacterCastingPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const initialRequestRef = useRef("");
   const photoActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationScrollRef = useRef<HTMLDivElement>(null);
+  const restoredScrollProjectRef = useRef("");
   const busy = busyMode !== null;
 
   function showPhotoActionCheck(messageId: string, action: string) {
@@ -324,6 +326,29 @@ export default function CharacterCastingPage() {
       all.findIndex((saved) => candidateKey(saved) === candidateKey(item)) ===
       index,
   );
+
+  useEffect(() => {
+    const projectId = session?.id;
+    const scroller = generationScrollRef.current;
+    if (!projectId || !scroller || restoredScrollProjectRef.current === projectId)
+      return;
+    restoredScrollProjectRef.current = projectId;
+    const savedPosition = Number(
+      sessionStorage.getItem(`carabasaiCastingChatScroll:${projectId}`),
+    );
+    if (!Number.isFinite(savedPosition) || savedPosition < 0) return;
+    const restore = () => {
+      if (generationScrollRef.current)
+        generationScrollRef.current.scrollTop = savedPosition;
+    };
+    restore();
+    const firstCorrection = window.setTimeout(restore, 250);
+    const imageCorrection = window.setTimeout(restore, 1200);
+    return () => {
+      window.clearTimeout(firstCorrection);
+      window.clearTimeout(imageCorrection);
+    };
+  }, [session?.id, generationMessages.length]);
 
   useEffect(() => {
     const collect = (projects: CastingSession[]) => {
@@ -1537,7 +1562,17 @@ export default function CharacterCastingPage() {
               BUILD THE FACE THAT CARRIES THE STORY.
             </h1>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7">
+          <div
+            ref={generationScrollRef}
+            onScroll={(event) => {
+              if (!session?.id) return;
+              sessionStorage.setItem(
+                `carabasaiCastingChatScroll:${session.id}`,
+                String(event.currentTarget.scrollTop),
+              );
+            }}
+            className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7"
+          >
             <div className="mx-auto max-w-5xl space-y-4">
               <section className="overflow-hidden rounded-[24px] border border-white/15 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
                 <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
