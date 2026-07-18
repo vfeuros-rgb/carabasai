@@ -412,12 +412,12 @@ export default function ProjectPage() {
       <StudioSidebar />
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
-        <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[#090909]">
-          <div className="panel-header border-b border-white/10 bg-[#353535] p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{session.screenplay ? "FINAL SCREENPLAY" : "DIRECTOR + SCREENWRITER SUMMARY"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
+        <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[#090909] lg:flex lg:h-[calc(100dvh-12.5rem)] lg:min-h-[620px] lg:flex-col">
+          <div className="panel-header border-b border-white/10 bg-[#353535] p-6 sm:p-8 lg:h-[228px] lg:shrink-0 lg:overflow-y-auto"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{session.screenplay ? "FINAL SCREENPLAY" : "DIRECTOR + SCREENWRITER SUMMARY"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
           {!session.screenplay && <div className="flex gap-2 overflow-x-auto border-b border-white/10 bg-[#303030] p-3 sm:px-6">
             {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
           </div>}
-          <div className="min-h-[360px] bg-[#090909] p-6 sm:p-8">
+          <div className="min-h-[360px] bg-[#090909] p-6 sm:p-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {session.screenplay ? (
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
