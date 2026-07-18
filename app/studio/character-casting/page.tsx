@@ -284,40 +284,56 @@ export default function CharacterCastingPage() {
     return () => window.removeEventListener(projectChangeEvent, refresh);
   }, []);
 
-  function addCandidateToMyCast() {
-    if (!session || !candidate) return;
+  function addCandidateToMyCast(item: Candidate | undefined = candidate) {
+    if (!session || !item) return;
     persist({
       ...session,
       characterCasting: {
         ...casting,
-        myCast: addToCandidatePool(projectCast, candidate),
+        myCast: addToCandidatePool(projectCast, item),
       },
     });
   }
 
-  async function downloadCandidate() {
-    if (!candidate) return;
-    const response = await fetch(candidate.image);
+  async function downloadCandidate(item: Candidate | undefined = candidate) {
+    if (!item) return;
+    const response = await fetch(item.image);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${candidate.actorName ?? "casting-candidate"}.png`;
+    link.download = `${item.actorName ?? "casting-candidate"}.png`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
-  async function shareCandidate() {
-    if (!candidate) return;
+  async function shareCandidate(item: Candidate | undefined = candidate) {
+    if (!item) return;
     if (navigator.share) {
       await navigator.share({
-        title: candidate.actorName ?? "Casting candidate",
+        title: item.actorName ?? "Casting candidate",
         text: "Casting candidate from Carabasai Studio",
-        url: candidate.image,
+        url: item.image,
       });
       return;
     }
-    await navigator.clipboard.writeText(candidate.image);
+    await navigator.clipboard.writeText(item.image);
+  }
+
+  function startHiringCandidate(item: Candidate) {
+    if (!session) return;
+    const russian = /[А-Яа-яЁё]/.test(
+      JSON.stringify(session.projectDocument ?? ""),
+    );
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        candidate: item,
+        myCast: addToCandidatePool(projectCast, item),
+        generationFlow: { stage: "hire-role", russian },
+      },
+    });
   }
 
   function deleteCandidate() {
@@ -626,6 +642,35 @@ export default function CharacterCastingPage() {
         candidatePool: candidatePool.filter(
           (item) => candidateKey(item) !== candidateKey(candidate),
         ),
+      },
+    });
+  }
+
+  function unassignActorFromRole(member: CastMember) {
+    if (!session || !member.image) return;
+    const released: Candidate = {
+      image: member.image,
+      actorName: member.actorName,
+      storagePath: member.storagePath,
+      source: member.source ?? "generated",
+      description: member.description,
+    };
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        characters: characters.map((item) =>
+          item.id === member.id
+            ? {
+                ...item,
+                actorName: undefined,
+                image: undefined,
+                storagePath: undefined,
+                source: undefined,
+              }
+            : item,
+        ),
+        myCast: addToCandidatePool(projectCast, released),
       },
     });
   }
@@ -1191,9 +1236,9 @@ export default function CharacterCastingPage() {
                   >
                     {member.image ? (
                       <button
-                        title="Attach this character to the next message"
-                        onClick={() => attachCharacter(member)}
-                        className="relative shrink-0 rounded-full transition hover:ring-2 hover:ring-[#FFDF00]"
+                        title={generationFlow?.stage === "hire-role" && candidate ? "Assign candidate to this role" : "Attach this character to the next message"}
+                        onClick={() => generationFlow?.stage === "hire-role" && candidate ? assignCandidateToRole(member) : attachCharacter(member)}
+                        className={`relative shrink-0 rounded-full transition hover:ring-2 hover:ring-[#FFDF00] ${generationFlow?.stage === "hire-role" && candidate ? "ring-2 ring-[#FFDF00]" : ""}`}
                       >
                         <Image
                           src={member.image}
@@ -1208,9 +1253,15 @@ export default function CharacterCastingPage() {
                         </span>
                       </button>
                     ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs">
+                      <button
+                        type="button"
+                        disabled={generationFlow?.stage !== "hire-role" || !candidate}
+                        onClick={() => assignCandidateToRole(member)}
+                        title={candidate ? "Assign candidate to this role" : "No actor assigned"}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs transition ${generationFlow?.stage === "hire-role" && candidate ? "bg-[#FFDF00]/10 text-[#FFDF00] ring-2 ring-[#FFDF00] hover:bg-[#FFDF00] hover:text-black" : "bg-white/5 text-white/45"}`}
+                      >
                         ?
-                      </div>
+                      </button>
                     )}
                     <div className="min-w-0 flex-1">
                       {editingRoleId === member.id ? (
@@ -1253,6 +1304,15 @@ export default function CharacterCastingPage() {
                         </>
                       )}
                     </div>
+                    {member.image && (
+                      <button
+                        title="Unassign actor from role"
+                        onClick={() => unassignActorFromRole(member)}
+                        className="rounded-full border border-white/10 px-2 py-1 text-[7px] font-black text-white/35 hover:border-red-300/40 hover:text-red-200"
+                      >
+                        UNLINK
+                      </button>
+                    )}
                     <button
                       title="Delete character"
                       onClick={() => removeCharacter(member.id)}
@@ -1262,6 +1322,18 @@ export default function CharacterCastingPage() {
                     </button>
                   </article>
                 ))}
+                {generationFlow?.stage === "hire-role" && candidate && (
+                  <div className="mt-3 rounded-[16px] border border-[#FFDF00]/30 bg-[#FFDF00]/[.035] p-3">
+                    <p className="text-[8px] font-black tracking-[.12em] text-[#FFDF00]">READY TO HIRE</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <img src={candidate.image} alt={candidate.actorName ?? "Candidate to hire"} className="h-20 w-14 rounded-lg object-cover object-top" />
+                      <div className="min-w-0">
+                        <p className="truncate text-[9px] font-black text-white/80">{candidate.actorName ?? "NEW CANDIDATE"}</p>
+                        <p className="mt-1 text-[8px] leading-4 text-white/35">CLICK A ROLE CIRCLE TO ASSIGN THIS ACTOR.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-[10px] leading-5 text-white/30">
@@ -1305,16 +1377,24 @@ export default function CharacterCastingPage() {
                           </p>
                           <p className="mt-2 text-sm leading-6">{message.content}</p>
                           {message.image && message.candidate && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                persist({ ...session, characterCasting: { ...casting, candidate: message.candidate } });
-                                setCandidatePreviewOpen(true);
-                              }}
-                              className="mt-3 block overflow-hidden rounded-[16px] border border-white/10"
-                            >
-                              <img src={message.image} alt={message.candidate.actorName ?? "Generated candidate"} className="max-h-[620px] w-full object-contain" />
-                            </button>
+                            <div className="mt-3 max-w-full">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  persist({ ...session, characterCasting: { ...casting, candidate: message.candidate } });
+                                  setCandidatePreviewOpen(true);
+                                }}
+                                className="block overflow-hidden rounded-[16px] border border-white/10"
+                              >
+                                <img src={message.image} alt={message.candidate.actorName ?? "Generated candidate"} className="max-h-[620px] w-full object-contain" />
+                              </button>
+                              <div className="mt-2 grid max-w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
+                                <button onClick={() => addCandidateToMyCast(message.candidate)} className="rounded-full border border-[#FFDF00]/35 px-2 py-2 text-[7px] font-black text-[#FFDF00]">ADD TO CAST</button>
+                                <button onClick={() => void downloadCandidate(message.candidate)} className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55">DOWNLOAD</button>
+                                <button onClick={() => void shareCandidate(message.candidate)} className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55">SHARE</button>
+                                <button onClick={() => startHiringCandidate(message.candidate!)} className="rounded-full bg-[#FFDF00] px-2 py-2 text-[7px] font-black text-black">HIRE</button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </article>
@@ -1341,22 +1421,6 @@ export default function CharacterCastingPage() {
                     </div>
                   )}
                 </div>
-                {candidate && (
-                  <footer className="grid grid-cols-2 gap-2 border-t border-white/10 p-4">
-                    <button
-                      onClick={rejectCandidate}
-                      className="rounded-full border border-white/12 py-3 text-[8px] font-black text-white/55"
-                    >
-                      REJECT
-                    </button>
-                    <button
-                      onClick={() => void hireCandidate()}
-                      className="rounded-full bg-[#FFDF00] py-3 text-[8px] font-black text-black"
-                    >
-                      HIRE
-                    </button>
-                  </footer>
-                )}
               </section>
               {generationFlow?.stage === "choose-role" && (
                 <div className="rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
