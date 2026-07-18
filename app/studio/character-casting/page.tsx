@@ -176,9 +176,27 @@ export default function CharacterCastingPage() {
   const [roleDraft, setRoleDraft] = useState("");
   const [addingRole, setAddingRole] = useState(false);
   const [newRoleDraft, setNewRoleDraft] = useState("");
+  const [photoActionFeedback, setPhotoActionFeedback] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const initialRequestRef = useRef("");
+  const photoActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busy = busyMode !== null;
+
+  function showPhotoActionCheck(messageId: string, action: string) {
+    if (photoActionTimerRef.current) clearTimeout(photoActionTimerRef.current);
+    setPhotoActionFeedback(`${messageId}:${action}`);
+    photoActionTimerRef.current = setTimeout(() => {
+      setPhotoActionFeedback("");
+      photoActionTimerRef.current = null;
+    }, 900);
+  }
+
+  useEffect(
+    () => () => {
+      if (photoActionTimerRef.current) clearTimeout(photoActionTimerRef.current);
+    },
+    [],
+  );
 
   async function addReferenceFiles(files: File[]) {
     const supported = files
@@ -1551,10 +1569,42 @@ export default function CharacterCastingPage() {
                                 <img src={message.image} alt={message.candidate.actorName ?? "Generated candidate"} className="max-h-[620px] w-full object-contain" />
                               </button>
                               <div className="mt-2 grid max-w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
-                                <button onClick={() => addCandidateToMyCast(message.candidate)} className="rounded-full border border-[#FFDF00]/35 px-2 py-2 text-[7px] font-black text-[#FFDF00]">ADD TO CAST</button>
-                                <button onClick={() => void downloadCandidate(message.candidate)} className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55">DOWNLOAD</button>
-                                <button onClick={() => void shareCandidate(message.candidate)} className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55">SHARE</button>
-                                <button onClick={() => startHiringCandidate(message.candidate!)} className="rounded-full bg-[#FFDF00] px-2 py-2 text-[7px] font-black text-black">HIRE</button>
+                                <button
+                                  onClick={() => {
+                                    showPhotoActionCheck(message.id, "cast");
+                                    void addCandidateToMyCast(message.candidate);
+                                  }}
+                                  className="rounded-full border border-[#FFDF00]/35 px-2 py-2 text-[7px] font-black text-[#FFDF00]"
+                                >
+                                  {photoActionFeedback === `${message.id}:cast` ? <span className="inline-block animate-bounce text-sm leading-none">✓</span> : "ADD TO CAST"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    showPhotoActionCheck(message.id, "download");
+                                    void downloadCandidate(message.candidate);
+                                  }}
+                                  className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55"
+                                >
+                                  {photoActionFeedback === `${message.id}:download` ? <span className="inline-block animate-bounce text-sm leading-none text-[#FFDF00]">✓</span> : "DOWNLOAD"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    showPhotoActionCheck(message.id, "share");
+                                    void shareCandidate(message.candidate);
+                                  }}
+                                  className="rounded-full border border-white/12 px-2 py-2 text-[7px] font-black text-white/55"
+                                >
+                                  {photoActionFeedback === `${message.id}:share` ? <span className="inline-block animate-bounce text-sm leading-none text-[#FFDF00]">✓</span> : "SHARE"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    showPhotoActionCheck(message.id, "hire");
+                                    startHiringCandidate(message.candidate!);
+                                  }}
+                                  className="rounded-full bg-[#FFDF00] px-2 py-2 text-[7px] font-black text-black"
+                                >
+                                  {photoActionFeedback === `${message.id}:hire` ? <span className="inline-block animate-bounce text-sm leading-none">✓</span> : "HIRE"}
+                                </button>
                               </div>
                             </div>
                           )}
