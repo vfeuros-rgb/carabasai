@@ -44,6 +44,12 @@ type Candidate = {
   description?: string;
 };
 type CharacterAttachment = Candidate & { id: string; name: string };
+type ImageReference = {
+  id: string;
+  name: string;
+  data: string;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+};
 type GenerationFlow = {
   stage:
     | "choose-role"
@@ -161,7 +167,8 @@ export default function CharacterCastingPage() {
   );
   const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
-  const [attachments, setAttachments] = useState<Array<{ name: string }>>([]);
+  const [attachments, setAttachments] = useState<ImageReference[]>([]);
+  const [referencePreview, setReferencePreview] = useState<ImageReference | null>(null);
   const [characterAttachments, setCharacterAttachments] = useState<
     CharacterAttachment[]
   >([]);
@@ -172,6 +179,40 @@ export default function CharacterCastingPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const initialRequestRef = useRef("");
   const busy = busyMode !== null;
+
+  async function addReferenceFiles(files: File[]) {
+    const supported = files
+      .filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type))
+      .filter((file) => file.size <= 8 * 1024 * 1024)
+      .slice(0, Math.max(0, 4 - attachments.length));
+    const references = await Promise.all(
+      supported.map(
+        (file) =>
+          new Promise<ImageReference>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve({
+                id: uid(),
+                name: file.name,
+                data: String(reader.result),
+                mimeType: file.type as ImageReference["mimeType"],
+              });
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+    setAttachments((current) => [...current, ...references].slice(0, 4));
+    if (references[0]) setReferencePreview(references[0]);
+    if (supported.length !== files.length) {
+      await platformNotice({
+        eyebrow: "IMAGE REFERENCES",
+        title: "SOME FILES WERE NOT ADDED",
+        message: "Use up to four JPEG, PNG or WEBP images, no larger than 8 MB each.",
+        confirmLabel: "OK",
+      });
+    }
+  }
 
   const persist = useCallback((next: CastingSession) => {
     const normalized = { ...next, stage: "casting" as const };
@@ -749,6 +790,9 @@ export default function CharacterCastingPage() {
   }
 
   async function generateCandidate(brief: string, current: CastingSession) {
+    if (attachments.length > 0 && imageProvider === "flux") {
+      throw new Error("IMAGE REFERENCES REQUIRE A NANO BANANA MODEL. FLUX R001 LORA ACCEPTS TEXT ONLY.");
+    }
     const response = await authenticatedFetch("/api/character-generation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -758,16 +802,29 @@ export default function CharacterCastingPage() {
         characterBrief: brief,
         aspectRatio: "9:16",
         imageProvider,
+        imageModel,
+        dynamicReferences: attachments.map(({ data, mimeType }) => ({
+          data,
+          mimeType,
+        })),
       }),
     });
     const data = (await response.json()) as {
       imageUrl?: string;
       storagePath?: string;
       actorName?: string;
+      referenceUsage?: { dynamic?: number };
       error?: string;
     };
     if (!response.ok || !data.imageUrl)
       throw new Error(data.error ?? "CHARACTER COULD NOT BE GENERATED.");
+    if (
+      attachments.length > 0 &&
+      imageProvider === "banana" &&
+      data.referenceUsage?.dynamic !== attachments.length
+    ) {
+      throw new Error("THE IMAGE MODEL DID NOT ACCEPT EVERY REFERENCE. GENERATION WAS NOT ADDED TO THE CHAT.");
+    }
     return {
       image: data.imageUrl,
       actorName: data.actorName,
@@ -1605,13 +1662,12 @@ export default function CharacterCastingPage() {
               type="file"
               multiple
               className="hidden"
-              onChange={(event) =>
-                setAttachments(
-                  Array.from(event.target.files ?? []).map((file) => ({
-                    name: file.name,
-                  })),
-                )
-              }
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
+                void addReferenceFiles(files);
+              }}
             />
             {(attachments.length > 0 || characterAttachments.length > 0) && (
               <div className="mb-2 flex flex-wrap gap-2">
@@ -1638,12 +1694,32 @@ export default function CharacterCastingPage() {
                   </button>
                 ))}
                 {attachments.map((item) => (
-                  <span
-                    key={item.name}
-                    className="rounded-full border border-white/10 px-3 py-2 text-[8px] text-white/35"
+                  <div
+                    key={item.id}
+                    className="relative h-24 w-20 overflow-hidden rounded-xl border border-white/15 bg-black"
                   >
-                    {item.name}
-                  </span>
+                    <button
+                      type="button"
+                      onClick={() => setReferencePreview(item)}
+                      className="h-full w-full"
+                      title={`Open ${item.name}`}
+                    >
+                      <img src={item.data} alt={item.name} className="h-full w-full object-cover" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachments((current) => current.filter((saved) => saved.id !== item.id));
+                        if (referencePreview?.id === item.id) setReferencePreview(null);
+                      }}
+                      aria-label={`Remove ${item.name}`}
+                      title="Remove reference"
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-lg"
+                    >
+                      ×
+                    </button>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-[6px] text-white/65">{item.name}</span>
+                  </div>
                 ))}
               </div>
             )}
@@ -1817,6 +1893,30 @@ export default function CharacterCastingPage() {
               )}
             </div>
           </section>
+        </div>
+      )}
+      {referencePreview && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image reference preview"
+          className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 p-5 backdrop-blur-xl"
+        >
+          <button
+            type="button"
+            onClick={() => setReferencePreview(null)}
+            aria-label="Close reference preview"
+            className="fixed right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/60 text-2xl text-white/65"
+          >
+            ×
+          </button>
+          <div className="max-h-[85dvh] max-w-5xl overflow-hidden rounded-[24px] border border-white/15 bg-black shadow-2xl">
+            <img
+              src={referencePreview.data}
+              alt={referencePreview.name}
+              className="max-h-[85dvh] max-w-full object-contain"
+            />
+          </div>
         </div>
       )}
       {candidatePreviewOpen && candidate && (
