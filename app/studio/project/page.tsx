@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { currentAIProvider } from "../AIProviderSwitch";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
@@ -15,6 +15,7 @@ import { characterCastingSpecialists, type CharacterCastingSpecialist } from "..
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
 type ProjectDocument = { title: string; logline: string; sections: ProjectSection[]; openQuestions?: OpenQuestion[] };
+type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number };
 type ProjectSession = {
   id?: string;
   projectDocument?: ProjectDocument;
@@ -27,7 +28,11 @@ type ProjectSession = {
   draftQuestion?: string;
   screenplay?: string;
   screenplayDirectorNotes?: string;
+  dialogueFeedback?: DialogueFeedback[];
 };
+
+const GOOD_DIALOGUE_CATEGORIES = ["NATURAL", "SUBTEXT", "DISTINCT VOICE", "LOGICAL REACTION", "PLAYABLE", "POWER SHIFT"];
+const BAD_DIALOGUE_CATEGORIES = ["EXPOSITION", "UNNATURAL", "OUT OF CHARACTER", "ILLOGICAL REPLY", "SAME VOICE", "TOO LITERARY", "NO INTENTION", "CONTINUITY ERROR"];
 
 function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
@@ -51,6 +56,9 @@ export default function ProjectPage() {
   const [screenplayDraft, setScreenplayDraft] = useState("");
   const [screenplaySaved, setScreenplaySaved] = useState(false);
   const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
+  const [selectedScriptText, setSelectedScriptText] = useState<{ text: string; start: number; end: number } | null>(null);
+  const [feedbackSentiment, setFeedbackSentiment] = useState<"good" | "bad" | null>(null);
+  const screenplayRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("carabasaiCreativeSession");
@@ -92,6 +100,49 @@ export default function ProjectPage() {
     setSession(updated);
     setScreenplaySaved(true);
     window.setTimeout(() => setScreenplaySaved(false), 1600);
+  }
+
+  function captureScriptSelection() {
+    const textarea = screenplayRef.current;
+    if (!textarea || textarea.selectionStart === textarea.selectionEnd) {
+      setSelectedScriptText(null);
+      setFeedbackSentiment(null);
+      return;
+    }
+    setSelectedScriptText({
+      text: screenplayDraft.slice(textarea.selectionStart, textarea.selectionEnd),
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    });
+    setFeedbackSentiment(null);
+  }
+
+  function saveDialogueFeedback(category: string) {
+    if (!session || !selectedScriptText || !feedbackSentiment) return;
+    const feedback: DialogueFeedback = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      ...selectedScriptText,
+      sentiment: feedbackSentiment,
+      category,
+      createdAt: Date.now(),
+    };
+    const updated: ProjectSession = { ...session, dialogueFeedback: [...(session.dialogueFeedback ?? []), feedback] };
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
+    setSelectedScriptText(null);
+    setFeedbackSentiment(null);
+    screenplayRef.current?.focus();
+  }
+
+  function removeDialogueFeedback(id: string) {
+    if (!session) return;
+    const updated: ProjectSession = { ...session, dialogueFeedback: (session.dialogueFeedback ?? []).filter((item) => item.id !== id) };
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
   }
 
   function downloadScreenplay() {
@@ -145,6 +196,47 @@ export default function ProjectPage() {
       setScreenplayDraft(data.screenplay);
     } catch (screenplayError) {
       setError(screenplayError instanceof Error ? screenplayError.message : "SCREENPLAY COULD NOT BE GENERATED.");
+    } finally {
+      setIsGeneratingScreenplay(false);
+    }
+  }
+
+  async function rewriteScreenplayWithFeedback() {
+    if (!session?.screenplay || !(session.dialogueFeedback?.length) || isGeneratingScreenplay) return;
+    const confirmed = await platformConfirm({
+      eyebrow: "DIALOGUE FEEDBACK",
+      title: "REWRITE SCREENPLAY WITH YOUR RATINGS?",
+      message: "The screenwriter will preserve positively rated passages and rewrite negatively rated dialogue patterns across the screenplay. Your current version remains in project history.",
+      confirmLabel: "REWRITE SCREENPLAY",
+    });
+    if (!confirmed) return;
+    setIsGeneratingScreenplay(true);
+    setError("");
+    try {
+      const response = await authenticatedFetch("/api/screenplay-generation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brief: session.notes,
+          genre: "drama",
+          conversation: session.messages ?? [],
+          notes: session.notebook ?? [],
+          team: { secondDirector: session.secondDirector.name, screenwriter: session.screenwriter.name },
+          existingScreenplay: screenplayDraft,
+          dialogueFeedback: session.dialogueFeedback,
+        }),
+      });
+      const data = await response.json() as { screenplay?: string; director_notes?: string; error?: string };
+      if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE REWRITTEN.");
+      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueFeedback: [] };
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+      const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+      saveProjects([updated, ...history].slice(0, 20));
+      setSession(updated);
+      setScreenplayDraft(data.screenplay);
+      setSelectedScriptText(null);
+    } catch (rewriteError) {
+      setError(rewriteError instanceof Error ? rewriteError.message : "SCREENPLAY COULD NOT BE REWRITTEN.");
     } finally {
       setIsGeneratingScreenplay(false);
     }
@@ -319,7 +411,9 @@ export default function ProjectPage() {
                   <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p></div>
                   <div className="flex gap-2"><button type="button" onClick={downloadScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">DOWNLOAD</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
                 </div>
-                <textarea value={screenplayDraft} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); }} spellCheck className="mt-6 min-h-[70vh] w-full resize-y rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable screenplay" />
+                {selectedScriptText && <div className="sticky top-3 z-20 mt-6 rounded-[18px] border border-[#FFDF00]/30 bg-[#11100a]/95 p-3 shadow-2xl backdrop-blur-xl"><p className="truncate text-[10px] text-white/45">“{selectedScriptText.text.replace(/\s+/g, " ").slice(0, 140)}”</p><div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setFeedbackSentiment("good")} className={`rounded-full px-4 py-2 text-[9px] font-black ${feedbackSentiment === "good" ? "bg-emerald-400 text-black" : "border border-emerald-300/30 text-emerald-300"}`}>GOOD</button><button type="button" onClick={() => setFeedbackSentiment("bad")} className={`rounded-full px-4 py-2 text-[9px] font-black ${feedbackSentiment === "bad" ? "bg-red-400 text-black" : "border border-red-300/30 text-red-300"}`}>BAD</button><button type="button" onClick={() => { setSelectedScriptText(null); setFeedbackSentiment(null); }} className="ml-auto px-2 text-sm text-white/25">×</button></div>{feedbackSentiment && <div className="mt-3 flex flex-wrap gap-2">{(feedbackSentiment === "good" ? GOOD_DIALOGUE_CATEGORIES : BAD_DIALOGUE_CATEGORIES).map((category) => <button key={category} type="button" onClick={() => saveDialogueFeedback(category)} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/60 transition hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">{category}</button>)}</div>}</div>}
+                <textarea ref={screenplayRef} value={screenplayDraft} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="mt-6 min-h-[70vh] w-full resize-y rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable screenplay" />
+                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE TRAINING FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">These ratings are saved with the project and will guide the next rewrite.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE WITH FEEDBACK"}</button></div><div className="mt-4 space-y-2">{session.dialogueFeedback?.map((item) => <div key={item.id} className="flex items-start gap-3 rounded-[12px] border border-white/5 px-3 py-2"><span className={`mt-0.5 rounded-full px-2 py-1 text-[7px] font-black ${item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{item.sentiment.toUpperCase()} · {item.category}</span><p className="min-w-0 flex-1 truncate text-[10px] text-white/40">{item.text.replace(/\s+/g, " ")}</p><button type="button" onClick={() => removeDialogueFeedback(item.id)} className="text-sm text-white/20 hover:text-red-300">×</button></div>)}</div></section>}
                 {session.screenplayDirectorNotes && <details className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-white/40">DIRECTOR NOTES</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.screenplayDirectorNotes}</p></details>}
               </div>
             ) : (

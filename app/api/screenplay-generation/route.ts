@@ -19,6 +19,8 @@ type Payload = {
   conversation?: Array<{ role?: string; speaker?: string; content?: string }>;
   notes?: Array<{ title?: string; detail?: string; accepted?: boolean }>;
   team?: { secondDirector?: string; screenwriter?: string };
+  existingScreenplay?: string;
+  dialogueFeedback?: Array<{ text?: string; sentiment?: "good" | "bad"; category?: string }>;
 };
 
 type AgentProfile = {
@@ -138,6 +140,9 @@ export async function POST(request: Request) {
       .map((note) => `${note.title ?? "Decision"}: ${note.detail ?? ""}`)
       .join("\n");
     const brief = `DIRECTOR'S BRIEF:\n${body.brief}\n\nCREATIVE ROOM CONVERSATION:\n${conversation}\n\nAPPROVED DECISIONS:\n${approvedNotes || "None separately approved."}`;
+    const dialogueFeedback = (body.dialogueFeedback ?? []).map((item, index) =>
+      `${index + 1}. ${item.sentiment?.toUpperCase()} / ${item.category}: ${item.text}`
+    ).join("\n");
     const tags = writer.retrieval?.function_tags ?? ["inciting_incident", "turning_point", "climax"];
     const referenceResponsesPromise = Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
       method: "POST",
@@ -167,7 +172,10 @@ export async function POST(request: Request) {
       `DIALOGUE EXAMPLE ${index + 1}: ${scene.metadata.source_file}, ${scene.metadata.interaction_type}, ${scene.metadata.speakers}\n${scene.text}`
     ).join("\n\n---\n\n").slice(0, 12000);
 
-    const draft = await complete(writer, `Create the complete first draft. Learn structural principles from references but never copy their wording, characters, dialogue or unique situations. Every line of dialogue must pursue an objective, answer or evade the previous beat, and change information, power, risk or relationship. Prefer playable action and subtext over stated emotion.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nSCENE REFERENCES:\n${references}\n\nDIALOGUE REFERENCES — study function and rhythm only, never copy wording:\n${dialogueExamples}`, controller.signal);
+    const draftTask = body.existingScreenplay
+      ? `Rewrite the existing screenplay using the user's structured dialogue feedback. Preserve positively rated passages unless story logic requires a small adjustment. Correct negatively rated patterns throughout the entire script, not only in the quoted fragments.\n\nEXISTING SCREENPLAY:\n${body.existingScreenplay}\n\nUSER DIALOGUE FEEDBACK:\n${dialogueFeedback || "No structured feedback supplied."}`
+      : "Create the complete first draft.";
+    const draft = await complete(writer, `${draftTask} Learn structural principles from references but never copy their wording, characters, dialogue or unique situations. Every line of dialogue must pursue an objective, answer or evade the previous beat, and change information, power, risk or relationship. Prefer playable action and subtext over stated emotion.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nSCENE REFERENCES:\n${references}\n\nDIALOGUE REFERENCES — study function and rhythm only, never copy wording:\n${dialogueExamples}`, controller.signal);
     const [dialogueNotes, directorNotes] = await Promise.all([
       complete(writer, `Act only as a strict Dialogue Editor. Diagnose and rewrite weak dialogue without changing plot. Check line by line for: stated emotion, exposition both speakers know, interchangeable voices, non-sequiturs, literary AI phrasing, repeated information, missing reaction, absent subtext, unplayable sentence length and conversations with no power shift. Return concrete replacements and preserve silence when it is stronger.\n\nVOICE BIBLE:\n${voiceBible}\n\nDRAFT:\n${draft}`, controller.signal),
       complete(director, `Review this draft for production realism, locations, visual emphasis, blocking, sound, playable performance and editorial pace. Identify dialogue that should become action, silence or behaviour. Return prioritized actionable notes, not a full rewrite.\n\n${brief}\n\nDRAFT:\n${draft}`, controller.signal),
