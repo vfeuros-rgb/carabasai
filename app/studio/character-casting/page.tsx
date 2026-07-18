@@ -243,7 +243,9 @@ export default function CharacterCastingPage() {
     characterCastingSpecialists[0];
   const casting = session?.characterCasting ?? {};
   const messages = casting.messages ?? [];
-  const generationMessages = casting.generationMessages ?? [];
+  const generationMessages = (casting.generationMessages ?? []).filter(
+    (message) => message.role === "user" || Boolean(message.image),
+  );
   const characters = normalizeCastNotebook(casting.characters ?? []);
   const availableCastingRoles = characters.filter(
     (member) => !member.image && !member.storagePath,
