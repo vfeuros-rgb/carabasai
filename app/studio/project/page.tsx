@@ -29,8 +29,6 @@ type ProjectSession = {
   screenplayDirectorNotes?: string;
 };
 
-const SCREENPLAY_TAB = "__screenplay__";
-
 function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
 }
@@ -52,6 +50,7 @@ export default function ProjectPage() {
   const [openingCasting, setOpeningCasting] = useState(false);
   const [screenplayDraft, setScreenplayDraft] = useState("");
   const [screenplaySaved, setScreenplaySaved] = useState(false);
+  const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("carabasaiCreativeSession");
@@ -74,7 +73,6 @@ export default function ProjectPage() {
 
   const document = session.projectDocument;
   const section = document.sections.find((item) => item.id === activeSection) ?? document.sections[0];
-  const screenplayIsActive = activeSection === SCREENPLAY_TAB && Boolean(session.screenplay);
 
   function persistDocument(nextDocument: ProjectDocument) {
     if (!session) return;
@@ -107,8 +105,53 @@ export default function ProjectPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function createScreenplay() {
+    if (!session || isGeneratingScreenplay) return;
+    const confirmed = await platformConfirm({
+      eyebrow: "SCREENPLAY",
+      title: "CREATE SCREENPLAY FROM SUMMARY?",
+      message: "The approved Summary decisions will be used to create the screenplay. When generation is complete, the Summary workspace will be replaced by the editable screenplay.",
+      confirmLabel: "CREATE SCREENPLAY",
+    });
+    if (!confirmed) return;
+
+    setIsGeneratingScreenplay(true);
+    setError("");
+    try {
+      const source = `${session.notes ?? ""}\n${session.notebook?.map((note) => note.detail).join("\n") ?? ""}`.toLowerCase();
+      const genre = source.match(/horror|ужас|страх|ведьм|вампир/) ? "horror"
+        : source.match(/comedy|комед|юмор/) ? "comedy"
+          : source.match(/thriller|триллер/) ? "thriller"
+            : source.match(/sci-fi|science fiction|фантаст/) ? "science_fiction"
+              : "drama";
+      const response = await authenticatedFetch("/api/screenplay-generation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brief: session.notes,
+          genre,
+          conversation: session.messages ?? [],
+          notes: session.notebook ?? [],
+          team: { secondDirector: session.secondDirector.name, screenwriter: session.screenwriter.name },
+        }),
+      });
+      const data = await response.json() as { screenplay?: string; director_notes?: string; error?: string };
+      if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
+      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes };
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+      const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+      saveProjects([updated, ...history].slice(0, 20));
+      setSession(updated);
+      setScreenplayDraft(data.screenplay);
+    } catch (screenplayError) {
+      setError(screenplayError instanceof Error ? screenplayError.message : "SCREENPLAY COULD NOT BE GENERATED.");
+    } finally {
+      setIsGeneratingScreenplay(false);
+    }
+  }
+
   function hireCharacterCastingSpecialist() {
-    if (!session) return;
+    if (!session?.screenplay) return;
     const updated: ProjectSession = { ...session, characterCastingSpecialist: activeSpecialist };
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
@@ -265,13 +308,12 @@ export default function ProjectPage() {
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
-          <div className="p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">DIRECTOR + SCREENWRITER DOCUMENT</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
-          <div className="flex gap-2 overflow-x-auto border-y border-white/10 p-3 sm:px-6">
-            {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${!screenplayIsActive && item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
-            {session.screenplay && <button type="button" onClick={() => setActiveSection(SCREENPLAY_TAB)} className={`shrink-0 rounded-full border border-[#FFDF00] px-5 py-2 text-[9px] font-black tracking-[0.12em] shadow-[0_0_24px_rgba(255,223,0,0.12)] ${screenplayIsActive ? "bg-[#FFDF00] text-black" : "bg-[#FFDF00]/10 text-[#FFDF00]"}`}>SCREENPLAY</button>}
-          </div>
+          <div className="p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{session.screenplay ? "FINAL SCREENPLAY" : "DIRECTOR + SCREENWRITER SUMMARY"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
+          {!session.screenplay && <div className="flex gap-2 overflow-x-auto border-y border-white/10 p-3 sm:px-6">
+            {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
+          </div>}
           <div className="min-h-[360px] p-6 sm:p-8">
-            {screenplayIsActive ? (
+            {session.screenplay ? (
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p></div>
@@ -290,12 +332,13 @@ export default function ProjectPage() {
               const unresolved = isUnresolvedPoint(point);
               return <li key={pointId} className={`flex flex-wrap items-start gap-3 rounded-[12px] px-2 py-1 text-sm leading-6 ${highlightedPoints.includes(point) ? "bg-[#FFDF00]/5 text-[#FFDF00]" : "text-white/75"}`}><button type="button" onClick={() => unresolved && setActiveUnresolvedPoint((current) => current === pointId ? "" : pointId)} className={unresolved ? "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-400/15 text-xs font-black text-red-300" : "text-[#FFDF00]"} aria-label={unresolved ? "Resolve this point" : "Approved point"}>{unresolved ? "!" : "✓"}</button>{editingPoint === pointId ? <input value={editingValue} onChange={(event) => setEditingValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") savePoint(section.id, pointIndex); if (event.key === "Escape") setEditingPoint(""); }} autoFocus className="min-w-0 flex-1 rounded-lg border border-[#FFDF00]/25 bg-black/30 px-2 py-1 text-sm text-white outline-none" /> : <span className="min-w-0 flex-1">{point}</span>}<button type="button" onClick={() => editingPoint === pointId ? savePoint(section.id, pointIndex) : (setEditingPoint(pointId), setEditingValue(point))} className="shrink-0 text-xs text-white/25 hover:text-[#FFDF00]">{editingPoint === pointId ? "✓" : "✎"}</button><button type="button" onClick={() => void platformConfirm({ eyebrow: "PROJECT DOCUMENT", title: "DELETE KEY POINT?", message: "This point will be removed from the current project document.", confirmLabel: "DELETE POINT", tone: "danger" }).then((confirmed) => { if (confirmed) deletePoint(section.id, pointIndex); })} className="shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete point">×</button>{unresolved && activeUnresolvedPoint === pointId && <div className="ml-8 w-full"><button type="button" onClick={() => askTeam({ id: pointId, label: section.title, question: `Помогите принять конкретное решение по пункту: ${point}` })} className="rounded-full border border-red-300/20 px-4 py-2 text-[8px] font-black text-red-200">ASK THE TEAM</button></div>}</li>;
             })}</ul>
+            <div className="mt-10 border-t border-[#FFDF00]/15 pt-7"><p className="max-w-2xl text-xs leading-6 text-white/40">When all Summary decisions are ready, create the screenplay with the selected screenwriter and director.</p>{error && <p className="mt-3 text-xs text-red-300">{error}</p>}<button type="button" onClick={() => void createScreenplay()} disabled={isGeneratingScreenplay} className="mt-5 w-full rounded-full bg-[#FFDF00] px-6 py-4 text-xs font-black tracking-[0.12em] text-black shadow-[0_0_32px_rgba(255,223,0,0.14)] disabled:opacity-35">{isGeneratingScreenplay ? "SCREENWRITER + DIRECTOR ARE WORKING..." : "CREATE SCREENPLAY"}</button></div>
             </>
             )}
           </div>
         </section>
 
-        <aside className="space-y-5">
+        <aside className={`space-y-5 ${session.screenplay ? "[&>section:first-child:not(:last-child)]:hidden" : "[&>section:last-child]:hidden"}`}>
           {(document.openQuestions?.length ?? 0) > 0 && <section className="rounded-[28px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-5"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">UNRESOLVED KEY POINTS</p><button type="button" onClick={() => void letTeamDecideAll()} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === "all" ? "DECIDING ALL..." : "LET TEAM DECIDE ALL"}</button></div><div className="mt-4 space-y-3">{document.openQuestions?.map((question) => <div key={question.id} className="rounded-[16px] border border-white/10 bg-black/20 p-4"><p className="text-[9px] font-black text-white/40">{question.label}</p><p className="mt-2 text-xs leading-5 text-white/70">{question.question}</p><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => askTeam(question)} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/55">ASK THE TEAM</button><button type="button" onClick={() => void letTeamDecide(question)} disabled={Boolean(resolvingQuestion)} className="rounded-full bg-[#FFDF00] px-3 py-2 text-[8px] font-black text-black disabled:opacity-30">{resolvingQuestion === question.id ? "DECIDING..." : "LET TEAM DECIDE"}</button></div></div>)}</div>{error && <p className="mt-4 text-[9px] text-red-300">{error}</p>}</section>}
           <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">NEXT CREW STAGE</p><h2 className="mt-3 text-2xl font-black">CHARACTER CASTING</h2><p className="mt-4 text-xs leading-6 text-white/35">Choose the visual casting eye that will define every generated face and body before costume design begins.</p><button type="button" onClick={() => setSpecialistRosterOpen(true)} className={`mt-6 flex min-h-36 w-full flex-col justify-between rounded-[20px] border p-5 text-left transition ${session.characterCastingSpecialist ? "border-[#FFDF00]/45 bg-[#FFDF00]/5" : "border-white/10 bg-black/20 hover:border-[#FFDF00]/35"}`}><div className="flex items-start gap-4">{session.characterCastingSpecialist && <Image src={session.characterCastingSpecialist.portrait} alt={session.characterCastingSpecialist.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-[14px] border border-white/10 object-cover object-top" />}<div className="min-w-0"><p className="text-xs font-black text-white/80">{session.characterCastingSpecialist?.name ?? "CHOOSE CHARACTER CASTING LEAD"}</p><p className="mt-2 text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{session.characterCastingSpecialist?.specialty ?? "FACE / BODY / PHYSICAL PRESENCE"}</p><p className="mt-3 text-[10px] leading-5 text-white/35">{session.characterCastingSpecialist?.biography ?? "Open the roster and choose the visual method that will shape all subsequent character generations."}</p></div></div><p className="mt-5 text-[9px] font-black text-[#FFDF00]">{session.characterCastingSpecialist ? "CHANGE SPECIALIST →" : "OPEN SPECIALIST ROSTER +"}</p></button><div className="mt-6 flex justify-end"><button type="button" onClick={openCharacterCasting} disabled={!session.characterCastingSpecialist || openingCasting} aria-busy={openingCasting} className="flex min-w-28 items-center justify-center gap-2 rounded-full bg-[#FFDF00] px-6 py-3 text-[10px] font-black text-black disabled:cursor-not-allowed disabled:opacity-20">{openingCasting ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" /><span>OPENING...</span></> : <span>NEXT →</span>}</button></div></section>
         </aside>

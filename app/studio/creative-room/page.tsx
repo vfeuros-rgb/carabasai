@@ -99,20 +99,6 @@ function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function inferGenre(text: string) {
-  const value = text.toLowerCase();
-  const genres: Array<[string, string[]]> = [
-    ["horror", ["horror", "ужас", "ведьм", "призрак", "монстр"]],
-    ["comedy", ["comedy", "комеди", "смешн", "юмор"]],
-    ["thriller", ["thriller", "триллер", "саспенс"]],
-    ["mystery", ["mystery", "детектив", "расследован"]],
-    ["science_fiction", ["sci-fi", "science fiction", "фантаст", "космос", "робот"]],
-    ["romance", ["romance", "мелодрам", "любов"]],
-    ["action", ["action", "боевик", "погон", "схватк"]],
-  ];
-  return genres.find(([, words]) => words.some((word) => value.includes(word)))?.[0] ?? "drama";
-}
-
 async function requestProjectDocument(payload: unknown) {
   let lastError = "COULD NOT BUILD PROJECT DOCUMENT.";
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -216,7 +202,6 @@ export default function CreativeRoomPage() {
   const [isBuildingDocument, setIsBuildingDocument] = useState(false);
   const [showDocumentConfirm, setShowDocumentConfirm] = useState(false);
   const [documentBuildFailed, setDocumentBuildFailed] = useState(false);
-  const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const notebookScrollRef = useRef<HTMLDivElement>(null);
@@ -583,60 +568,6 @@ export default function CreativeRoomPage() {
       setError(documentError instanceof Error ? documentError.message : "COULD NOT BUILD PROJECT DOCUMENT.");
     } finally {
       setIsBuildingDocument(false);
-    }
-  }
-
-  function downloadScreenplay(screenplay: string) {
-    const blob = new Blob([screenplay], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${session?.title || "carabasai-screenplay"}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function generateScreenplay() {
-    if (!session || isGeneratingScreenplay || isLoading) return;
-    setIsGeneratingScreenplay(true);
-    setError("");
-    try {
-      const response = await authenticatedFetch("/api/screenplay-generation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brief: session.notes,
-          genre: inferGenre(`${session.notes}\n${notebook.map((note) => note.detail).join("\n")}`),
-          conversation: messages
-            .filter((message) => !message.hidden)
-            .map(({ role, speaker, content }) => ({ role, speaker, content })),
-          notes: notebook,
-          team: {
-            secondDirector: session.secondDirector.name,
-            screenwriter: session.screenwriter.name,
-          },
-        }),
-      });
-      const data = await response.json() as { screenplay?: string; director_notes?: string; error?: string };
-      if (!response.ok || !data.screenplay) {
-        throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
-      }
-      const completedSession: CreativeSession = {
-        ...session,
-        notebook,
-        messages,
-        screenplay: data.screenplay,
-        screenplayDirectorNotes: data.director_notes,
-      };
-      setSession(completedSession);
-      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
-      const history = getCachedProjects<CreativeSession>().filter((item) => item.id !== session.id);
-      saveProjects([completedSession, ...history].slice(0, 20));
-      downloadScreenplay(data.screenplay);
-    } catch (screenplayError) {
-      setError(screenplayError instanceof Error ? screenplayError.message : "SCREENPLAY COULD NOT BE GENERATED.");
-    } finally {
-      setIsGeneratingScreenplay(false);
     }
   }
 
@@ -1060,26 +991,6 @@ export default function CreativeRoomPage() {
           >
             <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2 sm:mb-3 sm:min-h-9 sm:gap-3">
               <AIProviderSwitch />
-              <div className="ml-auto flex items-center gap-2">
-                {session.screenplay && (
-                  <button
-                    type="button"
-                    onClick={() => downloadScreenplay(session.screenplay!)}
-                    className="rounded-full border border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-white/45 transition hover:border-[#FFDF00]/30 hover:text-[#FFDF00]"
-                  >
-                    DOWNLOAD SCREENPLAY
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => void generateScreenplay()}
-                  disabled={isGeneratingScreenplay || isLoading || !notebook.some((note) => note.accepted)}
-                  className="rounded-full bg-[#FFDF00] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-black transition disabled:cursor-not-allowed disabled:opacity-25"
-                  title={notebook.some((note) => note.accepted) ? "Generate with the selected screenwriter, director and screenplay reference index" : "Accept at least one notebook decision first"}
-                >
-                  {isGeneratingScreenplay ? "WRITER + DIRECTOR WORKING..." : session.screenplay ? "REGENERATE SCREENPLAY" : "GENERATE SCREENPLAY"}
-                </button>
-              </div>
               {notebook.some((note) => note.accepted) && (
               <div className="flex justify-end">
                 {showDocumentConfirm ? (
