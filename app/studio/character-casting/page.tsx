@@ -1411,7 +1411,7 @@ export default function CharacterCastingPage() {
                     9:16 PORTRAIT
                   </span>
                 </header>
-                <div className="min-h-[280px] space-y-5 p-3 sm:min-h-[460px] sm:p-5">
+                <div className={`min-h-[280px] p-3 sm:min-h-[460px] sm:p-5 ${generationMessages.length > 0 ? "space-y-5" : "flex items-center justify-center"}`}>
                   {generationMessages.length > 0 ? (
                     generationMessages.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -1436,16 +1436,23 @@ export default function CharacterCastingPage() {
                       </article>
                     ))
                   ) : (
-                    <div className="max-w-md text-center">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#FFDF00]/25 text-2xl text-[#FFDF00]">
-                        +
+                    <div className="max-w-lg text-center">
+                      <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1 shadow-[0_0_40px_rgba(255,223,0,.12)]">
+                        <Image
+                          src={specialist.portrait}
+                          alt={specialist.name}
+                          width={80}
+                          height={80}
+                          className="h-full w-full rounded-full object-cover object-top"
+                        />
                       </div>
                       <h2 className="mt-5 text-lg font-black">
-                        DESCRIBE THE ACTOR YOU NEED.
+                        ОПИШИТЕ НУЖНОГО АКТЁРА.
                       </h2>
                       <p className="mt-3 text-[11px] leading-6 text-white/35">
-                        Add appearance notes below or select a face from Portfolio
-                        or My Cast. The result will appear here.
+                        Добавьте описание внешности, и наш специалист подберёт
+                        подходящих актёров для кастинга. Или выберите кандидата
+                        из его портфолио.
                       </p>
                     </div>
                   )}
