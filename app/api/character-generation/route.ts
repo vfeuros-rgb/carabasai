@@ -233,7 +233,9 @@ async function generateWithNanoBanana(
   const apiKey =
     process.env.GEMINI_API_KEY ??
     process.env.GOOGLE_AI_API_KEY ??
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+    process.env.GOOGLE_API_KEY ??
+    process.env.NANO_BANANA_API_KEY;
   if (!apiKey) throw new Error("NANO_BANANA_NOT_CONFIGURED");
 
   const allowedModels = new Set([

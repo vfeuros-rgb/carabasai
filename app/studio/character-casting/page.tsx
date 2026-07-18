@@ -144,6 +144,7 @@ export default function CharacterCastingPage() {
   const [accountCast, setAccountCast] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState("");
   const [input, setInput] = useState("");
+  const [consultantInput, setConsultantInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
   const [imageProvider, setImageProvider] = useState<"flux" | "banana">("banana");
   const [imageModel, setImageModel] = useState<ImageModelId>(
@@ -855,8 +856,8 @@ export default function CharacterCastingPage() {
     });
   }
 
-  async function sendMessage() {
-    const content = input.trim();
+  async function sendMessage(rawContent = input) {
+    const content = rawContent.trim();
     if (!session || !content || busy) return;
     const wantsGeneration =
       /сгенер|созда[йт]|сделай.{0,24}(акт[её]р|персонаж|кандидат)|нов(ого|ый) (акт[её]р|персонаж|кандидат)|generate|new (actor|candidate|character)/i.test(
@@ -1015,6 +1016,13 @@ export default function CharacterCastingPage() {
     } finally {
       setBusyMode(null);
     }
+  }
+
+  function sendConsultantMessage() {
+    const content = consultantInput.trim();
+    if (!content || busy) return;
+    setConsultantInput("");
+    void sendMessage(content);
   }
 
   function removeCharacter(id: string) {
@@ -1312,6 +1320,28 @@ export default function CharacterCastingPage() {
               )}
               <div ref={chatEnd} />
             </div>
+            <div className="shrink-0 border-t border-white/10 p-3">
+              <textarea
+                value={consultantInput}
+                onChange={(event) => setConsultantInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    sendConsultantMessage();
+                  }
+                }}
+                placeholder="ASK ELIAS..."
+                rows={2}
+                className="w-full resize-none rounded-[12px] border border-white/10 bg-black px-3 py-2 text-[10px] leading-5 outline-none focus:border-[#FFDF00]/45"
+              />
+              <button
+                onClick={sendConsultantMessage}
+                disabled={!consultantInput.trim() || busy}
+                className="mt-2 w-full rounded-full bg-[#FFDF00] py-2.5 text-[8px] font-black text-black disabled:opacity-25"
+              >
+                SEND TO ELIAS
+              </button>
+            </div>
           </section>
         </aside>
         <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0A0A0A] lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
@@ -1599,10 +1629,14 @@ export default function CharacterCastingPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void sendMessage();
+                    if (generationFlow?.brief) {
+                      void generateActor();
+                    } else {
+                      void sendMessage(input);
+                    }
                   }
                 }}
-                placeholder="DESCRIBE THE ACTOR OR ASK ELIAS..."
+                placeholder="DESCRIBE THE ACTOR..."
                 rows={1}
                 className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-sm outline-none sm:min-h-12 sm:p-3"
               />
@@ -1612,19 +1646,12 @@ export default function CharacterCastingPage() {
                     void generateActor();
                     return;
                   }
-                  void sendMessage();
+                  void sendMessage(input);
                 }}
                 disabled={busy || (!generationFlow?.brief && !input.trim())}
                 className="rounded-full border border-[#FFDF00]/45 px-4 py-3 text-[8px] font-black text-[#FFDF00] disabled:opacity-25 sm:px-5 sm:py-4 sm:text-[9px]"
               >
                 GENERATE
-              </button>
-              <button
-                onClick={() => void sendMessage()}
-                disabled={!input.trim() || busy}
-                className="rounded-full bg-[#FFDF00] px-4 py-3 text-[8px] font-black text-black disabled:opacity-25 sm:px-6 sm:py-4 sm:text-[9px]"
-              >
-                SEND
               </button>
             </div>
           </footer>
