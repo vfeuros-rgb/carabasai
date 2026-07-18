@@ -139,23 +139,41 @@ export async function POST(request: Request) {
       .join("\n");
     const brief = `DIRECTOR'S BRIEF:\n${body.brief}\n\nCREATIVE ROOM CONVERSATION:\n${conversation}\n\nAPPROVED DECISIONS:\n${approvedNotes || "None separately approved."}`;
     const tags = writer.retrieval?.function_tags ?? ["inciting_incident", "turning_point", "climax"];
-    const referenceResponses = await Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
+    const referenceResponsesPromise = Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
       method: "POST",
       headers: serviceHeaders(),
       body: JSON.stringify({ query: brief, genre: body.genre || "drama", function_tag: functionTag, limit: 2 }),
       signal: controller.signal,
     })));
+    const dialogueResponsePromise = fetch(`${serviceUrl}/retrieve-dialogues`, {
+      method: "POST",
+      headers: serviceHeaders(),
+      body: JSON.stringify({ query: brief, genre: body.genre || "drama", limit: 6 }),
+      signal: controller.signal,
+    });
+    const voiceBiblePromise = complete(writer, `Create a compact VOICE BIBLE for every speaking character implied by this project. For each character define: objective, hidden intention, vocabulary, sentence length, evasion strategy, pressure behaviour, forbidden words and one speech habit. Make voices clearly distinguishable and playable by actors. Do not write screenplay scenes yet.\n\n${brief}`, controller.signal);
+    const [referenceResponses, dialogueResponse, voiceBible] = await Promise.all([
+      referenceResponsesPromise, dialogueResponsePromise, voiceBiblePromise,
+    ]);
     if (referenceResponses.some((response) => !response.ok)) throw new Error("SCREENPLAY REFERENCE INDEX IS UNAVAILABLE.");
+    if (!dialogueResponse.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
     const referenceGroups = await Promise.all(referenceResponses.map((response) => response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>));
+    const dialogueReferences = await dialogueResponse.json() as Array<{ text: string; metadata: Record<string, unknown> }>;
     const maxReferenceChars = writer.retrieval?.max_reference_chars ?? 14000;
     const references = referenceGroups.flat().map((scene, index) =>
       `REFERENCE ${index + 1}: ${scene.metadata.source_file}, scene ${scene.metadata.scene_number}, ${scene.metadata.function_tag}\n${scene.text}`
     ).join("\n\n---\n\n").slice(0, maxReferenceChars);
+    const dialogueExamples = dialogueReferences.map((scene, index) =>
+      `DIALOGUE EXAMPLE ${index + 1}: ${scene.metadata.source_file}, ${scene.metadata.interaction_type}, ${scene.metadata.speakers}\n${scene.text}`
+    ).join("\n\n---\n\n").slice(0, 12000);
 
-    const draft = await complete(writer, `Create the complete first draft. Learn structural principles from references but never copy their wording, characters, dialogue or unique situations.\n\n${STRUCTURE}\n\n${brief}\n\nRETRIEVED REFERENCES:\n${references}`, controller.signal);
-    const directorNotes = await complete(director, `Review this draft for production realism, locations, visual emphasis, blocking, sound and editorial pace. Return prioritized actionable notes, not a full rewrite.\n\n${brief}\n\nDRAFT:\n${draft}`, controller.signal);
-    const screenplay = await complete(writer, `Produce the final shooting-ready screenplay. Apply useful director notes while protecting the brief. Output only the screenplay.\n\n${STRUCTURE}\n\n${brief}\n\nDRAFT:\n${draft}\n\nDIRECTOR NOTES:\n${directorNotes}`, controller.signal);
-    return NextResponse.json({ screenplay, director_notes: directorNotes, reference_count: referenceGroups.flat().length, screenwriter_profile: writer.id, director_profile: director.id });
+    const draft = await complete(writer, `Create the complete first draft. Learn structural principles from references but never copy their wording, characters, dialogue or unique situations. Every line of dialogue must pursue an objective, answer or evade the previous beat, and change information, power, risk or relationship. Prefer playable action and subtext over stated emotion.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nSCENE REFERENCES:\n${references}\n\nDIALOGUE REFERENCES — study function and rhythm only, never copy wording:\n${dialogueExamples}`, controller.signal);
+    const [dialogueNotes, directorNotes] = await Promise.all([
+      complete(writer, `Act only as a strict Dialogue Editor. Diagnose and rewrite weak dialogue without changing plot. Check line by line for: stated emotion, exposition both speakers know, interchangeable voices, non-sequiturs, literary AI phrasing, repeated information, missing reaction, absent subtext, unplayable sentence length and conversations with no power shift. Return concrete replacements and preserve silence when it is stronger.\n\nVOICE BIBLE:\n${voiceBible}\n\nDRAFT:\n${draft}`, controller.signal),
+      complete(director, `Review this draft for production realism, locations, visual emphasis, blocking, sound, playable performance and editorial pace. Identify dialogue that should become action, silence or behaviour. Return prioritized actionable notes, not a full rewrite.\n\n${brief}\n\nDRAFT:\n${draft}`, controller.signal),
+    ]);
+    const screenplay = await complete(writer, `Produce the final shooting-ready screenplay. Apply useful director and dialogue-editor notes while protecting the brief. Enforce the voice bible. No character may explain a feeling that can be performed, repeat shared information, or speak without an immediate intention. Read every exchange as a chain of reactions. Output only the screenplay.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDRAFT:\n${draft}\n\nDIALOGUE EDITOR NOTES:\n${dialogueNotes}\n\nDIRECTOR NOTES:\n${directorNotes}`, controller.signal);
+    return NextResponse.json({ screenplay, director_notes: directorNotes, dialogue_notes: dialogueNotes, voice_bible: voiceBible, reference_count: referenceGroups.flat().length, dialogue_reference_count: dialogueReferences.length, screenwriter_profile: writer.id, director_profile: director.id });
   } catch (error) {
     const message = error instanceof Error && error.name === "AbortError"
       ? "SCREENPLAY GENERATION TIMED OUT."
