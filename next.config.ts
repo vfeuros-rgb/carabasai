@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/screenplay-pdf": [
+      "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf",
+      "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf",
+      "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf",
+    ],
+  },
   allowedDevOrigins: [
     "10.100.9.104",
     "10.100.9.104:3000",

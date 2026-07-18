@@ -158,15 +158,35 @@ export default function ProjectPage() {
     setSession(updated);
   }
 
-  function downloadScreenplay() {
+  async function downloadScreenplay() {
     if (!screenplayDraft.trim()) return;
-    const blob = new Blob([screenplayDraft], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = window.document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${session?.projectDocument?.title || "carabasai-screenplay"}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    setError("");
+    try {
+      const response = await authenticatedFetch("/api/screenplay-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: session?.projectDocument?.title,
+          logline: session?.projectDocument?.logline,
+          screenplay: screenplayDraft,
+          director: session?.secondDirector.name,
+          screenwriter: session?.screenwriter.name,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json() as { error?: string };
+        throw new Error(data.error || "PDF COULD NOT BE CREATED.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = window.document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${session?.projectDocument?.title || "screenplay"} - Carabasai.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "PDF COULD NOT BE CREATED.");
+    }
   }
 
   async function createScreenplay() {
@@ -443,7 +463,7 @@ export default function ProjectPage() {
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p><p className="mt-2 text-[10px] font-bold leading-5 text-[#FFDF00]/70">SELECT ANY PASSAGE TO MARK WHAT WORKS OR WHAT NEEDS IMPROVEMENT.</p></div>
-                  <div className="flex gap-2"><button type="button" onClick={downloadScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">DOWNLOAD</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
+                  <div className="flex gap-2"><button type="button" onClick={() => void downloadScreenplay()} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">DOWNLOAD PDF</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
                 </div>
                 {selectedScriptText && <div className="sticky top-3 z-20 mt-4 w-fit max-w-full border border-[#FFDF00]/30 bg-[#11100a]/95 px-3 py-2 shadow-xl backdrop-blur-xl"><div className="flex min-w-0 items-center gap-3"><p className="max-w-[420px] truncate text-[9px] text-white/40">“{selectedScriptText.text.replace(/\s+/g, " ").slice(0, 140)}”</p><button type="button" onClick={() => setFeedbackSentiment("good")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "good" ? "border-emerald-400 bg-emerald-400 text-black" : "border-emerald-300/30 text-emerald-300"}`}>GOOD</button><button type="button" onClick={() => setFeedbackSentiment("bad")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "bad" ? "border-red-400 bg-red-400 text-black" : "border-red-300/30 text-red-300"}`}>BAD</button><button type="button" onClick={() => { setSelectedScriptText(null); setFeedbackSentiment(null); }} className="shrink-0 px-1 text-sm text-white/25">×</button></div>{feedbackSentiment && <div className="mt-2 flex max-w-[720px] flex-wrap gap-1.5 border-t border-white/10 pt-2">{(feedbackSentiment === "good" ? GOOD_DIALOGUE_CATEGORIES : BAD_DIALOGUE_CATEGORIES).map((category) => <button key={category} type="button" onClick={() => saveDialogueFeedback(category)} className="border border-white/10 px-2 py-1.5 text-[7px] font-black text-white/60 transition hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">{category}</button>)}</div>}</div>}
                 <textarea ref={screenplayRef} value={screenplayDraft} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="mt-5 h-[clamp(260px,32dvh,420px)] w-full resize-none overflow-y-scroll rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition [scrollbar-color:rgba(255,223,0,0.45)_rgba(255,255,255,0.05)] [scrollbar-width:thin] focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable and scrollable screenplay. Select text to rate it." />
