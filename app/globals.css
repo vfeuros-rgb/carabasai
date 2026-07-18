@@ -52,13 +52,13 @@ button:disabled,
 }
 
 .studio-shell__background {
-  z-index: -3;
+  z-index: 0;
   background: url("/background001.png") center / cover no-repeat;
   transform: scale(1.02);
 }
 
 .studio-shell__veil {
-  z-index: -2;
+  z-index: 0;
   background:
     radial-gradient(circle at 68% 18%, rgba(255, 223, 0, 0.07), transparent 32%),
     linear-gradient(135deg, rgba(2, 4, 6, 0.48), rgba(3, 4, 5, 0.68));
