@@ -165,6 +165,8 @@ export default function CharacterCastingPage() {
   const [imageModel, setImageModel] = useState<ImageModelId>(
     "gemini-3.1-flash-image",
   );
+  const [interactionMode, setInteractionMode] = useState<"specialist" | "generator">("specialist");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
   const [attachments, setAttachments] = useState<ImageReference[]>([]);
@@ -324,6 +326,7 @@ export default function CharacterCastingPage() {
   const generationMessages = (casting.generationMessages ?? []).filter(
     (message) => message.role === "user" || Boolean(message.image),
   );
+  const activeConversation = interactionMode === "specialist" ? messages : generationMessages;
   const characters = normalizeCastNotebook(casting.characters ?? []);
   const availableCastingRoles = characters.filter(
     (member) => !member.image && !member.storagePath,
@@ -365,7 +368,7 @@ export default function CharacterCastingPage() {
       window.clearTimeout(firstCorrection);
       window.clearTimeout(imageCorrection);
     };
-  }, [session?.id, generationMessages.length]);
+  }, [session?.id, generationMessages.length, messages.length, interactionMode]);
 
   useEffect(() => {
     const collect = (projects: CastingSession[]) => {
@@ -636,7 +639,10 @@ export default function CharacterCastingPage() {
         signal: AbortSignal.timeout(65000),
         body: JSON.stringify({
           provider,
-          summary: current.projectDocument,
+          summary: {
+            projectDocument: current.projectDocument,
+            screenplay: current.screenplay,
+          },
           specialist,
           messages: nextMessages.map(({ role, content }) => ({
             role,
@@ -1673,10 +1679,10 @@ export default function CharacterCastingPage() {
         <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/20 bg-white/[.065] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_28px_90px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
           <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
             <p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">
-              CHARACTER GENERATION
+              {interactionMode === "specialist" ? "CASTING CONSULTATION" : "CHARACTER GENERATION"}
             </p>
             <h1 className="mt-1 text-lg font-black sm:mt-2 sm:text-xl">
-              BUILD THE FACE THAT CARRIES THE STORY.
+              {interactionMode === "specialist" ? `TALK CASTING WITH ${specialist.name.toUpperCase()}.` : "BUILD THE FACE THAT CARRIES THE STORY."}
             </h1>
           </header>
           <div
@@ -1695,19 +1701,17 @@ export default function CharacterCastingPage() {
                 <header className="flex items-center justify-between gap-4 border-b border-white/10 px-1 pb-4">
                   <div>
                     <p className="text-[8px] font-black tracking-[.16em] text-[#FFDF00]">
-                      GENERATION STAGE
+                      {interactionMode === "specialist" ? "SPECIALIST CHAT" : "GENERATION STAGE"}
                     </p>
                     <p className="mt-1 text-sm font-black text-white/85">
-                      {candidate?.actorName ?? "NO CANDIDATE YET"}
+                      {interactionMode === "specialist" ? specialist.name : candidate?.actorName ?? "NO CANDIDATE YET"}
                     </p>
                   </div>
-                  <span className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/35">
-                    9:16 PORTRAIT
-                  </span>
+                  {interactionMode === "generator" && <span className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/35">9:16 PORTRAIT</span>}
                 </header>
-                <div className={`min-h-[280px] py-4 sm:min-h-[460px] sm:py-5 ${generationMessages.length > 0 ? "space-y-5" : "flex items-center justify-center"}`}>
-                  {generationMessages.length > 0 ? (
-                    generationMessages.map((message) => (
+                <div className={`min-h-[280px] py-4 sm:min-h-[460px] sm:py-5 ${activeConversation.length > 0 ? "space-y-5" : "flex items-center justify-center"}`}>
+                  {activeConversation.length > 0 ? (
+                    activeConversation.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                         <div className={`flex max-w-[82%] flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
                           {message.role === "user" && (
@@ -1789,7 +1793,7 @@ export default function CharacterCastingPage() {
                         </div>
                       </article>
                     ))
-                  ) : (
+                  ) : interactionMode === "generator" ? (
                     <div className="max-w-lg text-center">
                       <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1 shadow-[0_0_40px_rgba(255,223,0,.12)]">
                         <Image
@@ -1808,6 +1812,14 @@ export default function CharacterCastingPage() {
                         who fit the casting brief. Or choose a candidate from
                         the specialist&apos;s portfolio.
                       </p>
+                    </div>
+                  ) : (
+                    <div className="max-w-lg text-center">
+                      <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1">
+                        <Image src={specialist.portrait} alt={specialist.name} width={80} height={80} className="h-full w-full rounded-full object-cover object-top" />
+                      </div>
+                      <h2 className="mt-5 text-lg font-black">{specialist.name.toUpperCase()} IS STUDYING THE SCRIPT.</h2>
+                      <p className="mt-3 text-[11px] leading-6 text-white/35">The casting brief and role list will appear here.</p>
                     </div>
                   )}
                 </div>
@@ -1845,44 +1857,21 @@ export default function CharacterCastingPage() {
                   RESET
                 </button>
               </div>
-              <div className="flex shrink-0 flex-nowrap items-end gap-2 sm:flex-wrap sm:gap-3">
-                <div>
-                  <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
-                    DIALOGUE
+              <div className="relative shrink-0">
+                <button type="button" onClick={() => setModelMenuOpen((current) => !current)} aria-expanded={modelMenuOpen} aria-label="AI and image model settings" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-[#303030] text-lg text-white/65 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">⋮</button>
+                {modelMenuOpen && (
+                  <div className="absolute bottom-12 right-0 z-50 w-72 rounded-[18px] border border-white/12 bg-[#090909] p-4 shadow-2xl">
+                    <p className="text-[8px] font-black tracking-[.16em] text-white/35">SPECIALIST DIALOGUE</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button onClick={() => setProviderChoice("anthropic")} className={`rounded-full px-4 py-2.5 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "border border-white/10 bg-[#303030] text-white/50"}`}>CLAUDE</button>
+                      <button onClick={() => setProviderChoice("openai")} className={`rounded-full px-4 py-2.5 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "border border-white/10 bg-[#303030] text-white/50"}`}>GPT</button>
+                    </div>
+                    <p className="mt-4 text-[8px] font-black tracking-[.16em] text-white/35">IMAGE GENERATOR</p>
+                    <select value={imageModel} onChange={(event) => setImageModelChoice(event.target.value as ImageModelId)} className="mt-2 h-11 w-full rounded-[12px] border border-white/10 bg-[#303030] px-3 text-[8px] font-black text-[#FFDF00] outline-none">
+                      {imageModels.map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}
+                    </select>
                   </div>
-                  <div className="flex rounded-full border border-white/10 p-1">
-                    <button
-                      onClick={() => setProviderChoice("anthropic")}
-                      className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                    >
-                      CLAUDE
-                    </button>
-                    <button
-                      onClick={() => setProviderChoice("openai")}
-                      className={`rounded-full px-4 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "text-white/35"}`}
-                    >
-                      GPT
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 pl-2 text-[7px] font-black tracking-[0.18em] text-white/25">
-                    IMAGE MODEL
-                  </div>
-                  <select
-                    value={imageModel}
-                    onChange={(event) =>
-                      setImageModelChoice(event.target.value as ImageModelId)
-                    }
-                    className="h-9 min-w-[165px] rounded-full border border-white/10 bg-black px-3 text-[8px] font-black text-[#FFDF00] outline-none sm:h-[42px] sm:min-w-[190px] sm:px-4"
-                  >
-                    {imageModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                )}
               </div>
             </div>
             <input
@@ -1951,7 +1940,13 @@ export default function CharacterCastingPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-[18px] border border-white/15 bg-black/32 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl sm:gap-3 sm:rounded-[20px] sm:p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[8px] font-black tracking-[.14em] text-white/35">{interactionMode === "specialist" ? `CHAT WITH ${specialist.name.toUpperCase()}` : "IMAGE GENERATOR"}</p>
+              <button type="button" onClick={() => { setInteractionMode((current) => current === "specialist" ? "generator" : "specialist"); setInput(""); setAttachments([]); setCharacterAttachments([]); }} className={`rounded-full px-4 py-2 text-[8px] font-black transition ${interactionMode === "specialist" ? "bg-[#303030] text-white/70" : "bg-[#FFDF00] text-black"}`}>
+                {interactionMode === "specialist" ? "SWITCH TO GENERATOR" : `CHAT WITH ${specialist.name.split(" ")[0].toUpperCase()}`}
+              </button>
+            </div>
+            <div className="flex items-end gap-2 rounded-[18px] border border-white/15 bg-[#090909] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] sm:gap-3 sm:rounded-[20px] sm:p-3">
               <textarea
                 ref={mainInputRef}
                 value={input}
@@ -1959,19 +1954,19 @@ export default function CharacterCastingPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void generateFromMainInput();
+                    void (interactionMode === "specialist" ? sendMessage() : generateFromMainInput());
                   }
                 }}
-                placeholder="DESCRIBE THE ACTOR..."
+                placeholder={interactionMode === "specialist" ? `ASK ${specialist.name.toUpperCase()}...` : "DESCRIBE THE ACTOR..."}
                 rows={1}
                 className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-sm outline-none sm:min-h-12 sm:p-3"
               />
               <button
-                onClick={() => void generateFromMainInput()}
-                disabled={busy || (!generationFlow?.brief && !input.trim())}
+                onClick={() => void (interactionMode === "specialist" ? sendMessage() : generateFromMainInput())}
+                disabled={busy || !input.trim()}
                 className="rounded-full border border-[#FFDF00]/45 px-4 py-3 text-[8px] font-black text-[#FFDF00] disabled:opacity-25 sm:px-5 sm:py-4 sm:text-[9px]"
               >
-                GENERATE
+                {interactionMode === "specialist" ? "SEND" : "GENERATE"}
               </button>
             </div>
           </footer>
