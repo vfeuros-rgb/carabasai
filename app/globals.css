@@ -38,30 +38,41 @@ button:disabled,
   -webkit-tap-highlight-color: transparent;
 }
 
+.site-shell,
 .studio-shell {
   position: relative;
   isolation: isolate;
   background: #050505;
 }
 
-.studio-shell__background,
-.studio-shell__veil {
+.site-shell__background,
+.site-shell__veil {
   position: fixed;
   inset: 0;
   pointer-events: none;
 }
 
-.studio-shell__background {
+.site-shell__background {
   z-index: 0;
   background: url("/background001.png") center / cover no-repeat;
   transform: scale(1.02);
 }
 
-.studio-shell__veil {
+.site-shell__veil {
   z-index: 0;
   background:
     radial-gradient(circle at 68% 18%, rgba(255, 223, 0, 0.07), transparent 32%),
     linear-gradient(135deg, rgba(2, 4, 6, 0.48), rgba(3, 4, 5, 0.68));
+}
+
+.site-shell__content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+.site-shell main[class*="bg-[#050505]"] {
+  background-color: transparent !important;
 }
 
 .studio-shell > main {
@@ -103,8 +114,25 @@ button:disabled,
   backdrop-filter: blur(18px) saturate(175%) contrast(108%);
 }
 
+/* Default material for current and future semantic page panels. */
+.site-shell main :where(section, aside, article)[class*="rounded"],
+.site-shell main .glass-panel {
+  background-color: rgba(10, 13, 15, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 22px 64px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(20px) saturate(165%) contrast(106%);
+  backdrop-filter: blur(20px) saturate(165%) contrast(106%);
+}
+
+.site-shell main .liquid-glass {
+  background-color: rgba(10, 13, 15, 0.14) !important;
+}
+
 @media (max-width: 767px) {
-  .studio-shell__background {
+  .site-shell__background {
     background-position: 58% center;
   }
 }

@@ -28,7 +28,14 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}<PlatformDialogHost /></body>
+      <body className="min-h-full">
+        <div className="site-shell min-h-screen">
+          <div className="site-shell__background" aria-hidden="true" />
+          <div className="site-shell__veil" aria-hidden="true" />
+          <div className="site-shell__content">{children}</div>
+          <PlatformDialogHost />
+        </div>
+      </body>
     </html>
   );
 }
