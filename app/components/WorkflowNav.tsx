@@ -63,7 +63,7 @@ export default function WorkflowNav() {
     window.location.assign("/studio");
   }
 
-  return <nav aria-label="Project workflow" className="relative z-[60] mx-auto mb-7 flex w-full max-w-7xl items-center gap-2 border-b border-white/8 pb-4 text-[9px] font-black tracking-[0.12em]">
+  return <nav aria-label="Project workflow" className="relative z-[60] mx-auto mb-7 flex min-h-12 w-full max-w-7xl items-center gap-2 rounded-[16px] border border-white/10 bg-[#353535] px-4 py-3 text-[9px] font-black tracking-[0.12em] shadow-[0_12px_34px_rgba(0,0,0,.24)] sm:px-5">
     <div className="flex min-w-0 flex-wrap items-center gap-2">{steps.map((step, index) => <span key={step.id} className="flex items-center gap-2">{index > 0 && <span className="text-white/18">/</span>}{step.id === "setup" ? <button type="button" onClick={() => window.location.assign("/studio")} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</button> : <Link href={step.href} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</Link>}</span>)}</div>
     {progress.id && <div ref={projectMenuRef} className="relative ml-auto shrink-0">
       <button type="button" onClick={() => setProjectMenuOpen((current) => !current)} aria-expanded={projectMenuOpen} aria-haspopup="menu" aria-label="Project actions" className={`flex h-8 w-8 items-center justify-center rounded-full border text-base leading-none transition ${projectMenuOpen ? "border-[#FFDF00]/40 text-[#FFDF00]" : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"}`}>⋮</button>
