@@ -25,7 +25,11 @@ type ProjectSession = {
   screenwriter: { name: string };
   characterCastingSpecialist?: CharacterCastingSpecialist;
   draftQuestion?: string;
+  screenplay?: string;
+  screenplayDirectorNotes?: string;
 };
+
+const SCREENPLAY_TAB = "__screenplay__";
 
 function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
@@ -46,6 +50,8 @@ export default function ProjectPage() {
   const [castingSamplePreview, setCastingSamplePreview] = useState<CharacterCastingSpecialist["characterExamples"][number] | null>(null);
   const [activeUnresolvedPoint, setActiveUnresolvedPoint] = useState("");
   const [openingCasting, setOpeningCasting] = useState(false);
+  const [screenplayDraft, setScreenplayDraft] = useState("");
+  const [screenplaySaved, setScreenplaySaved] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("carabasaiCreativeSession");
@@ -55,6 +61,7 @@ export default function ProjectPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession(restored);
     setActiveSection(restored.projectDocument?.sections[0]?.id ?? "");
+    setScreenplayDraft(restored.screenplay ?? "");
     if (restored.characterCastingSpecialist) {
       setActiveSpecialist(restored.characterCastingSpecialist);
       setSelectedDepartments(["CHARACTER CASTING"]);
@@ -67,6 +74,7 @@ export default function ProjectPage() {
 
   const document = session.projectDocument;
   const section = document.sections.find((item) => item.id === activeSection) ?? document.sections[0];
+  const screenplayIsActive = activeSection === SCREENPLAY_TAB && Boolean(session.screenplay);
 
   function persistDocument(nextDocument: ProjectDocument) {
     if (!session) return;
@@ -75,6 +83,28 @@ export default function ProjectPage() {
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
+  }
+
+  function saveScreenplay() {
+    if (!session || !screenplayDraft.trim()) return;
+    const updated: ProjectSession = { ...session, screenplay: screenplayDraft };
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
+    setScreenplaySaved(true);
+    window.setTimeout(() => setScreenplaySaved(false), 1600);
+  }
+
+  function downloadScreenplay() {
+    if (!screenplayDraft.trim()) return;
+    const blob = new Blob([screenplayDraft], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = window.document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${session?.projectDocument?.title || "carabasai-screenplay"}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   function hireCharacterCastingSpecialist() {
@@ -237,9 +267,21 @@ export default function ProjectPage() {
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
           <div className="p-6 sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">DIRECTOR + SCREENWRITER DOCUMENT</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
           <div className="flex gap-2 overflow-x-auto border-y border-white/10 p-3 sm:px-6">
-            {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
+            {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${!screenplayIsActive && item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
+            {session.screenplay && <button type="button" onClick={() => setActiveSection(SCREENPLAY_TAB)} className={`shrink-0 rounded-full border border-[#FFDF00] px-5 py-2 text-[9px] font-black tracking-[0.12em] shadow-[0_0_24px_rgba(255,223,0,0.12)] ${screenplayIsActive ? "bg-[#FFDF00] text-black" : "bg-[#FFDF00]/10 text-[#FFDF00]"}`}>SCREENPLAY</button>}
           </div>
           <div className="min-h-[360px] p-6 sm:p-8">
+            {screenplayIsActive ? (
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p></div>
+                  <div className="flex gap-2"><button type="button" onClick={downloadScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">DOWNLOAD</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
+                </div>
+                <textarea value={screenplayDraft} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); }} spellCheck className="mt-6 min-h-[70vh] w-full resize-y rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable screenplay" />
+                {session.screenplayDirectorNotes && <details className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-white/40">DIRECTOR NOTES</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.screenplayDirectorNotes}</p></details>}
+              </div>
+            ) : (
+            <>
             <h2 className="text-2xl font-black">{section.title}</h2>
             {section.ratings && <div className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap gap-5 text-[10px] font-black"><span>{session.secondDirector.name}: <span className="text-[#FFDF00]">{"★".repeat(section.ratings.secondDirector)}{"☆".repeat(5 - section.ratings.secondDirector)}</span></span><span>{session.screenwriter.name}: <span className="text-[#FFDF00]">{"★".repeat(section.ratings.screenwriter)}{"☆".repeat(5 - section.ratings.screenwriter)}</span></span></div><p className="mt-3 text-[10px] leading-5 text-white/35">{section.ratings.reason}</p></div>}
             <p className="mt-4 max-w-3xl text-sm leading-7 text-white/50">{section.summary}</p>
@@ -248,6 +290,8 @@ export default function ProjectPage() {
               const unresolved = isUnresolvedPoint(point);
               return <li key={pointId} className={`flex flex-wrap items-start gap-3 rounded-[12px] px-2 py-1 text-sm leading-6 ${highlightedPoints.includes(point) ? "bg-[#FFDF00]/5 text-[#FFDF00]" : "text-white/75"}`}><button type="button" onClick={() => unresolved && setActiveUnresolvedPoint((current) => current === pointId ? "" : pointId)} className={unresolved ? "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-400/15 text-xs font-black text-red-300" : "text-[#FFDF00]"} aria-label={unresolved ? "Resolve this point" : "Approved point"}>{unresolved ? "!" : "✓"}</button>{editingPoint === pointId ? <input value={editingValue} onChange={(event) => setEditingValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") savePoint(section.id, pointIndex); if (event.key === "Escape") setEditingPoint(""); }} autoFocus className="min-w-0 flex-1 rounded-lg border border-[#FFDF00]/25 bg-black/30 px-2 py-1 text-sm text-white outline-none" /> : <span className="min-w-0 flex-1">{point}</span>}<button type="button" onClick={() => editingPoint === pointId ? savePoint(section.id, pointIndex) : (setEditingPoint(pointId), setEditingValue(point))} className="shrink-0 text-xs text-white/25 hover:text-[#FFDF00]">{editingPoint === pointId ? "✓" : "✎"}</button><button type="button" onClick={() => void platformConfirm({ eyebrow: "PROJECT DOCUMENT", title: "DELETE KEY POINT?", message: "This point will be removed from the current project document.", confirmLabel: "DELETE POINT", tone: "danger" }).then((confirmed) => { if (confirmed) deletePoint(section.id, pointIndex); })} className="shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete point">×</button>{unresolved && activeUnresolvedPoint === pointId && <div className="ml-8 w-full"><button type="button" onClick={() => askTeam({ id: pointId, label: section.title, question: `Помогите принять конкретное решение по пункту: ${point}` })} className="rounded-full border border-red-300/20 px-4 py-2 text-[8px] font-black text-red-200">ASK THE TEAM</button></div>}</li>;
             })}</ul>
+            </>
+            )}
           </div>
         </section>
 
