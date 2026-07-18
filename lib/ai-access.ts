@@ -46,7 +46,7 @@ export async function authenticateAiRequest(request: Request): Promise<Authentic
 
 export async function consumeAiQuota(
   supabase: SupabaseClient,
-  action: "creative-room" | "project-document",
+  action: "creative-room" | "project-document" | "screenplay-generation",
   user?: User
 ) {
   const adminEmails = (process.env.ADMIN_EMAILS ?? "")
