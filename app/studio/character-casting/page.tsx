@@ -1422,7 +1422,16 @@ export default function CharacterCastingPage() {
                   </article>
                 ))}
                 {generationFlow?.stage === "hire-role" && candidate && (
-                  <div className="mt-4 rounded-[18px] border border-[#FFDF00]/30 bg-[#FFDF00]/[.035] p-4">
+                  <div className="relative mt-4 rounded-[18px] border border-[#FFDF00]/30 bg-[#FFDF00]/[.035] p-4">
+                    <button
+                      type="button"
+                      onClick={cancelPendingHire}
+                      aria-label="Reject pending actor"
+                      title="Reject pending actor"
+                      className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full border border-red-400/35 bg-red-500/10 text-sm font-black leading-none text-red-300 transition hover:bg-red-500/25 hover:text-red-100"
+                    >
+                      ×
+                    </button>
                     <p className="text-[8px] font-black tracking-[.12em] text-[#FFDF00]">READY TO HIRE</p>
                     <div className="mt-3 flex items-center gap-4">
                       <img src={candidate.image} alt={candidate.actorName ?? "Candidate to hire"} className="h-32 w-24 shrink-0 rounded-xl object-cover object-top" />
@@ -1431,13 +1440,6 @@ export default function CharacterCastingPage() {
                         <p className="mt-2 text-[9px] leading-5 text-white/35">CLICK A ROLE CIRCLE TO ASSIGN THIS ACTOR.</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={cancelPendingHire}
-                      className="mt-3 w-full rounded-full border border-red-400/40 bg-red-500/10 py-2.5 text-[8px] font-black text-red-200 transition hover:bg-red-500/20"
-                    >
-                      REJECT
-                    </button>
                   </div>
                 )}
               </div>
