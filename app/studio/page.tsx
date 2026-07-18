@@ -1036,12 +1036,12 @@ export default function StudioPage() {
           <p className="text-xs font-black uppercase tracking-[0.22em] text-white/35">
             DIRECTOR&apos;S NOTES
           </p>
-          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.025]">
+          <div className="studio-composer mt-6 overflow-hidden rounded-[22px] border border-white/10 bg-[#090909]">
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="TELL THE CREW WHAT YOU WANT TO CREATE..."
-              className="min-h-[190px] w-full resize-none bg-transparent px-6 py-7 text-lg normal-case leading-8 text-white outline-none placeholder:uppercase placeholder:text-white/20 sm:px-8 sm:text-2xl"
+              className="min-h-[150px] w-full resize-none bg-transparent px-5 py-5 text-base normal-case leading-7 text-white outline-none placeholder:uppercase placeholder:text-white/20 sm:min-h-[170px] sm:px-6 sm:py-6 sm:text-xl"
             />
 
             {references.length > 0 && (
@@ -1079,7 +1079,7 @@ export default function StudioPage() {
               </p>
             )}
 
-            <div className="flex flex-col gap-4 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-3 py-3 sm:px-4">
               <input
                 ref={referenceInputRef}
                 type="file"
@@ -1088,24 +1088,24 @@ export default function StudioPage() {
                 onChange={(event) => addReferences(event.target.files)}
                 className="hidden"
               />
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button type="button" onClick={() => referenceInputRef.current?.click()} className="min-h-10 cursor-pointer rounded-full border border-white/15 px-4 py-2 text-[9px] font-black uppercase text-white/65">+ ADD REFERENCES{references.length > 0 ? ` (${references.length})` : ""}</button>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => referenceInputRef.current?.click()} className="h-9 cursor-pointer rounded-full border border-white/15 px-3 text-[8px] font-black uppercase text-white/65">＋ REFERENCES{references.length > 0 ? ` · ${references.length}` : ""}</button>
                 <div className="relative">
-                  <button type="button" onClick={() => void resetBriefAndReferences()} className="min-h-10 rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/30 hover:border-white/20 hover:text-white/60">RESET</button>
+                  <button type="button" onClick={() => void resetBriefAndReferences()} className="h-9 rounded-full border border-white/10 px-3 text-[8px] font-black text-white/30 hover:border-white/20 hover:text-white/60">CLEAR</button>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <AIProviderSwitch />
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion} className="min-h-12 cursor-pointer rounded-full border border-[#FFDF00]/25 px-6 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#FFDF00] transition hover:bg-[#FFDF00]/5 disabled:cursor-not-allowed disabled:opacity-20">
+              <div className="ml-auto flex items-center gap-1.5">
+                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion} className="h-10 cursor-pointer rounded-full border border-[#FFDF00]/25 px-4 text-[8px] font-black uppercase tracking-[0.08em] text-[#FFDF00] transition hover:bg-[#FFDF00]/5 disabled:cursor-not-allowed disabled:opacity-20">
                   {isSkippingDiscussion ? "TEAM IS BUILDING..." : "SKIP DISCUSSION →"}
                 </button>
                 <button
                   type="button"
                   onClick={() => void startCreativeSession()}
                   disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession}
-                  className="min-h-12 cursor-pointer rounded-full bg-[#FFDF00] px-7 py-3 text-sm font-black uppercase tracking-[0.12em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25"
+                  className="h-10 cursor-pointer rounded-full bg-[#FFDF00] px-5 text-[9px] font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25"
                 >
                   <span className="flex items-center justify-center gap-3">
                     {isStartingSession && <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" />}

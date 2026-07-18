@@ -989,22 +989,15 @@ export default function CreativeRoomPage() {
             onSubmit={sendMessage}
             className="border-t border-white/10 p-2.5 sm:p-5"
           >
-            <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2 sm:mb-3 sm:min-h-9 sm:gap-3">
-              <AIProviderSwitch />
-              {notebook.some((note) => note.accepted) && (
+            {notebook.some((note) => note.accepted) && showDocumentConfirm && (
               <div className="flex justify-end">
-                {showDocumentConfirm ? (
                   <div className="flex items-center gap-2 rounded-full border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-1 pl-4">
                     <span className="text-[9px] font-black uppercase text-white/45">Build project document?</span>
                     <button type="button" onClick={() => setShowDocumentConfirm(false)} className="rounded-full px-3 py-2 text-[9px] font-black text-white/35">CANCEL</button>
                     <button type="button" onClick={() => void buildProjectDocument()} disabled={isBuildingDocument} className="rounded-full bg-[#FFDF00] px-4 py-2 text-[9px] font-black text-black disabled:opacity-30">{isBuildingDocument ? "BUILDING..." : session.projectDocument ? "UPDATE SUMMARY" : "CONTINUE"}</button>
                   </div>
-                ) : (
-                  <button type="button" onClick={() => setShowDocumentConfirm(true)} className="rounded-full border border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-white/35 transition hover:border-[#FFDF00]/25 hover:text-[#FFDF00]">{session.projectDocument ? "UPDATE PROJECT SUMMARY" : "REVIEW PROJECT & CONTINUE"} →</button>
-                )}
               </div>
-              )}
-            </div>
+            )}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2 sm:mb-3">
                 {attachments.map((file) => (
@@ -1022,7 +1015,7 @@ export default function CreativeRoomPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-[18px] border border-white/10 bg-black/30 p-2 sm:gap-3 sm:rounded-[22px] sm:p-3">
+            <div className="studio-composer overflow-hidden rounded-[18px] border border-white/10 bg-[#090909]">
               <input
                 ref={attachmentInputRef}
                 type="file"
@@ -1031,7 +1024,14 @@ export default function CreativeRoomPage() {
                 onChange={(event) => void addAttachments(event.target.files)}
                 className="hidden"
               />
-              <div className="flex w-8 shrink-0 flex-col items-center gap-1 lg:w-7">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="DIRECT THE CONVERSATION..."
+                rows={1}
+                className="min-h-14 max-h-28 w-full resize-none bg-transparent px-4 py-4 text-base leading-6 text-white outline-none placeholder:text-white/20 sm:text-sm"
+              />
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-white/8 px-2 py-2">
                 <button
                   type="button"
                   onClick={() => setMobileNotebookOpen(true)}
@@ -1047,27 +1047,22 @@ export default function CreativeRoomPage() {
                   onClick={() => attachmentInputRef.current?.click()}
                   disabled={isLoading}
                   aria-label="Attach references"
-                  className="flex h-8 w-7 shrink-0 items-center justify-center text-white/75 transition hover:scale-110 hover:text-white disabled:opacity-25"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 text-white/65 transition hover:border-white/20 hover:text-white disabled:opacity-25"
                 >
                   <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
                     <path d="m8.5 12.5 6.15-6.15a3.2 3.2 0 0 1 4.53 4.53l-8.31 8.31a5 5 0 0 1-7.07-7.07l8.13-8.13a2.8 2.8 0 0 1 3.96 3.96l-7.8 7.8a1.25 1.25 0 0 1-1.77-1.77l6.55-6.55" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-              </div>
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="DIRECT THE CONVERSATION..."
-                rows={1}
-                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent px-2 py-1.5 text-base leading-6 text-white outline-none placeholder:text-white/20 sm:min-h-14 sm:py-2 sm:text-sm"
-              />
+                <AIProviderSwitch />
+                {notebook.some((note) => note.accepted) && <button type="button" onClick={() => setShowDocumentConfirm(true)} className="ml-auto h-8 rounded-full border border-white/10 px-3 text-[8px] font-black uppercase text-white/40">{session.projectDocument ? "UPDATE SUMMARY" : "REVIEW"} →</button>}
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
-                className="min-h-10 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[10px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-12 sm:px-6 sm:text-xs"
+                className={`${notebook.some((note) => note.accepted) ? "" : "ml-auto"} h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25`}
               >
                 SEND
               </button>
+              </div>
             </div>
           </form>
           {mobileNotebookOpen && <>

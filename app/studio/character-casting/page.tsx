@@ -1838,42 +1838,6 @@ export default function CharacterCastingPage() {
             </div>
           )}
           <footer className="shrink-0 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4">
-            <div className="mb-2 flex flex-nowrap items-end justify-between gap-2 overflow-x-auto sm:flex-wrap sm:gap-3">
-              <div className="flex shrink-0 gap-2">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black"
-                >
-                  ＋ ADD REFERENCES
-                </button>
-                <button
-                  onClick={() => {
-                    setInput("");
-                    setAttachments([]);
-                    setCharacterAttachments([]);
-                  }}
-                  className="rounded-full border border-white/10 px-4 py-2 text-[8px] font-black text-white/45"
-                >
-                  RESET
-                </button>
-              </div>
-              <div className="relative shrink-0">
-                <button type="button" onClick={() => setModelMenuOpen((current) => !current)} aria-expanded={modelMenuOpen} aria-label="AI and image model settings" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-[#303030] text-lg text-white/65 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">⋮</button>
-                {modelMenuOpen && (
-                  <div className="absolute bottom-12 right-0 z-50 w-72 rounded-[18px] border border-white/12 bg-[#090909] p-4 shadow-2xl">
-                    <p className="text-[8px] font-black tracking-[.16em] text-white/35">SPECIALIST DIALOGUE</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <button onClick={() => setProviderChoice("anthropic")} className={`rounded-full px-4 py-2.5 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "border border-white/10 bg-[#303030] text-white/50"}`}>CLAUDE</button>
-                      <button onClick={() => setProviderChoice("openai")} className={`rounded-full px-4 py-2.5 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "border border-white/10 bg-[#303030] text-white/50"}`}>GPT</button>
-                    </div>
-                    <p className="mt-4 text-[8px] font-black tracking-[.16em] text-white/35">IMAGE GENERATOR</p>
-                    <select value={imageModel} onChange={(event) => setImageModelChoice(event.target.value as ImageModelId)} className="mt-2 h-11 w-full rounded-[12px] border border-white/10 bg-[#303030] px-3 text-[8px] font-black text-[#FFDF00] outline-none">
-                      {imageModels.map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
             <input
               ref={fileRef}
               type="file"
@@ -1940,13 +1904,7 @@ export default function CharacterCastingPage() {
                 ))}
               </div>
             )}
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-[8px] font-black tracking-[.14em] text-white/35">{interactionMode === "specialist" ? `CHAT WITH ${specialist.name.toUpperCase()}` : "IMAGE GENERATOR"}</p>
-              <button type="button" onClick={() => { setInteractionMode((current) => current === "specialist" ? "generator" : "specialist"); setInput(""); setAttachments([]); setCharacterAttachments([]); }} className={`rounded-full px-4 py-2 text-[8px] font-black transition ${interactionMode === "specialist" ? "bg-[#303030] text-white/70" : "bg-[#FFDF00] text-black"}`}>
-                {interactionMode === "specialist" ? "SWITCH TO GENERATOR" : `CHAT WITH ${specialist.name.split(" ")[0].toUpperCase()}`}
-              </button>
-            </div>
-            <div className="flex items-end gap-2 rounded-[18px] border border-white/15 bg-[#090909] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] sm:gap-3 sm:rounded-[20px] sm:p-3">
+            <div className="studio-composer overflow-visible rounded-[18px] border border-white/15 bg-[#090909]">
               <textarea
                 ref={mainInputRef}
                 value={input}
@@ -1959,15 +1917,24 @@ export default function CharacterCastingPage() {
                 }}
                 placeholder={interactionMode === "specialist" ? `ASK ${specialist.name.toUpperCase()}...` : "DESCRIBE THE ACTOR..."}
                 rows={1}
-                className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-base outline-none sm:min-h-12 sm:p-3 sm:text-sm"
+                className="min-h-14 max-h-28 w-full resize-none bg-transparent px-4 py-4 text-base outline-none sm:text-sm"
               />
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-white/8 px-2 py-2">
+                <button onClick={() => fileRef.current?.click()} className="h-8 rounded-full border border-white/10 px-3 text-[8px] font-black">＋ REFERENCES</button>
+                <button onClick={() => { setInput(""); setAttachments([]); setCharacterAttachments([]); }} className="h-8 rounded-full border border-white/10 px-3 text-[8px] font-black text-white/40">CLEAR</button>
+                <div className="relative shrink-0">
+                  <button type="button" onClick={() => setModelMenuOpen((current) => !current)} aria-expanded={modelMenuOpen} aria-label="AI and image model settings" className="flex h-8 w-8 items-center justify-center rounded-full border border-white/12 text-base text-white/60">⋮</button>
+                  {modelMenuOpen && <div className="absolute bottom-10 left-0 z-50 w-64 rounded-[16px] border border-white/12 bg-[#090909] p-3 shadow-2xl"><p className="text-[8px] font-black tracking-[.16em] text-white/35">SPECIALIST DIALOGUE</p><div className="mt-2 grid grid-cols-2 gap-2"><button onClick={() => setProviderChoice("anthropic")} className={`rounded-full px-3 py-2 text-[8px] font-black ${provider === "anthropic" ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/50"}`}>CLAUDE</button><button onClick={() => setProviderChoice("openai")} className={`rounded-full px-3 py-2 text-[8px] font-black ${provider === "openai" ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/50"}`}>GPT</button></div><p className="mt-3 text-[8px] font-black tracking-[.16em] text-white/35">IMAGE GENERATOR</p><select value={imageModel} onChange={(event) => setImageModelChoice(event.target.value as ImageModelId)} className="mt-2 h-10 w-full rounded-[10px] border border-white/10 bg-[#151515] px-3 text-[8px] font-black text-[#FFDF00] outline-none">{imageModels.map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}</select></div>}
+                </div>
+                <button type="button" onClick={() => { setInteractionMode((current) => current === "specialist" ? "generator" : "specialist"); setInput(""); setAttachments([]); setCharacterAttachments([]); }} className="ml-auto h-8 rounded-full border border-white/12 px-3 text-[8px] font-black text-white/55">{interactionMode === "specialist" ? "GENERATOR" : `CHAT`}</button>
               <button
                 onClick={() => void (interactionMode === "specialist" ? sendMessage() : generateFromMainInput())}
                 disabled={busy || !input.trim()}
-                className="rounded-full border border-[#FFDF00]/45 px-4 py-3 text-[8px] font-black text-[#FFDF00] disabled:opacity-25 sm:px-5 sm:py-4 sm:text-[9px]"
+                className="h-8 rounded-full bg-[#FFDF00] px-4 text-[8px] font-black text-black disabled:opacity-25"
               >
                 {interactionMode === "specialist" ? "SEND" : "GENERATE"}
               </button>
+              </div>
             </div>
           </footer>
         </section>
