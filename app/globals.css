@@ -8,6 +8,10 @@
   --surface-compact: #151515;
   --surface-room: #080808;
   --studio-content-max: 1500px;
+  --type-caption: 0.625rem;
+  --type-label: 0.6875rem;
+  --type-body-small: 0.75rem;
+  --type-body: 0.875rem;
 }
 
 * {
@@ -19,6 +23,28 @@ body {
   margin: 0;
   min-height: 100%;
   background: var(--background);
+}
+
+/* Shared studio typography scale. Tiny legacy labels remain compact without
+   becoming visually disconnected from the rest of the interface. */
+.site-shell .text-\[8px\] {
+  font-size: var(--type-caption) !important;
+}
+
+.site-shell .text-\[7px\] {
+  font-size: var(--type-caption) !important;
+}
+
+.site-shell .text-\[9px\] {
+  font-size: var(--type-label) !important;
+}
+
+.site-shell .text-\[10px\] {
+  font-size: var(--type-body-small) !important;
+}
+
+.site-shell :where(p, li) {
+  text-wrap: pretty;
 }
 
 body {

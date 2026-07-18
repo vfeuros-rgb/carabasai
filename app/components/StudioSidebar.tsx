@@ -295,7 +295,7 @@ export default function StudioSidebar() {
   const accountActive = pathname.startsWith("/account/");
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item =
-    "flex h-11 items-center justify-between rounded-xl border px-4 text-[10px] font-black tracking-[0.12em]";
+    "flex h-11 items-center justify-between rounded-xl border px-4 text-xs font-black tracking-[0.08em]";
   return (
     <>
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex h-14 items-center justify-between px-4 md:hidden">
@@ -340,14 +340,14 @@ export default function StudioSidebar() {
             href="/studio"
             className={`${item} ${homeActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
           >
-            STUDIO HOME <span>⌂</span>
+            Studio home <span>⌂</span>
           </Link>
           <Link
             href="/account"
             onClick={() => setMobileOpen(false)}
             className={`${item} ${workspaceActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
           >
-            WORKSPACE <span>▦</span>
+            Workspace <span>▦</span>
           </Link>
           <button
             type="button"
@@ -358,7 +358,7 @@ export default function StudioSidebar() {
             }}
             className={`${item} ${accountActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
           >
-            MY ACCOUNT{" "}
+            My account{" "}
             <span
               className={`transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}
             >
@@ -370,23 +370,23 @@ export default function StudioSidebar() {
               <Link
                 href="/account/settings"
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/settings" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
+                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[10px] font-bold tracking-[0.08em] ${pathname === "/account/settings" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
               >
-                SETTINGS <span>⚙</span>
+                Settings <span>⚙</span>
               </Link>
               <Link
                 href="/account/subscription"
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/subscription" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
+                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[10px] font-bold tracking-[0.08em] ${pathname === "/account/subscription" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
               >
-                SUBSCRIPTION <span>◇</span>
+                Subscription <span>◇</span>
               </Link>
               <Link
                 href="/account/credits"
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[8px] font-black tracking-[0.12em] ${pathname === "/account/credits" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
+                className={`flex h-9 items-center justify-between rounded-lg border px-3 text-[10px] font-bold tracking-[0.08em] ${pathname === "/account/credits" ? "border-[#FFDF00]/45 bg-[#FFDF00]/10 text-[#FFDF00]" : "border-white/8 bg-black/20 text-white/45 hover:text-white"}`}
               >
-                BUY CREDITS <span>＋</span>
+                Buy credits <span>＋</span>
               </Link>
             </div>
           )}
@@ -394,7 +394,7 @@ export default function StudioSidebar() {
             href="mailto:info@carabasai.com"
             className={`${item} border-white/10 bg-white/[0.025] text-white/65`}
           >
-            HELP DESK <span className="text-[#FFDF00]">?</span>
+            Help desk <span className="text-[#FFDF00]">?</span>
           </a>
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -405,9 +405,9 @@ export default function StudioSidebar() {
               setHistoryOpen(next);
               localStorage.setItem("carabasaiSharedHistoryOpen", String(next));
             }}
-            className="flex w-full items-center justify-between py-2 text-[9px] font-black tracking-[0.14em] text-[#FFDF00]"
+            className="flex w-full items-center justify-between py-2 text-[10px] font-black tracking-[0.1em] text-[#FFDF00]"
           >
-            SESSION HISTORY <span>{historyOpen ? "−" : "+"}</span>
+            Session history <span>{historyOpen ? "−" : "+"}</span>
           </button>
           {historyOpen && (
             <div className="mt-2 max-h-[42vh] space-y-2 overflow-x-hidden overflow-y-auto">
@@ -508,7 +508,7 @@ export default function StudioSidebar() {
                           <button
                             type="button"
                             onClick={() => openSession(session)}
-                            className={`min-w-0 flex-1 truncate py-2 text-left text-[9px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}
+                            className={`min-w-0 flex-1 truncate py-2 text-left text-[10px] hover:text-white ${selected ? "font-bold text-[#FFDF00]" : "text-white/50"}`}
                           >
                             {session.title ||
                               session.notes ||
@@ -551,7 +551,7 @@ export default function StudioSidebar() {
                             onClick={() => beginRename(session)}
                             className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-white/50 hover:bg-white/5 hover:text-white"
                           >
-                            RENAME <span>✎</span>
+                            Rename <span>✎</span>
                           </button>
                           <button
                             type="button"
@@ -562,8 +562,8 @@ export default function StudioSidebar() {
                             className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-white/50 hover:bg-white/5 hover:text-white"
                           >
                             {session.favorite
-                              ? "REMOVE FAVORITE"
-                              : "ADD TO FAVORITES"}{" "}
+                              ? "Remove favorite"
+                              : "Add to favorites"}{" "}
                             <span
                               className={
                                 session.favorite
@@ -579,7 +579,7 @@ export default function StudioSidebar() {
                             onClick={() => void remove(session)}
                             className="flex h-8 items-center justify-between rounded-md px-2 text-left text-[8px] font-black tracking-[0.1em] text-red-400/65 hover:bg-red-500/5 hover:text-red-400"
                           >
-                            DELETE <span>⌫</span>
+                            Delete <span>⌫</span>
                           </button>
                         </div>
                       )}
@@ -588,7 +588,7 @@ export default function StudioSidebar() {
                 })
               ) : (
                 <p className="py-2 text-[8px] leading-4 text-white/20">
-                  YOUR SAVED SESSIONS WILL APPEAR HERE.
+                  Your saved sessions will appear here.
                 </p>
               )}
             </div>

@@ -428,7 +428,7 @@ const roleConfigs: Record<CrewRole, RoleConfig> = {
     eyebrow: "SECOND DIRECTOR",
     title: "CHOOSE SECOND DIRECTOR",
     description:
-      "TRANSLATES YOUR VISION INTO GENRE, TONE, STRUCTURE AND CREATIVE DIRECTION.",
+      "Translates your vision into genre, tone, structure and creative direction.",
     actionLabel: "OPEN SECOND DIRECTOR ROSTER",
     rosterTitle: "SECOND DIRECTOR ROSTER",
     rosterSubtitle: "CHOOSE YOUR CREATIVE LEAD.",
@@ -439,7 +439,7 @@ const roleConfigs: Record<CrewRole, RoleConfig> = {
     eyebrow: "SCREENWRITER",
     title: "CHOOSE SCREENWRITER",
     description:
-      "BUILDS THE HERO, CONFLICT, LOCATION AND STORY STRUCTURE AROUND YOUR IDEA OR PRODUCT.",
+      "Builds the hero, conflict, location and story structure around your idea or product.",
     actionLabel: "OPEN SCREENWRITER ROSTER",
     rosterTitle: "SCREENWRITER ROSTER",
     rosterSubtitle: "CHOOSE YOUR STORY ARCHITECT.",
@@ -548,8 +548,8 @@ function CrewRoleCard({
                 ? "COMING NEXT"
                 : selectedMember?.name ?? config.title}
             </h2>
-            <p className="mt-3 max-w-md text-xs uppercase leading-6 text-white/45 sm:text-sm">
-              {selectedMember?.specialty ?? config.description}
+            <p className="mt-3 max-w-md text-sm leading-6 text-white/45">
+              {selectedMember ? readableText(selectedMember.specialty) : config.description}
             </p>
           </div>
           {!isLocked && !selectedMember && (
@@ -1007,14 +1007,14 @@ export default function StudioPage() {
           <br />
           FILM CREW.
         </h1>
-        <p className="mt-7 max-w-2xl text-sm uppercase leading-7 text-white/50 sm:text-lg">
-          YOU ARE THE DIRECTOR. CHOOSE THE CREATIVE TEAM THAT WILL EXECUTE YOUR
-          VISION.
+        <p className="mt-7 max-w-2xl text-sm leading-7 text-white/50 sm:text-lg">
+          You are the director. Choose the creative team that will execute your
+          vision.
         </p>
 
         <section className="mt-14">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-white/35">
-            CREATIVE LEADERSHIP
+          <p className="text-sm font-bold tracking-[0.04em] text-white/45">
+            Creative leadership
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <CrewRoleCard
@@ -1033,15 +1033,15 @@ export default function StudioPage() {
         </section>
 
         <section className="mt-16">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-white/35">
-            DIRECTOR&apos;S NOTES
+          <p className="text-sm font-bold tracking-[0.04em] text-white/45">
+            Director&apos;s notes
           </p>
           <div className="studio-composer mt-6 overflow-hidden rounded-[22px] border border-white/10 bg-[#090909]">
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="TELL THE CREW WHAT YOU WANT TO CREATE..."
-              className="min-h-[150px] w-full resize-none bg-transparent px-5 py-5 text-base normal-case leading-7 text-white outline-none placeholder:uppercase placeholder:text-white/20 sm:min-h-[170px] sm:px-6 sm:py-6 sm:text-xl"
+              placeholder="Tell the crew what you want to create..."
+              className="min-h-[150px] w-full resize-none bg-transparent px-5 py-5 text-base normal-case leading-7 text-white outline-none placeholder:text-white/20 sm:min-h-[170px] sm:px-6 sm:py-6 sm:text-xl"
             />
 
             {references.length > 0 && (

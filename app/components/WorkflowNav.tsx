@@ -37,10 +37,10 @@ export default function WorkflowNav() {
 
   const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("character-casting") ? "casting" : pathname.includes("project") ? "summary" : "";
   const steps = [
-    { id: "setup", label: "CREW SETUP", href: "/studio", available: true },
-    { id: "dialogue", label: "DIALOGUE", href: "/studio/creative-room", available: Boolean(progress.messages?.length) || active === "dialogue" || active === "summary" },
-    { id: "summary", label: "SUMMARY", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
-    { id: "casting", label: "CASTING", href: "/studio/character-casting", available: Boolean(progress.characterCasting) || progress.stage === "casting" || active === "casting" },
+    { id: "setup", label: "Crew setup", href: "/studio", available: true },
+    { id: "dialogue", label: "Dialogue", href: "/studio/creative-room", available: Boolean(progress.messages?.length) || active === "dialogue" || active === "summary" },
+    { id: "summary", label: "Summary", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
+    { id: "casting", label: "Casting", href: "/studio/character-casting", available: Boolean(progress.characterCasting) || progress.stage === "casting" || active === "casting" },
   ].filter((step) => step.available);
 
   async function removeCurrentProject() {
@@ -63,13 +63,13 @@ export default function WorkflowNav() {
     window.location.assign("/studio");
   }
 
-  return <nav aria-label="Project workflow" className="relative z-[60] mx-auto mb-7 flex h-14 w-full max-w-7xl shrink-0 items-center gap-2 overflow-visible rounded-[16px] border border-white/10 bg-[#1B1B1B] px-4 text-[9px] font-black tracking-[0.12em] shadow-[0_12px_34px_rgba(0,0,0,.24)] sm:px-5">
+  return <nav aria-label="Project workflow" className="relative z-[60] mx-auto mb-7 flex h-14 w-full max-w-7xl shrink-0 items-center gap-2 overflow-visible rounded-[16px] border border-white/10 bg-[#1B1B1B] px-4 text-[10px] font-black tracking-[0.1em] shadow-[0_12px_34px_rgba(0,0,0,.24)] sm:px-5">
     <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto">{steps.map((step, index) => <span key={step.id} className="flex shrink-0 items-center gap-2">{index > 0 && <span className="text-white/18">/</span>}{step.id === "setup" ? <button type="button" onClick={() => window.location.assign("/studio")} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</button> : <Link href={step.href} className={active === step.id ? "text-[#FFDF00]" : "text-white/35 transition hover:text-white/65"}>{step.label}</Link>}</span>)}</div>
     {progress.id && <div ref={projectMenuRef} className="relative ml-auto shrink-0">
       <button type="button" onClick={() => setProjectMenuOpen((current) => !current)} aria-expanded={projectMenuOpen} aria-haspopup="menu" aria-label="Project actions" className={`flex h-8 w-8 items-center justify-center rounded-full border text-base leading-none transition ${projectMenuOpen ? "border-[#FFDF00]/40 text-[#FFDF00]" : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"}`}>⋮</button>
       {projectMenuOpen && <div role="menu" className="absolute right-0 top-10 z-[80] w-44 rounded-[14px] border border-white/10 bg-[#111] p-1.5 shadow-2xl">
-        <button type="button" role="menuitem" onClick={startNewProject} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[8px] font-black tracking-[0.1em] text-white/60 hover:bg-white/5 hover:text-[#FFDF00]">NEW PROJECT <span>＋</span></button>
-        <button type="button" role="menuitem" onClick={() => void removeCurrentProject()} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[8px] font-black tracking-[0.1em] text-red-300/60 hover:bg-red-500/5 hover:text-red-300">DELETE PROJECT <span>⌫</span></button>
+        <button type="button" role="menuitem" onClick={startNewProject} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[10px] font-bold tracking-[0.04em] text-white/60 hover:bg-white/5 hover:text-[#FFDF00]">New project <span>＋</span></button>
+        <button type="button" role="menuitem" onClick={() => void removeCurrentProject()} className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[10px] font-bold tracking-[0.04em] text-red-300/60 hover:bg-red-500/5 hover:text-red-300">Delete project <span>⌫</span></button>
       </div>}
     </div>}
   </nav>;
