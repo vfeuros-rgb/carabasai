@@ -1469,7 +1469,6 @@ export default function CharacterCastingPage() {
   return (
     <main
       className="min-h-screen bg-cover bg-center bg-fixed px-4 pb-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+28px)] md:pt-5"
-      style={{ backgroundImage: "linear-gradient(135deg, rgba(28,38,48,.12), rgba(0,0,0,.22)), url('/background001.png')" }}
     >
       <StudioSidebar />
       <WorkflowNav />
@@ -1477,7 +1476,7 @@ export default function CharacterCastingPage() {
         <aside className="space-y-2 lg:space-y-4">
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="w-full rounded-[18px] border border-white/15 bg-white/[.07] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_18px_50px_rgba(0,0,0,.22)] backdrop-blur-2xl lg:rounded-[22px] lg:p-4"
+            className="liquid-glass w-full rounded-[18px] border border-white/15 bg-white/[.07] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_18px_50px_rgba(0,0,0,.22)] backdrop-blur-2xl lg:rounded-[22px] lg:p-4"
           >
             <div className="flex items-center gap-3">
               <Image
@@ -1513,7 +1512,7 @@ export default function CharacterCastingPage() {
           >
             OPEN MY CAST / {myCast.length}
           </button>
-          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/20 bg-white/[.075] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.16),0_20px_60px_rgba(0,0,0,.28)] backdrop-blur-3xl lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
+          <section className="liquid-glass max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/20 bg-white/[.075] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.16),0_20px_60px_rgba(0,0,0,.28)] backdrop-blur-3xl lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
             <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/15 bg-white/[.07] px-3 pb-3 pt-3 backdrop-blur-3xl lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
@@ -1671,7 +1670,7 @@ export default function CharacterCastingPage() {
             )}
           </section>
         </aside>
-        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/20 bg-white/[.065] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_28px_90px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
+        <section className="liquid-glass flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/20 bg-white/[.065] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_28px_90px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
           <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
             <p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">
               CHARACTER GENERATION
