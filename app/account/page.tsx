@@ -11,7 +11,8 @@ import { createMediaUrl } from "../../lib/supabase/media";
 import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary" };
+type WorkspaceActor = { image: string; actorName?: string; storagePath?: string; source?: "portfolio" | "generated" };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary"; characterCasting?: { myCast?: WorkspaceActor[]; generationMessages?: Array<{ image?: string; candidate?: WorkspaceActor }> } };
 const CURRENT_COVER_MODEL = "flux-2-dev-16x9-v3";
 
 export default function AccountPage() {
@@ -40,11 +41,15 @@ export default function AccountPage() {
   const [projectActionId, setProjectActionId] = useState<string | null>(null);
   const [deleteSwipeId, setDeleteSwipeId] = useState<string | null>(null);
   const [favoriteSwipeId, setFavoriteSwipeId] = useState<string | null>(null);
+  const [castView, setCastView] = useState<"cast" | "screen-tests">("cast");
   const projectSwipeRef = useRef<{ x: number; y: number; id: string } | null>(null);
   const projectSwipeMoved = useRef(false);
   const coverAttempts = useRef(new Set<string>());
 
   const presetAvatars = ["🎬", "🎭", "🎞️", "🕯️", "🎥", "✍️"];
+  const castActors = Array.from(new Map(accountSessions.flatMap((project) => project.characterCasting?.myCast ?? []).map((actor) => [actor.storagePath ?? actor.image, actor])).values());
+  const screenTestActors = Array.from(new Map(accountSessions.flatMap((project) => (project.characterCasting?.generationMessages ?? []).flatMap((message) => message.image && message.candidate ? [{ ...message.candidate, image: message.image }] : [])).map((actor) => [actor.storagePath ?? actor.image, actor])).values());
+  const workspaceActors = castView === "cast" ? castActors : screenTestActors;
 
   useEffect(() => {
     try {
@@ -412,6 +417,21 @@ export default function AccountPage() {
         <section className="mt-12"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">PRODUCTION WALL</h2><button className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/50">OPEN WALL ↗</button></div><div className="relative h-[290px] overflow-hidden rounded-[24px] border border-white/10 bg-[url('/studio-bg.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-black/60"/><div className="absolute bottom-7 left-7"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">YOUR VISUAL WORKSPACE</p><p className="mt-2 max-w-md text-sm text-white/55">Images, videos, references and generated frames will live here.</p></div></div></section>
 
         <section className="mt-10 min-w-0"><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[0.08em]">ACTIVE PROJECTS</h2><button type="button" onClick={() => setProjectsOpen(true)} className="text-[10px] font-black text-white/45 hover:text-[#FFDF00]">VIEW ALL PROJECTS →</button></div><div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2 xl:grid-cols-4">{accountSessions.slice(0,4).map((project, index) => renderAccountProject(project, index))}{accountSessions.length === 0 && <Link href="/studio" className="col-span-full flex min-h-52 items-center justify-center rounded-[20px] border border-dashed border-white/15 text-[10px] font-black text-white/35 hover:border-[#FFDF00]/35 hover:text-[#FFDF00]">START YOUR FIRST PROJECT +</Link>}</div></section>
+        <section className="mt-10 overflow-hidden rounded-[24px] border border-white/10 bg-[#090909]">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#353535] px-5 py-4 sm:px-6">
+            <div><p className="text-[9px] font-black tracking-[.16em] text-[#FFDF00]">WORKSPACE CASTING LIBRARY</p><h2 className="mt-1 text-lg font-black">CAST &amp; SCREEN TESTS</h2></div>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-full border border-white/12 bg-[#090909] p-1">
+                <button type="button" onClick={() => setCastView("cast")} className={`rounded-full px-4 py-2 text-[8px] font-black ${castView === "cast" ? "bg-[#FFDF00] text-black" : "text-white/45"}`}>CAST</button>
+                <button type="button" onClick={() => setCastView("screen-tests")} className={`rounded-full px-4 py-2 text-[8px] font-black ${castView === "screen-tests" ? "bg-[#FFDF00] text-black" : "text-white/45"}`}>SCREEN TESTS</button>
+              </div>
+              <Link href={castView === "cast" ? "/studio/cast" : "/studio/cast/screen-tests"} className="rounded-full border border-white/12 px-4 py-2.5 text-[8px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">OPEN ALL →</Link>
+            </div>
+          </header>
+          <div className="flex min-h-48 gap-3 overflow-x-auto p-5 sm:p-6">
+            {workspaceActors.length ? workspaceActors.slice(0, 12).map((actor) => <Link key={actor.storagePath ?? actor.image} href={castView === "cast" ? "/studio/cast" : "/studio/cast/screen-tests"} className="group relative aspect-[9/16] h-44 shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-[#303030] hover:border-[#FFDF00]/60"><img src={actor.image} alt={actor.actorName ?? "Casting actor"} className="h-full w-full object-cover object-top" /><div className="absolute inset-x-0 bottom-0 bg-black/75 px-2.5 py-2"><p className="truncate text-[8px] font-black">{actor.actorName ?? "CASTING ACTOR"}</p></div></Link>) : <div className="flex w-full items-center justify-center text-[10px] text-white/30">{castView === "cast" ? "Actors added to your cast will appear here." : "Generated screen tests will appear here."}</div>}
+          </div>
+        </section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
       {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
