@@ -1548,7 +1548,7 @@ export default function CharacterCastingPage() {
               )}
             </div>
             {characters.length ? (
-              <div className="space-y-2">
+              <div className="mt-4 space-y-2 lg:mt-5">
                 {characters.map((member) => (
                   <article
                     key={member.id}
@@ -1692,8 +1692,8 @@ export default function CharacterCastingPage() {
             className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7"
           >
             <div className="mx-auto max-w-5xl space-y-4">
-              <section className="overflow-hidden rounded-[24px] border border-white/20 bg-white/[.055] shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_18px_50px_rgba(0,0,0,.2)] backdrop-blur-3xl">
-                <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+              <section className="overflow-hidden">
+                <header className="flex items-center justify-between gap-4 border-b border-white/10 px-1 pb-4">
                   <div>
                     <p className="text-[8px] font-black tracking-[.16em] text-[#FFDF00]">
                       GENERATION STAGE
@@ -1706,7 +1706,7 @@ export default function CharacterCastingPage() {
                     9:16 PORTRAIT
                   </span>
                 </header>
-                <div className={`min-h-[280px] p-3 sm:min-h-[460px] sm:p-5 ${generationMessages.length > 0 ? "space-y-5" : "flex items-center justify-center"}`}>
+                <div className={`min-h-[280px] py-4 sm:min-h-[460px] sm:py-5 ${generationMessages.length > 0 ? "space-y-5" : "flex items-center justify-center"}`}>
                   {generationMessages.length > 0 ? (
                     generationMessages.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
