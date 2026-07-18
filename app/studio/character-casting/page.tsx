@@ -1286,21 +1286,21 @@ export default function CharacterCastingPage() {
                         </div>
                       ) : (
                         <>
-                          <p className="truncate text-[9px] font-black">
-                            {member.actorName ?? member.name}
-                          </p>
                           <button
                             onClick={() => {
                               setEditingRoleId(member.id);
-                              setRoleDraft(member.role);
+                              setRoleDraft(member.role || member.name);
                             }}
-                            className="flex max-w-full items-center gap-1 text-left text-[8px] text-white/35 hover:text-[#FFDF00]"
+                            className="flex max-w-full items-center gap-1 text-left text-[9px] font-black text-white/90 hover:text-[#FFDF00]"
                           >
                             <span className="truncate">
-                              {member.role || "ROLE TO CAST"}
+                              {member.role || member.name}
                             </span>
                             <span>✎</span>
                           </button>
+                          <p className="mt-1 truncate text-[8px] text-white/35">
+                            {member.actorName ?? "NO ACTOR"}
+                          </p>
                         </>
                       )}
                     </div>
