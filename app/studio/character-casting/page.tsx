@@ -646,8 +646,19 @@ export default function CharacterCastingPage() {
     });
   }
 
-  function assignCandidateToRole(member: CastMember) {
+  async function assignCandidateToRole(member: CastMember) {
     if (!session || !candidate) return;
+    if (member.image || member.storagePath) {
+      const replaceActor = await platformConfirm({
+        eyebrow: "CHARACTER NOTEBOOK",
+        title: "THIS ROLE IS ALREADY CAST",
+        message: `Роль «${member.role || member.name}» уже занята${member.actorName ? ` актёром ${member.actorName}` : ""}. Хотите заменить актёра?`,
+        confirmLabel: "REPLACE ACTOR",
+        cancelLabel: "CANCEL",
+        tone: "danger",
+      });
+      if (!replaceActor) return;
+    }
     const russian = generationFlow?.russian ?? true;
     const hired: CastMember = {
       ...member,
