@@ -17,7 +17,13 @@ import {
   type CharacterCastingSpecialist,
 } from "../../../lib/character-casting";
 
-type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  image?: string;
+  candidate?: Candidate;
+};
 type CastMember = {
   id: string;
   name: string;
@@ -52,6 +58,7 @@ type GenerationFlow = {
 type CastingState = {
   specialistId?: string;
   messages?: ChatMessage[];
+  generationMessages?: ChatMessage[];
   characters?: CastMember[];
   candidate?: Candidate;
   candidatePool?: Candidate[];
@@ -235,6 +242,7 @@ export default function CharacterCastingPage() {
     characterCastingSpecialists[0];
   const casting = session?.characterCasting ?? {};
   const messages = casting.messages ?? [];
+  const generationMessages = casting.generationMessages ?? [];
   const characters = normalizeCastNotebook(casting.characters ?? []);
   const availableCastingRoles = characters.filter(
     (member) => !member.image && !member.storagePath,
@@ -842,17 +850,38 @@ export default function CharacterCastingPage() {
     const brief = input.trim() || generationFlow?.brief?.trim() || "";
     if (!brief) return;
     const russian = /[А-Яа-яЁё]/.test(brief);
+    const userMessage: ChatMessage = {
+      id: uid(),
+      role: "user",
+      content: brief,
+    };
+    const conversation = [...generationMessages, userMessage];
     setInput("");
     setBusyMode("generation");
     setError("");
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        generationMessages: conversation,
+      },
+    });
     try {
       const generated = await generateCandidate(brief, session);
+      const generatedMessage: ChatMessage = {
+        id: uid(),
+        role: "assistant",
+        content: russian ? "Новый кандидат готов." : "The new candidate is ready.",
+        image: generated.image,
+        candidate: generated,
+      };
       persist({
         ...session,
         characterCasting: {
           ...casting,
-          messages,
+          generationMessages: [...conversation, generatedMessage],
           candidate: generated,
+          candidatePool: addToCandidatePool(candidatePool, generated),
           generationFlow: {
             stage: "candidate",
             brief,
@@ -867,25 +896,6 @@ export default function CharacterCastingPage() {
     } finally {
       setBusyMode(null);
     }
-  }
-
-  function changeGenerationCriteria() {
-    if (!session || !generationFlow) return;
-    const reply: ChatMessage = {
-      id: uid(),
-      role: "assistant",
-      content: generationFlow.russian
-        ? "Что меняем во внешности кандидата? Опишите новые критерии."
-        : "What should change in the candidate's appearance? Describe the new criteria.",
-    };
-    persist({
-      ...session,
-      characterCasting: {
-        ...casting,
-        messages: [...messages, reply],
-        generationFlow: { ...generationFlow, stage: "describe" },
-      },
-    });
   }
 
   async function sendMessage(rawContent = input) {
@@ -1401,30 +1411,30 @@ export default function CharacterCastingPage() {
                     9:16 PORTRAIT
                   </span>
                 </header>
-                <div className="flex min-h-[280px] items-center justify-center p-3 sm:min-h-[460px] sm:p-5">
-                  {candidate ? (
-                    <button
-                      type="button"
-                      onClick={() => setCandidatePreviewOpen(true)}
-                      className="group relative h-[38dvh] max-h-[570px] min-h-[270px] aspect-[9/16] overflow-hidden rounded-[20px] border border-[#FFDF00]/25 bg-[#111] shadow-[0_0_60px_rgba(255,223,0,.08)] sm:h-[46dvh] sm:min-h-[330px]"
-                    >
-                      <Image
-                        src={candidate.image}
-                        alt={candidate.actorName ?? "Generated candidate"}
-                        fill
-                        unoptimized={candidate.image.startsWith("http")}
-                        sizes="(max-width: 768px) 80vw, 34vw"
-                        className="object-cover object-top transition duration-300 group-hover:scale-[1.015]"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pb-5 pt-16 text-left">
-                        <span className="block text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
-                          CURRENT CANDIDATE
-                        </span>
-                        <span className="mt-1 block text-lg font-black text-white">
-                          {candidate.actorName ?? "UNNAMED ACTOR"}
-                        </span>
-                      </span>
-                    </button>
+                <div className="min-h-[280px] space-y-5 p-3 sm:min-h-[460px] sm:p-5">
+                  {generationMessages.length > 0 ? (
+                    generationMessages.map((message) => (
+                      <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[82%] rounded-[20px] border p-4 ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-[#17150b] text-white/70"}`}>
+                          <p className="text-[8px] font-black tracking-[.12em] opacity-55">
+                            {message.role === "user" ? "YOU / DIRECTOR" : specialist.name}
+                          </p>
+                          <p className="mt-2 text-sm leading-6">{message.content}</p>
+                          {message.image && message.candidate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                persist({ ...session, characterCasting: { ...casting, candidate: message.candidate } });
+                                setCandidatePreviewOpen(true);
+                              }}
+                              className="mt-3 block overflow-hidden rounded-[16px] border border-white/10"
+                            >
+                              <img src={message.image} alt={message.candidate.actorName ?? "Generated candidate"} className="max-h-[620px] w-full object-contain" />
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    ))
                   ) : (
                     <div className="max-w-md text-center">
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#FFDF00]/25 text-2xl text-[#FFDF00]">
@@ -1513,24 +1523,6 @@ export default function CharacterCastingPage() {
                     className="w-full rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-30"
                   >
                     GENERATE ACTOR
-                  </button>
-                </div>
-              )}
-              {generationFlow?.stage === "rejected" && (
-                <div className="grid grid-cols-2 gap-2 rounded-[20px] border border-white/10 p-3">
-                  <button
-                    onClick={changeGenerationCriteria}
-                    disabled={busy}
-                    className="rounded-full border border-white/15 px-4 py-3 text-[8px] font-black text-white/60 disabled:opacity-30"
-                  >
-                    CHANGE CRITERIA
-                  </button>
-                  <button
-                    onClick={() => void generateActor()}
-                    disabled={busy || !generationFlow.brief}
-                    className="rounded-full bg-[#FFDF00] px-4 py-3 text-[8px] font-black text-black disabled:opacity-30"
-                  >
-                    GENERATE AGAIN
                   </button>
                 </div>
               )}
