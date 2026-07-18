@@ -400,8 +400,17 @@ export default function CharacterCastingPage() {
     setMyCastOpen(false);
   }
 
-  function fireMyCastCharacter(item: Candidate) {
+  async function fireMyCastCharacter(item: Candidate) {
     if (!session) return;
+    const confirmed = await platformConfirm({
+      eyebrow: "MY CAST",
+      title: "FIRE THIS ACTOR?",
+      message: `Вы уверены, что хотите уволить ${item.actorName ?? "этого персонажа"}? Персонаж исчезнет из MY CAST, но останется в SCREEN TESTS.`,
+      confirmLabel: "FIRE",
+      cancelLabel: "CANCEL",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     const key = candidateKey(item);
     const updatedProjects = getCachedProjects<CastingSession>().map(
       (project) => ({
@@ -1804,7 +1813,7 @@ export default function CharacterCastingPage() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            fireMyCastCharacter(item);
+                            void fireMyCastCharacter(item);
                           }}
                           className="bg-red-600 py-3 text-[9px] font-black text-white hover:bg-red-500"
                         >
