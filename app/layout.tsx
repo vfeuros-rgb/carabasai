@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import PlatformDialogHost from "./components/PlatformDialogHost";
+import SiteUpdateBanner from "./components/SiteUpdateBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,6 +24,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const buildVersion = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || "development";
   return (
     <html
       lang="en"
@@ -33,6 +35,7 @@ export default function RootLayout({
           <div className="site-shell__background" aria-hidden="true" />
           <div className="site-shell__veil" aria-hidden="true" />
           <div className="site-shell__content">{children}</div>
+          <SiteUpdateBanner buildVersion={buildVersion} />
           <PlatformDialogHost />
         </div>
       </body>
