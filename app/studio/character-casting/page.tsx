@@ -337,6 +337,18 @@ export default function CharacterCastingPage() {
     });
   }
 
+  function cancelPendingHire() {
+    if (!session || generationFlow?.stage !== "hire-role") return;
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        candidate: undefined,
+        generationFlow: undefined,
+      },
+    });
+  }
+
   function deleteCandidate() {
     if (!session || !candidate) return;
     persist({
@@ -1363,6 +1375,13 @@ export default function CharacterCastingPage() {
                         <p className="mt-1 text-[8px] leading-4 text-white/35">CLICK A ROLE CIRCLE TO ASSIGN THIS ACTOR.</p>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={cancelPendingHire}
+                      className="mt-3 w-full rounded-full border border-red-400/40 bg-red-500/10 py-2.5 text-[8px] font-black text-red-200 transition hover:bg-red-500/20"
+                    >
+                      REJECT
+                    </button>
                   </div>
                 )}
               </div>
