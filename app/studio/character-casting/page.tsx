@@ -152,6 +152,7 @@ export default function CharacterCastingPage() {
   const [candidatePreviewOpen, setCandidatePreviewOpen] = useState(false);
   const [accountCast, setAccountCast] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState("");
+  const [selectedMyCastKey, setSelectedMyCastKey] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
   const [imageProvider, setImageProvider] = useState<"flux" | "banana">("banana");
@@ -421,6 +422,7 @@ export default function CharacterCastingPage() {
       (project) => project.id === session.id,
     );
     if (updatedSession) persist(updatedSession);
+    setSelectedMyCastKey("");
   }
 
   const askAgent = useCallback(
@@ -1282,7 +1284,10 @@ export default function CharacterCastingPage() {
             OPEN PORTFOLIO / 20
           </button>
           <button
-            onClick={() => setMyCastOpen(true)}
+            onClick={() => {
+              setSelectedMyCastKey("");
+              setMyCastOpen(true);
+            }}
             className="w-full rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] px-4 py-2 text-[8px] font-black text-[#FFDF00] hover:border-[#FFDF00]/55 lg:px-5 lg:py-3 lg:text-[9px]"
           >
             OPEN MY CAST / {myCast.length}
@@ -1758,7 +1763,7 @@ export default function CharacterCastingPage() {
                     <button
                       key={character.image}
                       onClick={() => setPreview(character.image)}
-                      className={`group relative aspect-[9/16] min-h-0 overflow-hidden border-0 bg-black transition ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
+                      className={`group relative aspect-[9/16] min-h-0 overflow-hidden border-0 bg-black transition hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00] ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
                     >
                       <Image
                         src={character.image}
@@ -1811,10 +1816,22 @@ export default function CharacterCastingPage() {
             <div className="min-h-0 flex-1 overflow-y-auto bg-black">
               {myCast.length ? (
                 <div className="grid grid-cols-3 gap-0 sm:grid-cols-5">
-                  {myCast.map((item) => (
+                  {myCast.map((item) => {
+                    const itemKey = candidateKey(item);
+                    const selected = selectedMyCastKey === itemKey;
+                    return (
                     <div
-                      key={candidateKey(item)}
-                      className="group relative aspect-[9/16] overflow-hidden bg-black hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00]"
+                      key={itemKey}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedMyCastKey(itemKey)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedMyCastKey(itemKey);
+                        }
+                      }}
+                      className={`group relative aspect-[9/16] overflow-hidden bg-black transition hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00] ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
                     >
                       <Image
                         src={item.image}
@@ -1827,24 +1844,31 @@ export default function CharacterCastingPage() {
                       <span className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/90 to-transparent px-2 pb-6 pt-2 text-left text-[8px] font-black uppercase text-white">
                         {item.actorName ?? "CASTING ACTOR"}
                       </span>
-                      <div className="absolute inset-x-0 bottom-0 grid translate-y-full grid-cols-2 transition-transform group-hover:translate-y-0">
+                      <div className={`absolute inset-x-0 bottom-0 grid grid-cols-2 transition-transform ${selected ? "translate-y-0" : "translate-y-full"}`}>
                         <button
                           type="button"
-                          onClick={() => chooseMyCastCharacter(item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            chooseMyCastCharacter(item);
+                          }}
                           className="bg-[#FFDF00] py-3 text-[9px] font-black text-black"
                         >
                           SELECT
                         </button>
                         <button
                           type="button"
-                          onClick={() => fireMyCastCharacter(item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            fireMyCastCharacter(item);
+                          }}
                           className="bg-red-600 py-3 text-[9px] font-black text-white hover:bg-red-500"
                         >
                           FIRE
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex h-full items-center justify-center p-8 text-center text-sm text-white/35">
