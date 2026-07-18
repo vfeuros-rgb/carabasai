@@ -168,6 +168,9 @@ export default function CharacterCastingPage() {
   const [busyMode, setBusyMode] = useState<BusyMode>(null);
   const [error, setError] = useState("");
   const [attachments, setAttachments] = useState<ImageReference[]>([]);
+  const [messageReferences, setMessageReferences] = useState<
+    Record<string, ImageReference[]>
+  >({});
   const [referencePreview, setReferencePreview] = useState<ImageReference | null>(null);
   const [characterAttachments, setCharacterAttachments] = useState<
     CharacterAttachment[]
@@ -178,6 +181,7 @@ export default function CharacterCastingPage() {
   const [newRoleDraft, setNewRoleDraft] = useState("");
   const [photoActionFeedback, setPhotoActionFeedback] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const mainInputRef = useRef<HTMLTextAreaElement>(null);
   const initialRequestRef = useRef("");
   const photoActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationScrollRef = useRef<HTMLDivElement>(null);
@@ -191,6 +195,19 @@ export default function CharacterCastingPage() {
       setPhotoActionFeedback("");
       photoActionTimerRef.current = null;
     }, 900);
+  }
+
+  function refillGenerationInput(message: ChatMessage) {
+    setInput(message.content);
+    setAttachments(messageReferences[message.id] ?? []);
+    setReferencePreview(null);
+    requestAnimationFrame(() => {
+      mainInputRef.current?.focus();
+      mainInputRef.current?.setSelectionRange(
+        message.content.length,
+        message.content.length,
+      );
+    });
   }
 
   useEffect(
@@ -832,8 +849,12 @@ export default function CharacterCastingPage() {
     });
   }
 
-  async function generateCandidate(brief: string, current: CastingSession) {
-    if (attachments.length > 0 && imageProvider === "flux") {
+  async function generateCandidate(
+    brief: string,
+    current: CastingSession,
+    references: ImageReference[] = attachments,
+  ) {
+    if (references.length > 0 && imageProvider === "flux") {
       throw new Error("IMAGE REFERENCES REQUIRE A NANO BANANA MODEL. FLUX R001 LORA ACCEPTS TEXT ONLY.");
     }
     const response = await authenticatedFetch("/api/character-generation", {
@@ -846,7 +867,7 @@ export default function CharacterCastingPage() {
         aspectRatio: "9:16",
         imageProvider,
         imageModel,
-        dynamicReferences: attachments.map(({ data, mimeType }) => ({
+        dynamicReferences: references.map(({ data, mimeType }) => ({
           data,
           mimeType,
         })),
@@ -862,9 +883,9 @@ export default function CharacterCastingPage() {
     if (!response.ok || !data.imageUrl)
       throw new Error(data.error ?? "CHARACTER COULD NOT BE GENERATED.");
     if (
-      attachments.length > 0 &&
+      references.length > 0 &&
       imageProvider === "banana" &&
-      data.referenceUsage?.dynamic !== attachments.length
+      data.referenceUsage?.dynamic !== references.length
     ) {
       throw new Error("THE IMAGE MODEL DID NOT ACCEPT EVERY REFERENCE. GENERATION WAS NOT ADDED TO THE CHAT.");
     }
@@ -1059,8 +1080,15 @@ export default function CharacterCastingPage() {
       role: "user",
       content: brief,
     };
+    const submittedReferences = attachments;
     const conversation = [...generationMessages, userMessage];
+    setMessageReferences((current) => ({
+      ...current,
+      [userMessage.id]: submittedReferences,
+    }));
     setInput("");
+    setAttachments([]);
+    setReferencePreview(null);
     setBusyMode("generation");
     setError("");
     persist({
@@ -1071,7 +1099,11 @@ export default function CharacterCastingPage() {
       },
     });
     try {
-      const generated = await generateCandidate(brief, session);
+      const generated = await generateCandidate(
+        brief,
+        session,
+        submittedReferences,
+      );
       const generatedMessage: ChatMessage = {
         id: uid(),
         role: "assistant",
@@ -1592,7 +1624,17 @@ export default function CharacterCastingPage() {
                   {generationMessages.length > 0 ? (
                     generationMessages.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[82%] rounded-[20px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-black/38 text-white/70"}`}>
+                        <div className={`flex max-w-[82%] flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+                          {message.role === "user" && (
+                            <button
+                              type="button"
+                              onClick={() => refillGenerationInput(message)}
+                              className="mb-1.5 px-1 text-[7px] font-black tracking-[.12em] text-white/35 transition hover:text-white/65"
+                            >
+                              REFILL INPUT
+                            </button>
+                          )}
+                          <div className={`w-full rounded-[20px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-black/38 text-white/70"}`}>
                           <p className="text-[8px] font-black tracking-[.12em] opacity-55">
                             {message.role === "user" ? "YOU / DIRECTOR" : specialist.name}
                           </p>
@@ -1649,6 +1691,7 @@ export default function CharacterCastingPage() {
                               </div>
                             </div>
                           )}
+                          </div>
                         </div>
                       </article>
                     ))
@@ -1816,6 +1859,7 @@ export default function CharacterCastingPage() {
             )}
             <div className="flex items-end gap-2 rounded-[18px] border border-white/15 bg-black/32 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl sm:gap-3 sm:rounded-[20px] sm:p-3">
               <textarea
+                ref={mainInputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
