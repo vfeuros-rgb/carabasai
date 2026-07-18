@@ -35,6 +35,13 @@ type AgentProfile = {
 
 const STRUCTURE = `Write a 5-8 minute short film around one irreversible choice. Use a hook, disturbance, first decision, escalating obstacles, a loss of support, a climax choice and a brief visual consequence. Every scene must change goal, power, information, risk or relationship. Format with INT./EXT. sluglines, present-tense filmable action, uppercase character cues and dialogue without quotation marks.`;
 
+const BUILT_IN_PROFILES: Record<string, AgentProfile> = {
+  grisha_pravdin: { id: "grisha_pravdin", display_name: "Grisha Pravdin", role: "director", provider: "anthropic", model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6", system_context: "Direct through lived-in realism, material truth, natural light, consequential blocking and restrained sound. Reject decorative glamour and psychological explanation when concrete behaviour can carry the scene. End on a physical consequence, never a spoken moral.", retrieval: { function_tags: ["exposition", "inciting_incident", "turning_point", "climax", "resolution"], max_reference_chars: 14000 } },
+  ambrose_peak: { id: "ambrose_peak", display_name: "Ambrose Peak", role: "director", provider: "anthropic", model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6", system_context: "Direct psychological horror through buried family truth, folkloric material realism, controlled frames that fracture under pressure, silence and low-frequency tension. Supernatural events must physicalize denial rather than decorate it." },
+  vera_suvorova: { id: "vera_suvorova", display_name: "Vera Suvorova", role: "screenwriter", provider: "openai", model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra", system_context: "Write human-scale observational drama in contemporary everyday speech. Use domestic detail as moral evidence, preserve character contradiction, ground abstractions in work, housing, age and routine, and finish with observable consequence rather than explanation.", retrieval: { function_tags: ["exposition", "inciting_incident", "turning_point", "climax", "resolution"], max_reference_chars: 14000 } },
+  clara_wake: { id: "clara_wake", display_name: "Clara Wake", role: "screenwriter", provider: "openai", model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra", system_context: "Write ensemble stories around family wounds, social horror, institutional disbelief and power. Map who has power and who sees the truth first. Dialogue must be playable, causal and distinct; twists reveal that the system was visible from the start.", retrieval: { function_tags: ["exposition", "inciting_incident", "turning_point", "climax", "resolution"], max_reference_chars: 15000 } },
+};
+
 function serviceHeaders() {
   return {
     "Content-Type": "application/json",
@@ -100,13 +107,6 @@ export async function POST(request: Request) {
     process.env.SCREENPLAY_AGENTS_API_URL
     ?? (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8091" : "")
   ).replace(/\/$/, "");
-  if (!serviceUrl) {
-    return NextResponse.json(
-      { error: "SCREENPLAY_AGENTS_API_URL IS NOT CONFIGURED." },
-      { status: 503 },
-    );
-  }
-
   const body = (await request.json()) as Payload;
   if (!body.brief?.trim() || !body.team?.secondDirector || !body.team.screenwriter) {
     return NextResponse.json({ error: "INVALID SCREENPLAY SESSION." }, { status: 400 });
@@ -127,13 +127,20 @@ export async function POST(request: Request) {
     if (!directorId || !writerId) {
       return NextResponse.json({ error: "SELECTED SPECIALIST IS NO LONGER AVAILABLE." }, { status: 400 });
     }
-    const [directorResponse, writerResponse] = await Promise.all([
-      fetch(`${serviceUrl}/profiles/${directorId}`, { headers: serviceHeaders(), signal: controller.signal }),
-      fetch(`${serviceUrl}/profiles/${writerId}`, { headers: serviceHeaders(), signal: controller.signal }),
-    ]);
-    if (!directorResponse.ok || !writerResponse.ok) throw new Error("SPECIALIST PROFILE COULD NOT BE LOADED.");
-    const director = await directorResponse.json() as AgentProfile;
-    const writer = await writerResponse.json() as AgentProfile;
+    let director: AgentProfile;
+    let writer: AgentProfile;
+    if (serviceUrl) {
+      const [directorResponse, writerResponse] = await Promise.all([
+        fetch(`${serviceUrl}/profiles/${directorId}`, { headers: serviceHeaders(), signal: controller.signal }),
+        fetch(`${serviceUrl}/profiles/${writerId}`, { headers: serviceHeaders(), signal: controller.signal }),
+      ]);
+      if (!directorResponse.ok || !writerResponse.ok) throw new Error("SPECIALIST PROFILE COULD NOT BE LOADED.");
+      director = await directorResponse.json() as AgentProfile;
+      writer = await writerResponse.json() as AgentProfile;
+    } else {
+      director = BUILT_IN_PROFILES[directorId];
+      writer = BUILT_IN_PROFILES[writerId];
+    }
 
     const approvedNotes = (body.notes ?? [])
       .filter((note) => note.accepted)
@@ -144,27 +151,27 @@ export async function POST(request: Request) {
       `${index + 1}. ${item.sentiment?.toUpperCase()} / ${item.category}: ${item.text}`
     ).join("\n");
     const tags = writer.retrieval?.function_tags ?? ["inciting_incident", "turning_point", "climax"];
-    const referenceResponsesPromise = Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
+    const referenceResponsesPromise = serviceUrl ? Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
       method: "POST",
       headers: serviceHeaders(),
       body: JSON.stringify({ query: brief, genre: body.genre || "drama", function_tag: functionTag, limit: 2 }),
       signal: controller.signal,
-    })));
-    const dialogueResponsePromise = fetch(`${serviceUrl}/retrieve-dialogues`, {
+    }))) : Promise.resolve([]);
+    const dialogueResponsePromise = serviceUrl ? fetch(`${serviceUrl}/retrieve-dialogues`, {
       method: "POST",
       headers: serviceHeaders(),
       body: JSON.stringify({ query: brief, genre: body.genre || "drama", limit: 6 }),
       signal: controller.signal,
-    });
+    }) : null;
     const voiceBiblePromise = complete(writer, `Create a compact VOICE BIBLE for every speaking character implied by this project. For each character define: objective, hidden intention, vocabulary, sentence length, evasion strategy, pressure behaviour, forbidden words and one speech habit. Make voices clearly distinguishable and playable by actors. Do not write screenplay scenes yet.\n\n${brief}`, controller.signal);
     const dialoguePlanPromise = complete(writer, `Do not write dialogue or screenplay prose. Build a DIALOGUE LOGIC PLAN for every expected scene. Reject any scene whose physical or causal logic is unsupported. For each scene provide: interaction type, why the characters are physically present, why they cannot simply leave, objective and hidden intention of each speaker, knowledge ledger showing what each person knows and how they learned it, secrets, physical activity, power at start and end, concrete scene result, and a turn-by-turn simulation containing only speaker + action verb + intended effect. Every planned line must have a playable action verb such as test, evade, force, conceal, accuse or reassure. Mark continuity risks explicitly.\n\n${brief}`, controller.signal);
     const [referenceResponses, dialogueResponse, voiceBible, dialoguePlan] = await Promise.all([
       referenceResponsesPromise, dialogueResponsePromise, voiceBiblePromise, dialoguePlanPromise,
     ]);
     if (referenceResponses.some((response) => !response.ok)) throw new Error("SCREENPLAY REFERENCE INDEX IS UNAVAILABLE.");
-    if (!dialogueResponse.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
+    if (dialogueResponse && !dialogueResponse.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
     const referenceGroups = await Promise.all(referenceResponses.map((response) => response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>));
-    const dialogueReferences = await dialogueResponse.json() as Array<{ text: string; metadata: Record<string, unknown> }>;
+    const dialogueReferences = dialogueResponse ? await dialogueResponse.json() as Array<{ text: string; metadata: Record<string, unknown> }> : [];
     const maxReferenceChars = writer.retrieval?.max_reference_chars ?? 14000;
     const references = referenceGroups.flat().map((scene, index) =>
       `REFERENCE ${index + 1}: ${scene.metadata.source_file}, scene ${scene.metadata.scene_number}, ${scene.metadata.function_tag}\n${scene.text}`
