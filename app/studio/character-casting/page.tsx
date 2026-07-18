@@ -837,6 +837,38 @@ export default function CharacterCastingPage() {
     }
   }
 
+  async function generateFromMainInput() {
+    if (!session || busy) return;
+    const brief = input.trim() || generationFlow?.brief?.trim() || "";
+    if (!brief) return;
+    const russian = /[А-Яа-яЁё]/.test(brief);
+    setInput("");
+    setBusyMode("generation");
+    setError("");
+    try {
+      const generated = await generateCandidate(brief, session);
+      persist({
+        ...session,
+        characterCasting: {
+          ...casting,
+          messages,
+          candidate: generated,
+          generationFlow: {
+            stage: "candidate",
+            brief,
+            russian,
+          },
+        },
+      });
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "CHARACTER COULD NOT BE GENERATED.",
+      );
+    } finally {
+      setBusyMode(null);
+    }
+  }
+
   function changeGenerationCriteria() {
     if (!session || !generationFlow) return;
     const reply: ChatMessage = {
@@ -1629,11 +1661,7 @@ export default function CharacterCastingPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    if (generationFlow?.brief) {
-                      void generateActor();
-                    } else {
-                      void sendMessage(input);
-                    }
+                    void generateFromMainInput();
                   }
                 }}
                 placeholder="DESCRIBE THE ACTOR..."
@@ -1641,13 +1669,7 @@ export default function CharacterCastingPage() {
                 className="min-h-10 max-h-24 flex-1 resize-none bg-transparent p-2 text-sm outline-none sm:min-h-12 sm:p-3"
               />
               <button
-                onClick={() => {
-                  if (generationFlow?.brief) {
-                    void generateActor();
-                    return;
-                  }
-                  void sendMessage(input);
-                }}
+                onClick={() => void generateFromMainInput()}
                 disabled={busy || (!generationFlow?.brief && !input.trim())}
                 className="rounded-full border border-[#FFDF00]/45 px-4 py-3 text-[8px] font-black text-[#FFDF00] disabled:opacity-25 sm:px-5 sm:py-4 sm:text-[9px]"
               >
