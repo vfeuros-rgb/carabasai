@@ -431,6 +431,29 @@ export async function POST(request: Request) {
     }
   } else {
     const token = process.env.REPLICATE_API_TOKEN;
+    const fluxBackgroundColors = [
+      "magenta",
+      "mustard yellow",
+      "teal",
+      "cyan",
+      "coral",
+      "forest green",
+      "royal blue",
+      "crimson",
+      "orange",
+      "indigo",
+    ];
+    const fluxBackgroundColor =
+      fluxBackgroundColors[
+        Math.floor(Math.random() * fluxBackgroundColors.length)
+      ];
+    const fluxPrompt = `${prompt}
+
+STRICT FLUX BACKGROUND RULES, NEVER OVERRIDE:
+- Use exactly one ${fluxBackgroundColor} studio background for this generation.
+- The wall and floor are one continuous seamless cyclorama canvas covered in exactly the same single ${fluxBackgroundColor} color.
+- The wall and floor must never have different colors, different materials, separate surfaces, a horizon line, a seam, a border or a visible transition.
+- Lighting may create natural soft shading, but it must remain unmistakably one uninterrupted monochrome ${fluxBackgroundColor} canvas behind and beneath the character.`;
     model =
       process.env[specialist.generation.modelEnvironmentVariable]?.trim() ?? "";
     if (
@@ -457,7 +480,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           ...(version ? { version } : {}),
           input: {
-            prompt,
+            prompt: fluxPrompt,
             aspect_ratio: aspectRatio,
             lora_scale: specialist.generation.defaultLoraStrength,
             num_outputs: 1,
