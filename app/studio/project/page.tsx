@@ -15,7 +15,7 @@ import { characterCastingSpecialists, type CharacterCastingSpecialist } from "..
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
 type ProjectDocument = { title: string; logline: string; sections: ProjectSection[]; openQuestions?: OpenQuestion[] };
-type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number };
+type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number; rewrittenText?: string; rewrittenAt?: number };
 type ProjectSession = {
   id?: string;
   projectDocument?: ProjectDocument;
@@ -215,41 +215,62 @@ export default function ProjectPage() {
   }
 
   async function rewriteScreenplayWithFeedback() {
-    if (!session?.screenplay || !(session.dialogueFeedback?.length) || isGeneratingScreenplay) return;
+    if (!session?.screenplay || isGeneratingScreenplay) return;
+    const pending = (session.dialogueFeedback ?? []).filter((item) => item.sentiment === "bad" && !item.rewrittenText);
+    if (!pending.length) return;
     const confirmed = await platformConfirm({
       eyebrow: "DIALOGUE FEEDBACK",
-      title: "REWRITE SCREENPLAY WITH YOUR RATINGS?",
-      message: "The screenwriter will preserve positively rated passages and rewrite negatively rated dialogue patterns across the screenplay. Your current version remains in project history.",
-      confirmLabel: "REWRITE SCREENPLAY",
+      title: "REWRITE ONLY THE FLAGGED FRAGMENTS?",
+      message: `The screenwriter will rewrite ${pending.length} BAD fragment${pending.length === 1 ? "" : "s"}. Every other character in the screenplay will remain unchanged.`,
+      confirmLabel: "REWRITE FRAGMENTS",
     });
     if (!confirmed) return;
     setIsGeneratingScreenplay(true);
     setError("");
     try {
-      const response = await authenticatedFetch("/api/screenplay-generation", {
+      const response = await authenticatedFetch("/api/dialogue-rewrite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brief: session.notes,
-          genre: "drama",
-          conversation: session.messages ?? [],
-          notes: session.notebook ?? [],
-          team: { secondDirector: session.secondDirector.name, screenwriter: session.screenwriter.name },
-          existingScreenplay: screenplayDraft,
-          dialogueFeedback: session.dialogueFeedback,
+          provider: currentAIProvider(),
+          screenwriter: session.screenwriter.name,
+          fragments: pending.map((item) => ({
+            id: item.id,
+            text: item.text,
+            category: item.category,
+            context: screenplayDraft.slice(Math.max(0, item.start - 350), Math.min(screenplayDraft.length, item.end + 350)),
+          })),
         }),
       });
-      const data = await response.json() as { screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
-      if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE REWRITTEN.");
-      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, dialogueFeedback: [] };
+      const data = await response.json() as { rewrites?: Array<{ id: string; replacement: string }>; error?: string };
+      if (!response.ok || !data.rewrites?.length) throw new Error(data.error || "DIALOGUE FRAGMENTS COULD NOT BE REWRITTEN.");
+      const replacements = new Map(data.rewrites.map((item) => [item.id, item.replacement.trim()]));
+      let patched = screenplayDraft;
+      const applied = new Map<string, string>();
+      for (const item of [...pending].sort((a, b) => b.start - a.start)) {
+        const replacement = replacements.get(item.id);
+        if (!replacement) continue;
+        let start = item.start;
+        let end = item.end;
+        if (patched.slice(start, end) !== item.text) {
+          start = patched.indexOf(item.text);
+          end = start + item.text.length;
+        }
+        if (start < 0) continue;
+        patched = `${patched.slice(0, start)}${replacement}${patched.slice(end)}`;
+        applied.set(item.id, replacement);
+      }
+      if (!applied.size) throw new Error("THE FLAGGED TEXT HAS CHANGED. SELECT THE FRAGMENTS AGAIN.");
+      const rewrittenAt = Date.now();
+      const updated: ProjectSession = { ...session, screenplay: patched, dialogueFeedback: (session.dialogueFeedback ?? []).map((item) => applied.has(item.id) ? { ...item, rewrittenText: applied.get(item.id), rewrittenAt } : item) };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
       setSession(updated);
-      setScreenplayDraft(data.screenplay);
+      setScreenplayDraft(patched);
       setSelectedScriptText(null);
     } catch (rewriteError) {
-      setError(rewriteError instanceof Error ? rewriteError.message : "SCREENPLAY COULD NOT BE REWRITTEN.");
+      setError(rewriteError instanceof Error ? rewriteError.message : "DIALOGUE FRAGMENTS COULD NOT BE REWRITTEN.");
     } finally {
       setIsGeneratingScreenplay(false);
     }
@@ -426,7 +447,7 @@ export default function ProjectPage() {
                 </div>
                 {selectedScriptText && <div className="sticky top-3 z-20 mt-6 rounded-[18px] border border-[#FFDF00]/30 bg-[#11100a]/95 p-3 shadow-2xl backdrop-blur-xl"><p className="truncate text-[10px] text-white/45">“{selectedScriptText.text.replace(/\s+/g, " ").slice(0, 140)}”</p><div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={() => setFeedbackSentiment("good")} className={`rounded-full px-4 py-2 text-[9px] font-black ${feedbackSentiment === "good" ? "bg-emerald-400 text-black" : "border border-emerald-300/30 text-emerald-300"}`}>GOOD</button><button type="button" onClick={() => setFeedbackSentiment("bad")} className={`rounded-full px-4 py-2 text-[9px] font-black ${feedbackSentiment === "bad" ? "bg-red-400 text-black" : "border border-red-300/30 text-red-300"}`}>BAD</button><button type="button" onClick={() => { setSelectedScriptText(null); setFeedbackSentiment(null); }} className="ml-auto px-2 text-sm text-white/25">×</button></div>{feedbackSentiment && <div className="mt-3 flex flex-wrap gap-2">{(feedbackSentiment === "good" ? GOOD_DIALOGUE_CATEGORIES : BAD_DIALOGUE_CATEGORIES).map((category) => <button key={category} type="button" onClick={() => saveDialogueFeedback(category)} className="rounded-full border border-white/10 px-3 py-2 text-[8px] font-black text-white/60 transition hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">{category}</button>)}</div>}</div>}
                 <textarea ref={screenplayRef} value={screenplayDraft} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="mt-6 min-h-[70vh] w-full resize-y rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable screenplay" />
-                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE TRAINING FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">These ratings are saved with the project and will guide the next rewrite.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE WITH FEEDBACK"}</button></div><div className="mt-4 space-y-2">{session.dialogueFeedback?.map((item) => <div key={item.id} className="flex items-start gap-3 rounded-[12px] border border-white/5 px-3 py-2"><span className={`mt-0.5 rounded-full px-2 py-1 text-[7px] font-black ${item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{item.sentiment.toUpperCase()} · {item.category}</span><p className="min-w-0 flex-1 truncate text-[10px] text-white/40">{item.text.replace(/\s+/g, " ")}</p><button type="button" onClick={() => removeDialogueFeedback(item.id)} className="text-sm text-white/20 hover:text-red-300">×</button></div>)}</div></section>}
+                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">Only BAD fragments are rewritten. The rest of the screenplay stays unchanged.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-4 space-y-2">{session.dialogueFeedback?.map((item) => <div key={item.id} className={`flex items-start gap-3 rounded-[12px] border px-3 py-2 ${item.rewrittenText ? "border-[#FFDF00]/45 bg-[#FFDF00]/[0.07]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${item.rewrittenText ? "bg-[#FFDF00] text-black" : item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{item.rewrittenText ? "REWRITTEN" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1"><p className={`truncate text-[10px] ${item.rewrittenText ? "text-white/30 line-through" : "text-white/40"}`}>{item.text.replace(/\s+/g, " ")}</p>{item.rewrittenText && <p className="mt-1 whitespace-pre-wrap text-[10px] leading-5 text-[#FFDF00]">{item.rewrittenText}</p>}</div><button type="button" onClick={() => removeDialogueFeedback(item.id)} className="text-sm text-white/20 hover:text-red-300">×</button></div>)}</div></section>}
                 {session.screenplayDirectorNotes && <details className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-white/40">DIRECTOR NOTES</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.screenplayDirectorNotes}</p></details>}
                 {session.dialogueAudit && <details className="mt-3 rounded-[18px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">AUTOMATIC DIALOGUE AUDIT</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.dialogueAudit}</p></details>}
               </div>
