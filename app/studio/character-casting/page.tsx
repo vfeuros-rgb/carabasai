@@ -16,6 +16,7 @@ import {
   characterCastingSpecialists,
   type CharacterCastingSpecialist,
 } from "../../../lib/character-casting";
+import { platformConfirm } from "../../../lib/platform-dialog";
 
 type ChatMessage = {
   id: string;
@@ -1110,8 +1111,35 @@ export default function CharacterCastingPage() {
     });
   }
 
-  function addRole() {
-    const role = newRoleDraft.trim();
+  function normalizedRoleName(value: string) {
+    return value
+      .trim()
+      .replace(/\s*[×x]\s*\d+$/i, "")
+      .toLocaleLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  async function resolveDuplicateRole(role: string, excludedId?: string) {
+    const duplicates = characters.filter(
+      (item) =>
+        item.id !== excludedId &&
+        normalizedRoleName(item.role || item.name) === normalizedRoleName(role),
+    );
+    if (duplicates.length === 0) return role;
+    const keepBoth = await platformConfirm({
+      eyebrow: "CHARACTER NOTEBOOK",
+      title: "THIS ROLE ALREADY EXISTS",
+      message: `Роль «${role}» уже есть. Измените название или оставьте обе роли.`,
+      confirmLabel: "KEEP BOTH",
+      cancelLabel: "CHANGE NAME",
+    });
+    return keepBoth ? `${role} ×${duplicates.length + 1}` : null;
+  }
+
+  async function addRole() {
+    const enteredRole = newRoleDraft.trim();
+    if (!session || !enteredRole) return;
+    const role = await resolveDuplicateRole(enteredRole);
     if (!session || !role) return;
     const member: CastMember = {
       id: uid(),
@@ -1127,14 +1155,17 @@ export default function CharacterCastingPage() {
     setAddingRole(false);
   }
 
-  function saveRole(member: CastMember) {
-    if (!session || !roleDraft.trim()) return;
+  async function saveRole(member: CastMember) {
+    const enteredRole = roleDraft.trim();
+    if (!session || !enteredRole) return;
+    const role = await resolveDuplicateRole(enteredRole, member.id);
+    if (!role) return;
     persist({
       ...session,
       characterCasting: {
         ...casting,
         characters: characters.map((item) =>
-          item.id === member.id ? { ...item, role: roleDraft.trim() } : item,
+          item.id === member.id ? { ...item, role } : item,
         ),
       },
     });
