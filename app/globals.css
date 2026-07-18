@@ -7,6 +7,7 @@
   --surface-header: #1b1b1b;
   --surface-compact: #151515;
   --surface-room: #080808;
+  --studio-content-max: 1500px;
 }
 
 * {
@@ -87,6 +88,11 @@ button:disabled,
   position: relative;
   z-index: 1;
   background-color: transparent !important;
+}
+
+/* Fluid studio canvas: uses the screen without becoming uncomfortably wide. */
+.site-shell .max-w-7xl {
+  max-width: min(var(--studio-content-max), 100%) !important;
 }
 
 /* Studio surface hierarchy: black rooms, graphite headers and compact cards. */
