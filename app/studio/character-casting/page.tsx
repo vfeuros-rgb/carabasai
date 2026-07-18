@@ -1312,7 +1312,10 @@ export default function CharacterCastingPage() {
 
   if (!session)
     return (
-      <main className="min-h-screen bg-[#050505] text-white">
+      <main
+        className="min-h-screen bg-cover bg-center text-white"
+        style={{ backgroundImage: "linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.72)), url('/background001.png')" }}
+      >
         <StudioSidebar />
         <div className="flex min-h-screen items-center justify-center text-xs font-black text-[#FFDF00]">
           OPENING CASTING ROOM...
@@ -1321,14 +1324,17 @@ export default function CharacterCastingPage() {
     );
 
   return (
-    <main className="min-h-screen bg-[#050505] px-4 pb-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+28px)] md:pt-5">
+    <main
+      className="min-h-screen bg-cover bg-center bg-fixed px-4 pb-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+28px)] md:pt-5"
+      style={{ backgroundImage: "linear-gradient(rgba(0,0,0,.38), rgba(0,0,0,.68)), url('/background001.png')" }}
+    >
       <StudioSidebar />
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[290px_minmax(0,1fr)] lg:gap-5">
         <aside className="space-y-2 lg:space-y-4">
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="w-full rounded-[18px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-3 text-left lg:rounded-[22px] lg:p-4"
+            className="w-full rounded-[18px] border border-white/15 bg-white/[.07] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_18px_50px_rgba(0,0,0,.22)] backdrop-blur-2xl lg:rounded-[22px] lg:p-4"
           >
             <div className="flex items-center gap-3">
               <Image
@@ -1351,7 +1357,7 @@ export default function CharacterCastingPage() {
           </button>
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="w-full rounded-full border border-white/10 px-4 py-2 text-[8px] font-black hover:border-[#FFDF00]/40 lg:px-5 lg:py-3 lg:text-[9px]"
+            className="w-full rounded-full border border-white/15 bg-black/25 px-4 py-2 text-[8px] font-black shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl hover:border-[#FFDF00]/40 lg:px-5 lg:py-3 lg:text-[9px]"
           >
             OPEN PORTFOLIO / 20
           </button>
@@ -1360,12 +1366,12 @@ export default function CharacterCastingPage() {
               setSelectedMyCastKey("");
               setMyCastOpen(true);
             }}
-            className="w-full rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] px-4 py-2 text-[8px] font-black text-[#FFDF00] hover:border-[#FFDF00]/55 lg:px-5 lg:py-3 lg:text-[9px]"
+            className="w-full rounded-full border border-[#FFDF00]/25 bg-black/25 px-4 py-2 text-[8px] font-black text-[#FFDF00] shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl hover:border-[#FFDF00]/55 lg:px-5 lg:py-3 lg:text-[9px]"
           >
             OPEN MY CAST / {myCast.length}
           </button>
-          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/10 p-3 lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
-            <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/5 bg-[#050505] px-3 pb-3 pt-3 lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
+          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/15 bg-black/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_20px_60px_rgba(0,0,0,.25)] backdrop-blur-2xl lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
+            <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/10 bg-black/45 px-3 pb-3 pt-3 backdrop-blur-2xl lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
                   CHARACTER NOTEBOOK
@@ -1403,7 +1409,7 @@ export default function CharacterCastingPage() {
                 {characters.map((member) => (
                   <article
                     key={member.id}
-                    className="flex items-center gap-2 rounded-xl border border-white/8 p-2"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-lg"
                   >
                     {member.image ? (
                       <button
@@ -1522,7 +1528,7 @@ export default function CharacterCastingPage() {
             )}
           </section>
         </aside>
-        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0A0A0A] lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
+        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/15 bg-black/38 shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_28px_90px_rgba(0,0,0,.35)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
           <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
             <p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">
               CHARACTER GENERATION
@@ -1533,7 +1539,7 @@ export default function CharacterCastingPage() {
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7">
             <div className="mx-auto max-w-5xl space-y-4">
-              <section className="overflow-hidden rounded-[24px] border border-white/10 bg-black">
+              <section className="overflow-hidden rounded-[24px] border border-white/15 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
                 <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
                   <div>
                     <p className="text-[8px] font-black tracking-[.16em] text-[#FFDF00]">
@@ -1551,7 +1557,7 @@ export default function CharacterCastingPage() {
                   {generationMessages.length > 0 ? (
                     generationMessages.map((message) => (
                       <article key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[82%] rounded-[20px] border p-4 ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-[#17150b] text-white/70"}`}>
+                        <div className={`max-w-[82%] rounded-[20px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl ${message.role === "user" ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-[#FFDF00]/20 bg-black/38 text-white/70"}`}>
                           <p className="text-[8px] font-black tracking-[.12em] opacity-55">
                             {message.role === "user" ? "YOU / DIRECTOR" : specialist.name}
                           </p>
@@ -1773,7 +1779,7 @@ export default function CharacterCastingPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-[18px] border border-white/10 bg-black p-2 sm:gap-3 sm:rounded-[20px] sm:p-3">
+            <div className="flex items-end gap-2 rounded-[18px] border border-white/15 bg-black/32 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl sm:gap-3 sm:rounded-[20px] sm:p-3">
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
