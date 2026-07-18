@@ -1528,65 +1528,6 @@ export default function CharacterCastingPage() {
                   )}
                 </div>
               </section>
-              {generationFlow?.stage === "choose-role" && (
-                <div className="rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
-                  <p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
-                    CHOOSE ROLE FROM NOTEBOOK
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCastingRoles.map((member) => (
-                      <button
-                        key={member.id}
-                        onClick={() => void selectGenerationRole(member)}
-                        disabled={busy}
-                        className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/70 transition hover:border-[#FFDF00] hover:text-[#FFDF00] disabled:opacity-30"
-                      >
-                        {member.role || member.name}
-                      </button>
-                    ))}
-                  </div>
-                  {availableCastingRoles.length === 0 && (
-                    <p className="text-[9px] text-white/35">
-                      ALL NOTEBOOK ROLES ARE CAST. ADD A NEW ROLE TO CONTINUE.
-                    </p>
-                  )}
-                </div>
-              )}
-              {generationFlow?.stage === "hire-role" && (
-                <div className="rounded-[20px] border border-[#FFDF00]/25 bg-[#FFDF00]/[.035] p-4">
-                  <p className="mb-3 text-[8px] font-black tracking-[.14em] text-[#FFDF00]">
-                    CHOOSE ROLE FROM NOTEBOOK
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCastingRoles.map((member) => (
-                      <button
-                        key={member.id}
-                        onClick={() => assignCandidateToRole(member)}
-                        disabled={busy || !candidate}
-                        className="rounded-full border border-white/12 px-4 py-2 text-[9px] font-black text-white/70 transition hover:border-[#FFDF00] hover:text-[#FFDF00] disabled:opacity-30"
-                      >
-                        {member.role || member.name}
-                      </button>
-                    ))}
-                  </div>
-                  {availableCastingRoles.length === 0 && (
-                    <p className="text-[9px] text-white/35">
-                      ALL NOTEBOOK ROLES ARE CAST. ADD A NEW ROLE TO CONTINUE.
-                    </p>
-                  )}
-                </div>
-              )}
-              {generationFlow?.stage === "ready" && (
-                <div className="rounded-[20px] border border-[#FFDF00]/25 p-3">
-                  <button
-                    onClick={() => void generateActor()}
-                    disabled={busy}
-                    className="w-full rounded-full bg-[#FFDF00] px-6 py-4 text-[9px] font-black text-black disabled:opacity-30"
-                  >
-                    GENERATE ACTOR
-                  </button>
-                </div>
-              )}
               {busyMode === "generation" && (
                 <div className="flex items-center gap-3 text-[9px] text-white/35">
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#FFDF00]/25 border-t-[#FFDF00]" />
