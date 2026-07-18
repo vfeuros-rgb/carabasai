@@ -1469,7 +1469,7 @@ export default function CharacterCastingPage() {
   return (
     <main
       className="min-h-screen bg-cover bg-center bg-fixed px-4 pb-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+28px)] md:pt-5"
-      style={{ backgroundImage: "linear-gradient(rgba(0,0,0,.38), rgba(0,0,0,.68)), url('/background001.png')" }}
+      style={{ backgroundImage: "linear-gradient(135deg, rgba(28,38,48,.12), rgba(0,0,0,.22)), url('/background001.png')" }}
     >
       <StudioSidebar />
       <WorkflowNav />
@@ -1513,8 +1513,8 @@ export default function CharacterCastingPage() {
           >
             OPEN MY CAST / {myCast.length}
           </button>
-          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/15 bg-black/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_20px_60px_rgba(0,0,0,.25)] backdrop-blur-2xl lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
-            <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/10 bg-black/45 px-3 pb-3 pt-3 backdrop-blur-2xl lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
+          <section className="max-h-[280px] overflow-x-hidden overflow-y-auto rounded-[18px] border border-white/20 bg-white/[.075] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.16),0_20px_60px_rgba(0,0,0,.28)] backdrop-blur-3xl lg:max-h-[520px] lg:rounded-[22px] lg:p-4">
+            <div className="sticky -top-3 z-20 -mx-3 -mt-3 border-b border-white/15 bg-white/[.07] px-3 pb-3 pt-3 backdrop-blur-3xl lg:-top-4 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-black tracking-[.14em] text-[#FFDF00]">
                   CHARACTER NOTEBOOK
@@ -1671,7 +1671,7 @@ export default function CharacterCastingPage() {
             )}
           </section>
         </aside>
-        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/15 bg-black/38 shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_28px_90px_rgba(0,0,0,.35)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
+        <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/20 bg-white/[.065] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_28px_90px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
           <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
             <p className="text-[9px] font-black tracking-[.18em] text-[#FFDF00]">
               CHARACTER GENERATION
@@ -1692,7 +1692,7 @@ export default function CharacterCastingPage() {
             className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-7"
           >
             <div className="mx-auto max-w-5xl space-y-4">
-              <section className="overflow-hidden rounded-[24px] border border-white/15 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+              <section className="overflow-hidden rounded-[24px] border border-white/20 bg-white/[.055] shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_18px_50px_rgba(0,0,0,.2)] backdrop-blur-3xl">
                 <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
                   <div>
                     <p className="text-[8px] font-black tracking-[.16em] text-[#FFDF00]">
