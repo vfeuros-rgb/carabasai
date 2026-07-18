@@ -1723,7 +1723,7 @@ export default function CharacterCastingPage() {
                               REFILL INPUT
                             </button>
                           )}
-                          <div className={`w-full rounded-[20px] border ${message.role === "user" ? "chat-message-user border-[#FFDF00] bg-[#FFDF00] p-4 text-black" : message.image ? "generated-image-message border-transparent bg-transparent p-0 text-white/70" : "chat-message-specialist border-[#FFDF00]/20 bg-[#17150d] p-4 text-white/70"}`}>
+                          <div className={`w-full ${message.role === "user" ? "chat-message-user rounded-[14px] bg-[#FFDF00] px-3.5 py-2.5 text-black" : message.image ? "generated-image-message rounded-[20px] border border-transparent bg-transparent p-0 text-white/70" : "chat-message-specialist rounded-[20px] border border-[#FFDF00]/20 bg-[#17150d] p-4 text-white/70"}`}>
                           <p className="text-[8px] font-black tracking-[.12em] opacity-55">
                             {message.role === "user" ? "YOU / DIRECTOR" : specialist.name}
                           </p>

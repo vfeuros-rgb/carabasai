@@ -898,7 +898,7 @@ export default function CreativeRoomPage() {
                   return (
                     <div
                       key={message.id}
-                      className="chat-message-user ml-auto max-w-[92%] rounded-[22px] bg-[#FFDF00] px-5 py-4 text-black sm:max-w-[82%]"
+                      className="chat-message-user ml-auto max-w-[92%] rounded-[14px] bg-[#FFDF00] px-3.5 py-2.5 text-black sm:max-w-[82%]"
                     >
                       <p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] opacity-50">
                         YOU / DIRECTOR

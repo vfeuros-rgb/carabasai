@@ -120,10 +120,12 @@ button:disabled,
 }
 
 /* Chat colors are semantic and must not be flattened by the generic panel rules. */
-.site-shell main .chat-message-user {
-  background: #ffdf00 !important;
-  border-color: #ffdf00 !important;
+html body .site-shell main .chat-message-user {
+  background-color: #ffdf00 !important;
+  border: 0 !important;
   color: #080808 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 .site-shell main .chat-message-director,
