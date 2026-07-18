@@ -86,6 +86,29 @@ button:disabled,
   background-color: transparent !important;
 }
 
+/* Studio surface hierarchy: black rooms, graphite headers and compact cards. */
+.site-shell main :where(section, aside)[class*="rounded"] {
+  background-color: #090909 !important;
+}
+
+.site-shell main :where(section, aside)[class*="rounded"] > header {
+  background-color: #353535 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.site-shell main article[class*="rounded"],
+.site-shell main :where(section, aside)[class*="rounded"] > :where(div, ul)[class*="rounded"] {
+  background-color: #303030 !important;
+}
+
+.site-shell main .panel-header {
+  background-color: #353535 !important;
+}
+
+.site-shell main .small-panel {
+  background-color: #303030 !important;
+}
+
 @media (max-width: 767px) {
   .site-shell__background {
     background-position: 58% center;
