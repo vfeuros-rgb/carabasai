@@ -64,15 +64,14 @@ export async function POST(request: Request) {
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
   const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
-  const posterTitle = generatedTitle.replace(/["“”«»]/g, "").trim();
   const prompt = [
-    "Create premium theatrical key art as an exact vertical 9:16 film poster.",
+    "Create premium theatrical key art as an exact vertical 9:16 film poster image with absolutely no text.",
     `The image must clearly and literally depict this exact project concept: ${brief}.`,
     "Identify the central character, action, location and genre directly from that concept. Do not replace them with a generic movie studio, camera equipment, abstract scenery or an unrelated portrait.",
     "Use one iconic focal image, disciplined negative space, restrained composition, controlled cinematic lighting and an expensive international film-festival finish.",
     "Minimalist and sophisticated, not busy: no collage, no floating heads, no multiple panels, no decorative border, no streaming-service UI.",
-    posterTitle ? `A small elegant title treatment may use only this exact title: ${posterTitle}. If clean typography cannot be rendered perfectly, omit all text instead.` : "Omit all text.",
-    "No taglines, credits, billing block, release date, logos, brands, watermarks or any other words and symbols.",
+    "The artwork must contain zero typography: no title, letters, numbers, words, captions, signage, labels, symbols resembling writing, taglines, credits, billing block, release date, logos, brands or watermarks in any language.",
+    "Do not render text even when the project brief contains a title, written document, phone screen, storefront, uniform, road sign or other object that would normally carry writing; keep every such surface blank or visually unreadable.",
     "Keep faces, hands, anatomy, architecture and perspective coherent. The finished image must look like a costly professionally art-directed film poster, not an AI illustration or a generic template.",
   ].filter(Boolean).join(" ");
 
