@@ -6,7 +6,7 @@ import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import {
-  getCachedProjects,
+  getCachedProjectsIncludingLibrary,
   projectChangeEvent,
   saveProject,
   saveProjects,
@@ -412,9 +412,9 @@ export default function CharacterCastingPage() {
         ),
       );
     };
-    const refresh = () => collect(getCachedProjects<CastingSession>());
+    const refresh = () => collect(getCachedProjectsIncludingLibrary<CastingSession>());
     refresh();
-    void syncProjects<CastingSession>().then(collect).catch(console.error);
+    void syncProjects<CastingSession>({ includeLibrary: true }).then(collect).catch(console.error);
     window.addEventListener(projectChangeEvent, refresh);
     return () => window.removeEventListener(projectChangeEvent, refresh);
   }, []);
@@ -534,7 +534,7 @@ export default function CharacterCastingPage() {
     }
 
     const key = storagePath;
-    const updatedProjects = getCachedProjects<CastingSession>().map((project) => {
+    const updatedProjects = getCachedProjectsIncludingLibrary<CastingSession>().map((project) => {
       const state = project.characterCasting;
       if (!state) return project;
       return {
@@ -628,7 +628,7 @@ export default function CharacterCastingPage() {
     });
     if (!confirmed) return;
     const key = candidateKey(item);
-    const updatedProjects = getCachedProjects<CastingSession>().map(
+    const updatedProjects = getCachedProjectsIncludingLibrary<CastingSession>().map(
       (project) => ({
         ...project,
         characterCasting: project.characterCasting

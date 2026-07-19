@@ -16,6 +16,7 @@ export type StoredProject = {
   projectDocument?: unknown;
   references?: unknown[];
   stage?: "crew" | "dialogue" | "summary" | "casting";
+  libraryArchive?: boolean;
   [key: string]: unknown;
 };
 
@@ -119,6 +120,10 @@ function writePendingIds(ids: Set<string>) {
 }
 
 export function getCachedProjects<T extends StoredProject = StoredProject>() {
+  return readLocal().filter((project) => !project.libraryArchive) as T[];
+}
+
+export function getCachedProjectsIncludingLibrary<T extends StoredProject = StoredProject>() {
   return readLocal() as T[];
 }
 
@@ -150,15 +155,19 @@ async function upsertRemote(projects: StoredProject[]) {
 }
 
 export function saveProjects(projects: StoredProject[]) {
+  const preservedArchives = readLocal().filter(
+    (project) => project.libraryArchive && !projects.some((item) => item.id === project.id),
+  );
+  const projectsWithArchives = [...projects, ...preservedArchives];
   const previous = new Map(readLocal().map((project) => [project.id, JSON.stringify(project)]));
-  const changed = projects.filter((project) => {
+  const changed = projectsWithArchives.filter((project) => {
     const id = projectId(project);
     return previous.get(id) !== JSON.stringify(project);
   });
   const pending = readPendingIds();
   changed.forEach((project) => pending.add(projectId(project)));
   writePendingIds(pending);
-  cacheProjects(projects);
+  cacheProjects(projectsWithArchives);
   void upsertRemote(changed)
     .then(() => {
       const remaining = readPendingIds();
@@ -203,10 +212,55 @@ export function saveProject(project: StoredProject) {
 }
 
 export async function deleteProject(id: string) {
-  cacheProjects(readLocal().filter((project) => project.id !== id));
+  const allProjects = readLocal();
+  const deletedProject = allProjects.find((project) => project.id === id);
+  const casting = deletedProject?.characterCasting as {
+    myCast?: Array<Record<string, unknown>>;
+    generationMessages?: Array<Record<string, unknown>>;
+  } | undefined;
+  const archivedCast = casting?.myCast ?? [];
+  const archivedGenerations = (casting?.generationMessages ?? []).map((message) => ({
+    ...message,
+    projectTitle: message.projectTitle ?? deletedProject?.title ?? deletedProject?.notes ?? "DELETED PROJECT",
+  }));
+  let archive = allProjects.find((project) => project.libraryArchive);
+  if (archivedCast.length || archivedGenerations.length) {
+    const archiveCasting = (archive?.characterCasting ?? {}) as {
+      myCast?: Array<Record<string, unknown>>;
+      generationMessages?: Array<Record<string, unknown>>;
+    };
+    const unique = (items: Array<Record<string, unknown>>) => {
+      const seen = new Set<string>();
+      return items.filter((item) => {
+        const candidate = item.candidate as Record<string, unknown> | undefined;
+        const key = String(item.storagePath ?? candidate?.storagePath ?? item.image ?? candidate?.image ?? item.id ?? JSON.stringify(item));
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    archive = {
+      ...(archive ?? {}),
+      id: archive?.id && isUuid(archive.id) ? archive.id : crypto.randomUUID(),
+      title: "CARABASAI ACCOUNT CAST LIBRARY",
+      notes: "",
+      startedAt: archive?.startedAt ?? Date.now(),
+      stage: "casting",
+      libraryArchive: true,
+      characterCasting: {
+        ...archiveCasting,
+        myCast: unique([...(archiveCasting.myCast ?? []), ...archivedCast]),
+        generationMessages: unique([...(archiveCasting.generationMessages ?? []), ...archivedGenerations]),
+      },
+    };
+  }
+  const nextLocal = allProjects.filter((project) => project.id !== id && !project.libraryArchive);
+  if (archive) nextLocal.push(archive);
+  cacheProjects(nextLocal);
   const pending = readPendingIds();
   pending.delete(id);
   writePendingIds(pending);
+  if (archive) await upsertRemote([archive]);
   if (!isUuid(id)) return;
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -219,16 +273,17 @@ export async function deleteProject(id: string) {
   if (error) throw error;
 }
 
-export async function syncProjects<T extends StoredProject = StoredProject>(): Promise<T[]> {
+export async function syncProjects<T extends StoredProject = StoredProject>(options?: { includeLibrary?: boolean }): Promise<T[]> {
   const local = readLocal();
+  const localResult = () => (options?.includeLibrary ? local : local.filter((project) => !project.libraryArchive)) as T[];
   let supabase;
-  try { supabase = createClient(); } catch { return local as T[]; }
+  try { supabase = createClient(); } catch { return localResult(); }
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return local as T[];
+  if (!userData.user) return localResult();
 
   const { data, error } = await supabase.from("projects").select("*").order("updated_at", { ascending: false });
   if (error) throw error;
-  const remote = (data ?? []).map((row) => {
+  const remote: StoredProject[] = (data ?? []).map((row) => {
     const snapshot = row.project_document?.carabasai_session as StoredProject | undefined;
     return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite, stage: row.stage, title: normalizeAutomaticProjectTitle(snapshot.title, snapshot.notes) } : {
       id: row.id,
@@ -274,7 +329,7 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
   } catch {
     // A malformed tab-only session must not block account cloud sync.
   }
-  return merged as T[];
+  return (options?.includeLibrary ? merged : merged.filter((project) => !project.libraryArchive)) as T[];
 }
 
 export const projectChangeEvent = CHANGE_EVENT;

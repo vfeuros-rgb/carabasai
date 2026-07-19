@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import StudioSidebar from "../../../components/StudioSidebar";
 import {
-  getCachedProjects,
+  getCachedProjectsIncludingLibrary,
   projectChangeEvent,
   syncProjects,
   type StoredProject,
@@ -20,6 +20,7 @@ type GeneratedActor = {
 type GenerationMessage = {
   image?: string;
   candidate?: GeneratedActor;
+  projectTitle?: string;
 };
 
 type CastingProject = StoredProject & {
@@ -38,7 +39,7 @@ function collectScreenTests(projects: CastingProject[]) {
     const projectTitle = project.title || project.notes || "UNTITLED PROJECT";
     for (const message of project.characterCasting?.generationMessages ?? []) {
       if (!message.image || !message.candidate) continue;
-      const actor = { ...message.candidate, image: message.image, projectTitle };
+      const actor = { ...message.candidate, image: message.image, projectTitle: message.projectTitle || projectTitle };
       unique.set(actorKey(actor), actor);
     }
   }
@@ -50,9 +51,9 @@ export default function ScreenTestsPage() {
   const [preview, setPreview] = useState<ScreenTest | null>(null);
 
   useEffect(() => {
-    const loadLocal = () => setProjects(getCachedProjects<CastingProject>());
+    const loadLocal = () => setProjects(getCachedProjectsIncludingLibrary<CastingProject>());
     loadLocal();
-    void syncProjects<CastingProject>().then(setProjects).catch(console.error);
+    void syncProjects<CastingProject>({ includeLibrary: true }).then(setProjects).catch(console.error);
     window.addEventListener(projectChangeEvent, loadLocal);
     return () => window.removeEventListener(projectChangeEvent, loadLocal);
   }, []);

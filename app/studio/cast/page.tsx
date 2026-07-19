@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import StudioSidebar from "../../components/StudioSidebar";
 import {
-  getCachedProjects,
+  getCachedProjectsIncludingLibrary,
   projectChangeEvent,
   syncProjects,
   type StoredProject,
@@ -39,9 +39,9 @@ export default function CastLibraryPage() {
   const [preview, setPreview] = useState<SavedActor | null>(null);
 
   useEffect(() => {
-    const loadLocal = () => setProjects(getCachedProjects<CastingProject>());
+    const loadLocal = () => setProjects(getCachedProjectsIncludingLibrary<CastingProject>());
     loadLocal();
-    void syncProjects<CastingProject>().then(setProjects).catch(console.error);
+    void syncProjects<CastingProject>({ includeLibrary: true }).then(setProjects).catch(console.error);
     window.addEventListener(projectChangeEvent, loadLocal);
     return () => window.removeEventListener(projectChangeEvent, loadLocal);
   }, []);
