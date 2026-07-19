@@ -45,6 +45,10 @@ function collapseDuplicateCharacterCues(screenplay: string) {
   return screenplay.replace(/(^|\n)([A-ZА-ЯЁ][A-ZА-ЯЁ0-9 .'-]{1,38}\n)(?:\2)+/gm, "$1$2");
 }
 
+function isWordCharacter(character: string | undefined) {
+  return Boolean(character && /[\p{L}\p{N}_'-]/u.test(character));
+}
+
 function highlightedScreenplay(text: string, feedback: DialogueFeedback[]) {
   const ranges = [...feedback]
     .filter((item) => item.start >= 0 && item.end > item.start && item.end <= text.length)
@@ -208,10 +212,15 @@ export default function ProjectPage() {
       setFeedbackSentiment(null);
       return;
     }
+    let start = textarea.selectionStart;
+    let end = textarea.selectionEnd;
+    while (start > 0 && isWordCharacter(screenplayDraft[start - 1]) && isWordCharacter(screenplayDraft[start])) start -= 1;
+    while (end < screenplayDraft.length && isWordCharacter(screenplayDraft[end - 1]) && isWordCharacter(screenplayDraft[end])) end += 1;
+    if (start !== textarea.selectionStart || end !== textarea.selectionEnd) textarea.setSelectionRange(start, end);
     setSelectedScriptText({
-      text: screenplayDraft.slice(textarea.selectionStart, textarea.selectionEnd),
-      start: textarea.selectionStart,
-      end: textarea.selectionEnd,
+      text: screenplayDraft.slice(start, end),
+      start,
+      end,
     });
     setFeedbackSentiment(null);
   }
