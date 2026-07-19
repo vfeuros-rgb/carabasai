@@ -213,6 +213,7 @@ export default function CreativeRoomPage() {
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const notebookScrollRef = useRef<HTMLDivElement>(null);
   const coverGenerationStarted = useRef(new Set<string>());
+  const projectDocumentTransitioning = useRef(false);
 
   useEffect(() => {
     const notebookScroller = notebookScrollRef.current;
@@ -323,7 +324,7 @@ export default function CreativeRoomPage() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || projectDocumentTransitioning.current) return;
     const savedSession = { ...session, notebook, messages };
     sessionStorage.setItem(
       "carabasaiCreativeSession",
@@ -589,11 +590,14 @@ export default function CreativeRoomPage() {
           existingDocument: session.projectDocument,
       });
       const completedSession = { ...session, notebook, messages, projectDocument: data };
+      projectDocumentTransitioning.current = true;
+      setSession(completedSession);
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
       const history = getCachedProjects<CreativeSession>().filter((item) => item.id !== session.id);
       saveProjects([completedSession, ...history].slice(0, 20));
       router.push("/studio/project");
     } catch (documentError) {
+      projectDocumentTransitioning.current = false;
       setDocumentBuildFailed(true);
       setError(documentError instanceof Error ? documentError.message : "COULD NOT BUILD PROJECT DOCUMENT.");
     } finally {

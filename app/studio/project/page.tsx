@@ -30,6 +30,7 @@ type ProjectSession = {
   screenplayDirectorNotes?: string;
   dialogueAudit?: string;
   dialogueFeedback?: DialogueFeedback[];
+  screenplayGeneration?: { status: "generating" | "complete" | "failed"; startedAt?: number; completedAt?: number; failedAt?: number; error?: string };
 };
 
 const GOOD_DIALOGUE_CATEGORIES = ["NATURAL", "SUBTEXT", "DISTINCT VOICE", "LOGICAL REACTION", "PLAYABLE", "POWER SHIFT"];
@@ -65,7 +66,10 @@ export default function ProjectPage() {
     const restore = () => {
       const stored = sessionStorage.getItem("carabasaiCreativeSession");
       if (!stored) return;
-      const restored = JSON.parse(stored) as ProjectSession;
+      const tabSnapshot = JSON.parse(stored) as ProjectSession;
+      const cachedSnapshot = getCachedProjects<ProjectSession>().find((item) => item.id === tabSnapshot.id);
+      const restored = !tabSnapshot.projectDocument && cachedSnapshot?.projectDocument ? cachedSnapshot : tabSnapshot;
+      if (restored !== tabSnapshot) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(restored));
       setSession(restored);
       setActiveSection((current) => restored.projectDocument?.sections.some((item) => item.id === current) ? current : restored.projectDocument?.sections[0]?.id ?? "");
       setScreenplayDraft(restored.screenplay ?? "");
@@ -78,6 +82,42 @@ export default function ProjectPage() {
     window.addEventListener("carabasai-active-project-change", restore);
     return () => window.removeEventListener("carabasai-active-project-change", restore);
   }, []);
+
+  useEffect(() => {
+    if (!session?.id || session.screenplay) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const check = async () => {
+      try {
+        const response = await authenticatedFetch(`/api/screenplay-jobs?projectId=${encodeURIComponent(session.id ?? "")}`);
+        const data = await response.json() as { status?: string; screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
+        if (cancelled || !response.ok) return;
+        if (data.status === "complete" && data.screenplay) {
+          const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, screenplayGeneration: { status: "complete", completedAt: Date.now() } };
+          sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+          const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+          saveProjects([updated, ...history].slice(0, 20));
+          setSession(updated);
+          setScreenplayDraft(data.screenplay);
+          setIsGeneratingScreenplay(false);
+          return;
+        }
+        if (data.status === "failed") {
+          setIsGeneratingScreenplay(false);
+          setError(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
+          return;
+        }
+        if (data.status === "generating") {
+          setIsGeneratingScreenplay(true);
+          timer = window.setTimeout(check, 4000);
+        }
+      } catch {
+        timer = window.setTimeout(check, 6000);
+      }
+    };
+    void check();
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
+  }, [session?.id, session?.screenplay, session?.screenplayGeneration?.status]);
 
   if (!session?.projectDocument) {
     return <main className="min-h-screen bg-[#050505] px-4 py-5 pt-20 text-white md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-5"><StudioSidebar /><WorkflowNav /><div className="flex min-h-[70vh] items-center justify-center p-6"><div className="text-center"><p className="text-xs font-black text-[#FFDF00]">NO PROJECT DOCUMENT</p><Link href="/studio/creative-room" className="mt-6 inline-flex rounded-full border border-white/15 px-6 py-3 text-xs font-black">RETURN TO CREATIVE ROOM</Link></div></div></main>;
@@ -211,10 +251,11 @@ export default function ProjectPage() {
           : source.match(/thriller|триллер/) ? "thriller"
             : source.match(/sci-fi|science fiction|фантаст/) ? "science_fiction"
               : "drama";
-      const response = await authenticatedFetch("/api/screenplay-generation", {
+      const response = await authenticatedFetch("/api/screenplay-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: session.id,
           brief: session.notes,
           genre,
           conversation: session.messages ?? [],
@@ -222,18 +263,22 @@ export default function ProjectPage() {
           team: { secondDirector: session.secondDirector.name, screenwriter: session.screenwriter.name },
         }),
       });
-      const data = await response.json() as { screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
-      if (!response.ok || !data.screenplay) throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
-      const updated: ProjectSession = { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit };
+      const data = await response.json() as { status?: string; screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
+      const updated: ProjectSession = data.screenplay
+        ? { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, screenplayGeneration: { status: "complete", completedAt: Date.now() } }
+        : { ...session, screenplayGeneration: { status: "generating", startedAt: Date.now() } };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
       setSession(updated);
-      setScreenplayDraft(data.screenplay);
+      if (data.screenplay) {
+        setScreenplayDraft(data.screenplay);
+        setIsGeneratingScreenplay(false);
+      }
     } catch (screenplayError) {
-      setError(screenplayError instanceof Error ? screenplayError.message : "SCREENPLAY COULD NOT BE GENERATED.");
-    } finally {
       setIsGeneratingScreenplay(false);
+      setError(screenplayError instanceof Error ? screenplayError.message : "SCREENPLAY COULD NOT BE GENERATED.");
     }
   }
 
