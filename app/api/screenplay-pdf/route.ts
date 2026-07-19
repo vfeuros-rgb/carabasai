@@ -62,9 +62,9 @@ export async function POST(request: Request) {
   document.moveTo(58, 590).lineTo(537, 590).lineWidth(0.7).strokeColor("#353535").stroke();
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("DIRECTOR", 58, 620, { characterSpacing: 1.4 });
   document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(director.toLocaleUpperCase(), 58, 637, { width: 145 });
-  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SECOND DIRECTOR", 220, 620, { characterSpacing: 1.4 });
+  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SECOND DIRECTOR · AI", 220, 620, { characterSpacing: 1.2 });
   document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.secondDirector?.trim() || "NOT SPECIFIED", 220, 637, { width: 145 });
-  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SCREENWRITER", 382, 620, { characterSpacing: 1.4 });
+  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SCREENWRITER · AI", 382, 620, { characterSpacing: 1.2 });
   document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.screenwriter?.trim() || "NOT SPECIFIED", 382, 637, { width: 155 });
   document.fillColor("#555555").font("Carabasai").fontSize(7).text(`GENERATED ${new Date().toISOString().slice(0, 10)}`, 58, 760);
 
