@@ -123,20 +123,26 @@ export default function ProjectPage() {
   useEffect(() => {
     if (!activeFeedbackId) return;
     const item = session?.dialogueFeedback?.find((feedback) => feedback.id === activeFeedbackId);
-    const textarea = screenplayRef.current;
-    if (!item || !textarea) return;
-    const timer = window.setTimeout(() => {
-      feedbackNavigationRef.current = true;
-      textarea.focus({ preventScroll: true });
-      textarea.setSelectionRange(item.start, item.end);
-      const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight) || 28;
-      const linesBefore = screenplayDraft.slice(0, item.start).split("\n").length - 1;
-      const targetTop = Math.max(0, linesBefore * lineHeight - textarea.clientHeight * 0.42);
-      textarea.scrollTo({ top: targetTop, behavior: "smooth" });
-      window.setTimeout(() => { feedbackNavigationRef.current = false; }, 350);
-    }, 0);
+    if (!item) return;
+    const timer = window.setTimeout(() => navigateToFeedback(item), 0);
     return () => { window.clearTimeout(timer); feedbackNavigationRef.current = false; };
   }, [activeFeedbackId, session?.dialogueFeedback, screenplayDraft]);
+
+  function navigateToFeedback(item: DialogueFeedback) {
+    const textarea = screenplayRef.current;
+    if (!textarea) return;
+    feedbackNavigationRef.current = true;
+    setActiveFeedbackId(item.id);
+    textarea.focus({ preventScroll: true });
+    textarea.setSelectionRange(item.start, item.end);
+    const selectionRatio = item.start / Math.max(1, screenplayDraft.length);
+    const targetTop = Math.max(0, selectionRatio * textarea.scrollHeight - textarea.clientHeight * 0.42);
+    textarea.scrollTo({ top: targetTop, behavior: "smooth" });
+    window.setTimeout(() => {
+      textarea.setSelectionRange(item.start, item.end);
+      feedbackNavigationRef.current = false;
+    }, 350);
+  }
 
   useEffect(() => {
     if (!session?.screenplay || !screenplayDraft.trim() || screenplayDraft === session.screenplay) return;
@@ -634,7 +640,7 @@ export default function ProjectPage() {
                   <textarea ref={screenplayRef} value={screenplayDraft} onScroll={(event) => { if (screenplayHighlightRef.current) { screenplayHighlightRef.current.scrollTop = event.currentTarget.scrollTop; screenplayHighlightRef.current.scrollLeft = event.currentTarget.scrollLeft; } }} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setSelectedScriptText(null); }} spellCheck className="absolute inset-0 h-full w-full resize-none overflow-y-scroll bg-transparent p-5 font-mono text-sm leading-7 text-transparent caret-white outline-none [scrollbar-color:rgba(255,223,0,0.45)_rgba(255,255,255,0.05)] [scrollbar-width:thin] selection:bg-white/30 selection:text-transparent sm:p-7" aria-label="Editable and scrollable screenplay. Select text to rate it." />
                 </div>
                 </div>
-                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="z-10 shrink-0 border-t border-white/10 bg-[#0d0d0d] p-4 shadow-[0_-18px_40px_rgba(0,0,0,0.55)] sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-1 text-[10px] text-white/30">Marked fragments remain with the project. Rewritten text stays gold until you approve it.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText && !item.acceptedAt)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">{[...(session.dialogueFeedback ?? [])].sort((a, b) => b.createdAt - a.createdAt).map((item) => { const awaitingApproval = Boolean(item.rewrittenText && !item.acceptedAt); return <div key={item.id} onClick={() => setActiveFeedbackId(item.id)} className={`flex cursor-pointer items-start gap-3 rounded-[12px] border px-3 py-2 ${awaitingApproval ? "border-[#FFDF00]/60 bg-[#FFDF00]/[0.09]" : activeFeedbackId === item.id ? "border-white/25 bg-white/[0.04]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${awaitingApproval ? "bg-[#FFDF00] text-black" : item.acceptedAt || item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{awaitingApproval ? "REWRITTEN" : item.acceptedAt ? "APPROVED" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1">{item.previousText && awaitingApproval && <p className="truncate text-[10px] text-white/25 line-through">{item.previousText.replace(/\s+/g, " ")}</p>}<p className={`mt-1 whitespace-pre-wrap text-[10px] leading-5 ${awaitingApproval ? "font-bold text-[#FFDF00]" : item.acceptedAt || item.sentiment === "good" ? "text-emerald-200/70" : "text-red-200/70"}`}>{item.text}</p></div>{awaitingApproval ? <div className="flex shrink-0 gap-1"><button type="button" onClick={(event) => { event.stopPropagation(); acceptDialogueRewrite(item.id); }} className="border border-[#FFDF00]/50 bg-[#FFDF00] px-3 py-1.5 text-[8px] font-black text-black">OK</button><button type="button" onClick={(event) => { event.stopPropagation(); void rewriteScreenplayWithFeedback(item.id); }} disabled={isGeneratingScreenplay} className="border border-white/15 px-3 py-1.5 text-[8px] font-black text-white/60 disabled:opacity-30">AGAIN</button></div> : <button type="button" onClick={(event) => { event.stopPropagation(); removeDialogueFeedback(item.id); }} className="text-sm text-white/20 hover:text-red-300">×</button>}</div>; })}</div></section>}
+                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="z-10 shrink-0 border-t border-white/10 bg-[#0d0d0d] p-4 shadow-[0_-18px_40px_rgba(0,0,0,0.55)] sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-1 text-[10px] text-white/30">Marked fragments remain with the project. Rewritten text stays gold until you approve it.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText && !item.acceptedAt)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">{[...(session.dialogueFeedback ?? [])].sort((a, b) => b.createdAt - a.createdAt).map((item) => { const awaitingApproval = Boolean(item.rewrittenText && !item.acceptedAt); return <div key={item.id} onClick={() => navigateToFeedback(item)} className={`flex cursor-pointer items-start gap-3 rounded-[12px] border px-3 py-2 ${awaitingApproval ? "border-[#FFDF00]/60 bg-[#FFDF00]/[0.09]" : activeFeedbackId === item.id ? "border-white/25 bg-white/[0.04]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${awaitingApproval ? "bg-[#FFDF00] text-black" : item.acceptedAt || item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{awaitingApproval ? "REWRITTEN" : item.acceptedAt ? "APPROVED" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1">{item.previousText && awaitingApproval && <p className="truncate text-[10px] text-white/25 line-through">{item.previousText.replace(/\s+/g, " ")}</p>}<p className={`mt-1 whitespace-pre-wrap text-[10px] leading-5 ${awaitingApproval ? "font-bold text-[#FFDF00]" : item.acceptedAt || item.sentiment === "good" ? "text-emerald-200/70" : "text-red-200/70"}`}>{item.text}</p></div>{awaitingApproval ? <div className="flex shrink-0 gap-1"><button type="button" onClick={(event) => { event.stopPropagation(); acceptDialogueRewrite(item.id); }} className="border border-[#FFDF00]/50 bg-[#FFDF00] px-3 py-1.5 text-[8px] font-black text-black">OK</button><button type="button" onClick={(event) => { event.stopPropagation(); void rewriteScreenplayWithFeedback(item.id); }} disabled={isGeneratingScreenplay} className="border border-white/15 px-3 py-1.5 text-[8px] font-black text-white/60 disabled:opacity-30">AGAIN</button></div> : <button type="button" onClick={(event) => { event.stopPropagation(); removeDialogueFeedback(item.id); }} className="text-sm text-white/20 hover:text-red-300">×</button>}</div>; })}</div></section>}
               </div>
             ) : (
             <>
