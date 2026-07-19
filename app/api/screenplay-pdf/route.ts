@@ -78,7 +78,13 @@ export async function POST(request: Request) {
     document.fillColor("#111111").font("CarabasaiBold").fontSize(7).text("CARABASAI STUDIO", 58, 30, { characterSpacing: 1.2 });
     document.fillColor("#777777").font("Carabasai").fontSize(7).text(title.toUpperCase(), 190, 30, { width: 300, align: "right" });
     document.moveTo(58, 44).lineTo(537, 44).lineWidth(0.5).strokeColor("#D8D8D8").stroke();
-    document.fillColor("#777777").font("Carabasai").fontSize(7).text(`${index} / ${pages.count - 1}`, 58, 805, { width: 479, align: "right" });
+    // The footer intentionally sits below the body margin. Temporarily remove
+    // that margin so PDFKit does not treat the footer as overflowing body copy
+    // and append one blank page for every real screenplay page.
+    const bottomMargin = document.page.margins.bottom;
+    document.page.margins.bottom = 0;
+    document.fillColor("#777777").font("Carabasai").fontSize(7).text(`${index} / ${pages.count - 1}`, 58, 805, { width: 479, align: "right", lineBreak: false });
+    document.page.margins.bottom = bottomMargin;
     document.restore();
   }
 
