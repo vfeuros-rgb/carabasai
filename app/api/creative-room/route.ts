@@ -229,9 +229,11 @@ LIVE GROUP-CHAT RULES:
 PROJECT NOTEBOOK:
 - Extract only concrete project decisions or promising discoveries from this turn.
 - Notes are proposals for the Director to approve, not established facts.
-- Each note must be concise, specific and useful later for the treatment or screenplay.
-- Write each note as a clean key point. Title: 2–5 words. Detail: one short sentence with no commentary.
+- Each note must be a screenplay input, never an explanation of the discussion.
+- Prefer controlled titles: ЖАНР, ДЛИТЕЛЬНОСТЬ, ФОРМАТ, ТИП, ТОН, ГЕРОЙ, КОНФЛИКТ, ЛОКАЦИЯ, ДИАЛОГ, ФИНАЛ, ВИЗУАЛ, ЗВУК, ОГРАНИЧЕНИЕ.
+- Detail is one final decision, normally 3–12 words. No rationale, commentary, theory, alternatives or phrases such as "это позволит" and "потому что".
 - Keep only major decisions that materially affect the eventual screenplay or production. Do not record minor remarks, conversational colour or every suggestion.
+- Emit at most three notes per turn. If nothing was decided, emit no notes.
 - Notes must form one coherent current version of the project and must never contradict one another.
 - When a new decision changes an existing topic, reuse exactly the same note title and provide the new detail so the application replaces the old version.
 - Before emitting notes, compare them against all approved project facts in the conversation. If two notes cannot both be true, keep only the newest explicit Director decision and rewrite the affected note as the single current version.

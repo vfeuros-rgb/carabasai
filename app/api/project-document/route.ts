@@ -69,7 +69,16 @@ QUALITY: A short AI film still needs a clear protagonist, want, obstacle, stakes
 
 TEAM DECISIONS: Do not invent agreement unless asked. For one decision request, make one specific choice through the selected team's methods, add it to the relevant section beginning exactly "Решение команды:", update ratings and remove the question. For RESOLVE ALL, resolve every listed question separately and return an empty openQuestions array.
 
-OUTPUT: Create only useful sections, including REQUIREMENTS when criteria are needed. Use 3–8 uppercase English tabs. Each section needs a one-sentence summary, 2–8 short actionable points and strict separate 1–5 ratings. Missing motivation, conflict, ending or format logic normally scores 1–2; 3 is workable but incomplete; 4 is strong; 5 is rare and production-ready. The reason names the biggest weakness. Ensure the document contains a SCREENWRITER layer (arc, twist, dialogue, scene mechanics) and a DIRECTOR layer (AI-ready light, composition, camera, tempo, edit, sound). Avoid em dashes.`;
+OUTPUT: This is a compact production brief, not an essay and not a report. Return exactly five tabs in this exact order and with these exact ids and titles:
+1. id "brief", title "BRIEF". Points: Жанр; Длительность; Формат; Тип; Тон; Аудитория/рейтинг. One short value per point.
+2. id "story", title "STORY". Points: Логлайн; Конфликт; Ставки; Структура; Финал. Include only decisions that materially shape the screenplay.
+3. id "characters", title "CHARACTERS". One compact point per essential hero: name/role, want, obstacle or change. Merge minor functional roles. Never add biographies.
+4. id "dialogue", title "DIALOGUE". This is the dedicated place for dialogue logic. Include interaction type, voice rule, subtext rule, exposition limit and any critical continuity rule. Maximum 5 points.
+5. id "production", title "PRODUCTION". Points: Locations; visual rule; sound; AI generation limits; aspect ratio/platform. Maximum 6 points.
+
+Every point must be a final production decision formatted "Label: value". Use one sentence and normally no more than 18 words. No explanations, theory, alternatives, preambles, repetition or phrases such as "важно", "это позволит", "потому что". Section summary is one factual sentence of no more than 14 words. Keep the total document to 20–27 points. Put unresolved material only in openQuestions, never inside points. Ask no more than three genuinely blocking open questions.
+
+Ratings are internal readiness signals only. The reason must name one concrete missing or weak element in no more than 10 words; use "Готово" when no weakness remains. Missing motivation, conflict, ending or format logic normally scores 1–2; 3 is workable but incomplete; 4 is strong; 5 is rare and production-ready. Ensure the resulting brief still contains the SCREENWRITER layer (arc, scene mechanics, dialogue) and DIRECTOR layer (AI-ready light, composition, camera, tempo, edit, sound). Avoid em dashes.`;
     const schema = {
               type: "object",
               properties: {

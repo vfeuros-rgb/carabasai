@@ -786,7 +786,6 @@ export default function CreativeRoomPage() {
               ) : (
               <div className="space-y-3">
                 {notebook.map((note) => {
-                  const author = session[note.author];
                   return (
                     <button
                       key={note.id}
@@ -809,15 +808,8 @@ export default function CreativeRoomPage() {
                           ✓
                         </span>
                         <div className="min-w-0">
-                          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-white/30">
-                            {author.name}
-                          </p>
-                          <p className="mt-1 text-[11px] font-black uppercase leading-5 text-white/80">
-                            {note.title}
-                          </p>
-                          <p className="mt-1 text-[10px] leading-5 text-white/40">
-                            {note.detail}
-                          </p>
+                          <p className="text-[9px] font-black tracking-[0.08em] text-[#FFDF00]/70">{note.title}</p>
+                          <p className="mt-1 text-[11px] leading-5 text-white/75">{note.detail}</p>
                         </div>
                       </div>
                     </button>
@@ -1080,14 +1072,12 @@ export default function CreativeRoomPage() {
               </div>
               <div className="max-h-[calc(58vh-72px)] space-y-2 overflow-y-auto p-3">
                 {notebook.length === 0 ? <p className="p-4 text-[9px] uppercase leading-5 text-white/25">USEFUL DECISIONS WILL APPEAR HERE DURING THE CONVERSATION.</p> : notebook.map((note) => {
-                  const author = session[note.author];
                   return <button key={note.id} type="button" onClick={() => toggleNote(note.id)} className={`w-full rounded-[15px] border p-3 text-left transition ${note.accepted ? "border-[#FFDF00]/40 bg-[#FFDF00]/8" : "border-white/10 bg-white/[0.025]"}`}>
                     <div className="flex items-start gap-3">
                       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] ${note.accepted ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/20 text-transparent"}`}>✓</span>
                       <div className="min-w-0">
-                        <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/30">{author.name}</p>
-                        <p className="mt-1 text-[10px] font-black uppercase leading-5 text-white/80">{note.title}</p>
-                        <p className="mt-1 text-[9px] leading-5 text-white/40">{note.detail}</p>
+                        <p className="text-[8px] font-black tracking-[0.08em] text-[#FFDF00]/70">{note.title}</p>
+                        <p className="mt-1 text-[10px] leading-5 text-white/70">{note.detail}</p>
                       </div>
                     </div>
                   </button>;
