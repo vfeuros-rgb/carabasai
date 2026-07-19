@@ -207,7 +207,6 @@ export default function CreativeRoomPage() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [isBuildingDocument, setIsBuildingDocument] = useState(false);
-  const [showDocumentConfirm, setShowDocumentConfirm] = useState(false);
   const [documentBuildFailed, setDocumentBuildFailed] = useState(false);
   const [directorBriefOpen, setDirectorBriefOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -600,6 +599,19 @@ export default function CreativeRoomPage() {
     } finally {
       setIsBuildingDocument(false);
     }
+  }
+
+  async function confirmProjectDocument() {
+    if (!canContinueToScreenplay || isLoading || isBuildingDocument) return;
+    const confirmed = await platformConfirm({
+      eyebrow: "SCREENPLAY",
+      title: session?.projectDocument ? "UPDATE SCREENPLAY BRIEF?" : "GO TO SCREENPLAY?",
+      message: session?.projectDocument
+        ? "The current screenplay brief will be updated using the accepted decisions from this conversation."
+        : "The accepted decisions in the Project Notebook will now be turned into the screenplay brief.",
+      confirmLabel: session?.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY",
+    });
+    if (confirmed) await buildProjectDocument();
   }
 
   function toggleAgent(agent: AgentId) {
@@ -1019,15 +1031,6 @@ export default function CreativeRoomPage() {
             onSubmit={sendMessage}
             className="border-t border-white/10 p-2.5 sm:p-5"
           >
-            {canContinueToScreenplay && showDocumentConfirm && (
-              <div className="flex justify-end">
-                  <div className="flex items-center gap-2 rounded-full border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-1 pl-4">
-                    <span className="text-[9px] font-black uppercase text-white/45">Build project document?</span>
-                    <button type="button" onClick={() => setShowDocumentConfirm(false)} className="rounded-full px-3 py-2 text-[9px] font-black text-white/35">CANCEL</button>
-                    <button type="button" onClick={() => void buildProjectDocument()} disabled={isBuildingDocument} className="rounded-full bg-[#FFDF00] px-4 py-2 text-[9px] font-black text-black disabled:opacity-30">{isBuildingDocument ? "BUILDING..." : session.projectDocument ? "UPDATE SCREENPLAY" : "CONTINUE"}</button>
-                  </div>
-              </div>
-            )}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2 sm:mb-3">
                 {attachments.map((file) => (
@@ -1084,7 +1087,7 @@ export default function CreativeRoomPage() {
                   </svg>
                 </button>
                 <AIProviderSwitch />
-                <button type="button" onClick={() => setShowDocumentConfirm(true)} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>
+                <button type="button" onClick={() => void confirmProjectDocument()} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
