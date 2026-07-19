@@ -27,6 +27,7 @@ type ProjectSession = {
   characterCastingSpecialist?: CharacterCastingSpecialist;
   draftQuestion?: string;
   screenplay?: string;
+  screenplayLibraryAt?: number;
   screenplayDirectorNotes?: string;
   dialogueAudit?: string;
   dialogueFeedback?: DialogueFeedback[];
@@ -77,7 +78,6 @@ export default function ProjectPage() {
   const [activeUnresolvedPoint, setActiveUnresolvedPoint] = useState("");
   const [openingCasting, setOpeningCasting] = useState(false);
   const [screenplayDraft, setScreenplayDraft] = useState("");
-  const [screenplaySaved, setScreenplaySaved] = useState(false);
   const [isDownloadingScreenplay, setIsDownloadingScreenplay] = useState(false);
   const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
   const [selectedScriptText, setSelectedScriptText] = useState<{ text: string; start: number; end: number } | null>(null);
@@ -126,6 +126,18 @@ export default function ProjectPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [activeFeedbackId, session?.dialogueFeedback, screenplayDraft]);
+
+  useEffect(() => {
+    if (!session?.screenplay || !screenplayDraft.trim() || screenplayDraft === session.screenplay) return;
+    const timer = window.setTimeout(() => {
+      const updated: ProjectSession = { ...session, screenplay: screenplayDraft };
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+      const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+      saveProjects([updated, ...history].slice(0, 20));
+      setSession(updated);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [screenplayDraft, session]);
 
   useEffect(() => {
     if (!session?.id || session.screenplay) return;
@@ -180,15 +192,13 @@ export default function ProjectPage() {
     setSession(updated);
   }
 
-  function saveScreenplay() {
+  function addScreenplayToLibrary() {
     if (!session || !screenplayDraft.trim()) return;
-    const updated: ProjectSession = { ...session, screenplay: screenplayDraft };
+    const updated: ProjectSession = { ...session, screenplay: screenplayDraft, screenplayLibraryAt: session.screenplayLibraryAt ?? Date.now() };
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
-    setScreenplaySaved(true);
-    window.setTimeout(() => setScreenplaySaved(false), 1600);
   }
 
   function captureScriptSelection() {
@@ -587,14 +597,14 @@ export default function ProjectPage() {
                 <div className="shrink-0 border-b border-white/10 bg-[#0d0d0d] p-5 sm:px-8 sm:py-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p><p className="mt-2 text-xs font-bold leading-5 text-[#FFDF00]/70">Select any passage to mark what works or what needs improvement.</p></div>
-                  <div className="flex gap-2"><button type="button" onClick={() => void downloadScreenplay()} disabled={isDownloadingScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00] disabled:opacity-40">{isDownloadingScreenplay ? "CREATING PDF..." : "DOWNLOAD PDF"}</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
+                  <div className="flex gap-2"><button type="button" onClick={() => void downloadScreenplay()} disabled={isDownloadingScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00] disabled:opacity-40">{isDownloadingScreenplay ? "CREATING PDF..." : "DOWNLOAD PDF"}</button><button type="button" onClick={addScreenplayToLibrary} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{session.screenplayLibraryAt ? "ADDED ✓" : "ADD TO MY SCREENPLAYS"}</button></div>
                 </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
                 {selectedScriptText && <div className="sticky top-3 z-20 mt-4 w-fit max-w-full border border-[#FFDF00]/30 bg-[#11100a]/95 px-3 py-2 shadow-xl backdrop-blur-xl"><div className="flex min-w-0 items-center gap-3"><p className="max-w-[420px] truncate text-[9px] text-white/40">“{selectedScriptText.text.replace(/\s+/g, " ").slice(0, 140)}”</p><button type="button" onClick={() => setFeedbackSentiment("good")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "good" ? "border-emerald-400 bg-emerald-400 text-black" : "border-emerald-300/30 text-emerald-300"}`}>GOOD</button><button type="button" onClick={() => setFeedbackSentiment("bad")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "bad" ? "border-red-400 bg-red-400 text-black" : "border-red-300/30 text-red-300"}`}>BAD</button><button type="button" onClick={() => { setSelectedScriptText(null); setFeedbackSentiment(null); }} className="shrink-0 px-1 text-sm text-white/25">×</button></div>{feedbackSentiment && <div className="mt-2 flex max-w-[720px] flex-wrap gap-1.5 border-t border-white/10 pt-2">{(feedbackSentiment === "good" ? GOOD_DIALOGUE_CATEGORIES : BAD_DIALOGUE_CATEGORIES).map((category) => <button key={category} type="button" onClick={() => saveDialogueFeedback(category)} className="border border-white/10 px-2 py-1.5 text-[7px] font-black text-white/60 transition hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">{category}</button>)}</div>}</div>}
                 <div className="relative mt-5 h-[clamp(260px,32dvh,420px)] overflow-hidden rounded-[20px] border border-[#FFDF00]/20 bg-black/35 transition focus-within:border-[#FFDF00]/60">
                   <pre ref={screenplayHighlightRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-5 font-mono text-sm leading-7 text-white/85 sm:p-7">{highlightedScreenplay(screenplayDraft, session.dialogueFeedback ?? [])}</pre>
-                  <textarea ref={screenplayRef} value={screenplayDraft} onScroll={(event) => { if (screenplayHighlightRef.current) { screenplayHighlightRef.current.scrollTop = event.currentTarget.scrollTop; screenplayHighlightRef.current.scrollLeft = event.currentTarget.scrollLeft; } }} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="absolute inset-0 h-full w-full resize-none overflow-y-scroll bg-transparent p-5 font-mono text-sm leading-7 text-transparent caret-white outline-none [scrollbar-color:rgba(255,223,0,0.45)_rgba(255,255,255,0.05)] [scrollbar-width:thin] selection:bg-white/30 selection:text-transparent sm:p-7" aria-label="Editable and scrollable screenplay. Select text to rate it." />
+                  <textarea ref={screenplayRef} value={screenplayDraft} onScroll={(event) => { if (screenplayHighlightRef.current) { screenplayHighlightRef.current.scrollTop = event.currentTarget.scrollTop; screenplayHighlightRef.current.scrollLeft = event.currentTarget.scrollLeft; } }} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setSelectedScriptText(null); }} spellCheck className="absolute inset-0 h-full w-full resize-none overflow-y-scroll bg-transparent p-5 font-mono text-sm leading-7 text-transparent caret-white outline-none [scrollbar-color:rgba(255,223,0,0.45)_rgba(255,255,255,0.05)] [scrollbar-width:thin] selection:bg-white/30 selection:text-transparent sm:p-7" aria-label="Editable and scrollable screenplay. Select text to rate it." />
                 </div>
                 </div>
                 {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="z-10 shrink-0 border-t border-white/10 bg-[#0d0d0d] p-4 shadow-[0_-18px_40px_rgba(0,0,0,0.55)] sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-1 text-[10px] text-white/30">Marked fragments remain with the project. Rewritten text stays gold until you approve it.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText && !item.acceptedAt)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">{[...(session.dialogueFeedback ?? [])].sort((a, b) => b.createdAt - a.createdAt).map((item) => { const awaitingApproval = Boolean(item.rewrittenText && !item.acceptedAt); return <div key={item.id} onClick={() => setActiveFeedbackId(item.id)} className={`flex cursor-pointer items-start gap-3 rounded-[12px] border px-3 py-2 ${awaitingApproval ? "border-[#FFDF00]/60 bg-[#FFDF00]/[0.09]" : activeFeedbackId === item.id ? "border-white/25 bg-white/[0.04]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${awaitingApproval ? "bg-[#FFDF00] text-black" : item.acceptedAt || item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{awaitingApproval ? "REWRITTEN" : item.acceptedAt ? "APPROVED" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1">{item.previousText && awaitingApproval && <p className="truncate text-[10px] text-white/25 line-through">{item.previousText.replace(/\s+/g, " ")}</p>}<p className={`mt-1 whitespace-pre-wrap text-[10px] leading-5 ${awaitingApproval ? "font-bold text-[#FFDF00]" : item.acceptedAt || item.sentiment === "good" ? "text-emerald-200/70" : "text-red-200/70"}`}>{item.text}</p></div>{awaitingApproval ? <div className="flex shrink-0 gap-1"><button type="button" onClick={(event) => { event.stopPropagation(); acceptDialogueRewrite(item.id); }} className="border border-[#FFDF00]/50 bg-[#FFDF00] px-3 py-1.5 text-[8px] font-black text-black">OK</button><button type="button" onClick={(event) => { event.stopPropagation(); void rewriteScreenplayWithFeedback(item.id); }} disabled={isGeneratingScreenplay} className="border border-white/15 px-3 py-1.5 text-[8px] font-black text-white/60 disabled:opacity-30">AGAIN</button></div> : <button type="button" onClick={(event) => { event.stopPropagation(); removeDialogueFeedback(item.id); }} className="text-sm text-white/20 hover:text-red-300">×</button>}</div>; })}</div></section>}

@@ -12,7 +12,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 
 type Mode = "sign-in" | "sign-up";
 type WorkspaceActor = { image: string; actorName?: string; storagePath?: string; source?: "portfolio" | "generated" };
-type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary"; characterCasting?: { myCast?: WorkspaceActor[]; generationMessages?: Array<{ image?: string; candidate?: WorkspaceActor }> } };
+type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: { title?: string; logline?: string }; screenplay?: string; screenplayLibraryAt?: number; stage?: "crew" | "dialogue" | "summary"; characterCasting?: { myCast?: WorkspaceActor[]; generationMessages?: Array<{ image?: string; candidate?: WorkspaceActor }> } };
 const CURRENT_COVER_MODEL = "flux-2-dev-poster-9x16-v1";
 
 export default function AccountPage() {
@@ -42,6 +42,9 @@ export default function AccountPage() {
   const [deleteSwipeId, setDeleteSwipeId] = useState<string | null>(null);
   const [favoriteSwipeId, setFavoriteSwipeId] = useState<string | null>(null);
   const [castView, setCastView] = useState<"cast" | "screen-tests">("cast");
+  const [screenplayOpenId, setScreenplayOpenId] = useState<string | null>(null);
+  const [libraryScreenplayDraft, setLibraryScreenplayDraft] = useState("");
+  const [screenplayDownloading, setScreenplayDownloading] = useState(false);
   const projectSwipeRef = useRef<{ x: number; y: number; id: string } | null>(null);
   const projectSwipeMoved = useRef(false);
   const coverAttempts = useRef(new Set<string>());
@@ -50,6 +53,47 @@ export default function AccountPage() {
   const castActors = Array.from(new Map(accountSessions.flatMap((project) => project.characterCasting?.myCast ?? []).map((actor) => [actor.storagePath ?? actor.image, actor])).values());
   const screenTestActors = Array.from(new Map(accountSessions.flatMap((project) => (project.characterCasting?.generationMessages ?? []).flatMap((message) => message.image && message.candidate ? [{ ...message.candidate, image: message.image }] : [])).map((actor) => [actor.storagePath ?? actor.image, actor])).values());
   const workspaceActors = castView === "cast" ? castActors : screenTestActors;
+  const screenplayProjects = accountSessions.filter((project) => project.screenplay?.trim() && project.screenplayLibraryAt).sort((a, b) => (b.screenplayLibraryAt ?? 0) - (a.screenplayLibraryAt ?? 0));
+  const openScreenplay = accountSessions.find((project) => project.id === screenplayOpenId);
+
+  function openLibraryScreenplay(project: AccountSession) {
+    setScreenplayOpenId(project.id ?? null);
+    setLibraryScreenplayDraft(project.screenplay ?? "");
+  }
+
+  function saveLibraryScreenplay() {
+    if (!openScreenplay?.id || !libraryScreenplayDraft.trim()) return;
+    const next = getCachedProjects<AccountSession>().map((project) => project.id === openScreenplay.id ? { ...project, screenplay: libraryScreenplayDraft } : project);
+    saveProjects(next);
+    setAccountSessions(next);
+    const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw) as AccountSession;
+      if (active.id === openScreenplay.id) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify({ ...active, screenplay: libraryScreenplayDraft }));
+    }
+    setMessage("SCREENPLAY SAVED.");
+  }
+
+  async function downloadLibraryScreenplay() {
+    if (!openScreenplay || !libraryScreenplayDraft.trim() || screenplayDownloading) return;
+    setScreenplayDownloading(true);
+    try {
+      const response = await authenticatedFetch("/api/screenplay-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: openScreenplay.projectDocument?.title ?? openScreenplay.title, logline: openScreenplay.projectDocument?.logline ?? openScreenplay.notes, screenplay: libraryScreenplayDraft, director: openScreenplay.secondDirector?.name, screenwriter: openScreenplay.screenwriter?.name }) });
+      if (!response.ok) throw new Error("PDF COULD NOT BE CREATED.");
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${openScreenplay.title || "screenplay"} - Carabasai.pdf`;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      window.setTimeout(() => { anchor.remove(); URL.revokeObjectURL(url); }, 30_000);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "PDF COULD NOT BE CREATED.");
+    } finally {
+      setScreenplayDownloading(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -425,9 +469,19 @@ export default function AccountPage() {
             {workspaceActors.length ? workspaceActors.slice(0, 12).map((actor) => <Link key={actor.storagePath ?? actor.image} href={castView === "cast" ? "/studio/cast" : "/studio/cast/screen-tests"} className="group relative aspect-[9/16] h-44 shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-[#303030] hover:border-[#FFDF00]/60"><img src={actor.image} alt={actor.actorName ?? "Casting actor"} className="h-full w-full object-cover object-top" /><div className="absolute inset-x-0 bottom-0 bg-black/75 px-2.5 py-2"><p className="truncate text-[8px] font-black">{actor.actorName ?? "CASTING ACTOR"}</p></div></Link>) : <div className="flex w-full items-center justify-center text-[10px] text-white/30">{castView === "cast" ? "Actors added to your cast will appear here." : "Generated screen tests will appear here."}</div>}
           </div>
         </section>
+        <section className="mt-10 overflow-hidden rounded-[24px] border border-white/10 bg-[#090909]">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#353535] px-5 py-4 sm:px-6">
+            <div><p className="text-[9px] font-black tracking-[.16em] text-[#FFDF00]">SCREENPLAY LIBRARY</p><h2 className="mt-1 text-lg font-black">BEST SCREENPLAYS</h2></div>
+            <p className="text-[9px] text-white/35">{screenplayProjects.length} SAVED</p>
+          </header>
+          <div className="flex min-h-48 gap-3 overflow-x-auto p-5 sm:p-6">
+            {screenplayProjects.length ? screenplayProjects.map((project) => <button key={project.id} type="button" onClick={() => openLibraryScreenplay(project)} className="group flex h-44 w-56 shrink-0 flex-col justify-between rounded-[16px] border border-white/10 bg-[#151515] p-5 text-left transition hover:border-[#FFDF00]/60 hover:bg-[#1b1b1b]"><div><p className="text-[8px] font-black tracking-[.14em] text-[#FFDF00]">SCREENPLAY</p><h3 className="mt-3 line-clamp-2 text-lg font-black leading-6">{project.projectDocument?.title ?? project.title ?? "UNTITLED"}</h3><p className="mt-3 line-clamp-2 text-[10px] leading-5 text-white/35">{project.projectDocument?.logline ?? project.notes}</p></div><p className="text-[8px] font-black text-white/35 group-hover:text-[#FFDF00]">OPEN SCREENPLAY →</p></button>) : <div className="flex w-full items-center justify-center text-center text-[10px] text-white/30">Screenplays added from a project will appear here.</div>}
+          </div>
+        </section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
       {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-6xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
+      {openScreenplay && <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 p-3 backdrop-blur-md sm:p-6"><button type="button" aria-label="Close screenplay" onClick={() => setScreenplayOpenId(null)} className="absolute inset-0"/><section role="dialog" aria-modal="true" aria-label="Saved screenplay" className="relative flex h-[90dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] border border-white/12 bg-[#090909]"><header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#303030] px-5 py-4 sm:px-7"><div><p className="text-[9px] font-black tracking-[.16em] text-[#FFDF00]">MY SCREENPLAYS</p><h2 className="mt-1 text-xl font-black">{openScreenplay.projectDocument?.title ?? openScreenplay.title ?? "UNTITLED"}</h2></div><div className="flex items-center gap-2"><button type="button" onClick={() => void downloadLibraryScreenplay()} disabled={screenplayDownloading} className="rounded-full border border-white/15 px-4 py-2.5 text-[8px] font-black text-white/60 disabled:opacity-30">{screenplayDownloading ? "CREATING PDF..." : "DOWNLOAD PDF"}</button><button type="button" onClick={saveLibraryScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2.5 text-[8px] font-black text-black">SAVE CHANGES</button><button type="button" onClick={() => setScreenplayOpenId(null)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-lg text-white/50">×</button></div></header><textarea value={libraryScreenplayDraft} onChange={(event) => setLibraryScreenplayDraft(event.target.value)} spellCheck className="min-h-0 flex-1 resize-none overflow-y-auto bg-black p-6 font-mono text-sm leading-7 text-white/85 outline-none sm:p-9 [scrollbar-color:rgba(255,223,0,.4)_transparent] [scrollbar-width:thin]"/></section></div>}
     </section>
   </main>;
 
