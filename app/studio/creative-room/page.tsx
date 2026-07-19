@@ -1099,7 +1099,7 @@ export default function CreativeRoomPage() {
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
-                className="h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
+                className="ml-auto h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
               >
                 SEND
               </button>
