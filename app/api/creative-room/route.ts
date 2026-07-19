@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     session?: CreativeSession;
     messages?: ChatMessage[];
     enabledAgents?: AgentId[];
+    notebook?: Array<{ title?: string; detail?: string }>;
   };
   const provider = body.provider === "openai" ? "openai" : "anthropic";
   const apiKey = provider === "openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
@@ -160,6 +161,9 @@ Only the connected agents may speak. Never write dialogue for a disconnected age
 PROJECT BRIEF:
 ${session.notes}
 
+CURRENT ACCEPTED PROJECT NOTEBOOK:
+${(body.notebook ?? []).map((note) => `${note.title ?? "DECISION"}: ${note.detail ?? ""}`).join("\n") || "NO ACCEPTED STORY DECISIONS YET"}
+
 ATTACHED REFERENCE FILENAMES:
 ${references}
 
@@ -180,6 +184,10 @@ PRIMARY JOB:
 - Build from the Director's answers. Offer specific alternatives that are easy to compare, not abstract theory.
 - For a story project, actively develop characters, motivations, conflict, locations, memorable moments, structure, visual rules and ending.
 - Do not jump to a finished plot while essential information is missing.
+- The project may proceed to Screenplay only when the initial Director brief contains a real idea and the accepted notebook contains at least three concrete story decisions, including exactly one core idea note and one protagonist note.
+- Use the controlled title ЗАМЫСЕЛ for the core premise and ГЕРОЙ for the protagonist. Extract them immediately when the brief or conversation supports them.
+- Until both ЗАМЫСЕЛ and ГЕРОЙ plus one more concrete story decision exist, say plainly and briefly that there is not enough information for a screenplay, name only the missing essentials, and ask no more than two questions.
+- Once the threshold is met, stop claiming that information is insufficient. State briefly that the screenplay brief can now be built, then continue only with genuinely useful refinement.
 - When the Director explicitly asks for ideas, a solution, examples or advice, give 2–3 concrete options through each agent's professional perspective, briefly explain the practical difference, recommend one, then ask which direction feels right.
 - When the Director has already answered a question, do not interrogate them again about the same point. Convert the answer into the next useful decision.
 - A reply is successful only if it either uncovers necessary information, resolves a decision, or gives material the Director can directly use.
@@ -232,7 +240,7 @@ PROJECT NOTEBOOK:
 - Extract only concrete project decisions or promising discoveries from this turn.
 - Notes are proposals for the Director to approve, not established facts.
 - Each note must be a screenplay input, never an explanation of the discussion.
-- Prefer controlled titles: ЖАНР, ДЛИТЕЛЬНОСТЬ, ФОРМАТ, ТИП, ТОН, ГЕРОЙ, КОНФЛИКТ, ЛОКАЦИЯ, ДИАЛОГ, ФИНАЛ, ВИЗУАЛ, ЗВУК, ОГРАНИЧЕНИЕ.
+- Prefer controlled titles: ЗАМЫСЕЛ, ЖАНР, ДЛИТЕЛЬНОСТЬ, ФОРМАТ, ТИП, ТОН, ГЕРОЙ, КОНФЛИКТ, ЛОКАЦИЯ, ДИАЛОГ, ФИНАЛ, ВИЗУАЛ, ЗВУК, ОГРАНИЧЕНИЕ.
 - Detail is one final decision, normally 3–12 words. No rationale, commentary, theory, alternatives or phrases such as "это позволит" and "потому что".
 - Keep only major decisions that materially affect the eventual screenplay or production. Do not record minor remarks, conversational colour or every suggestion.
 - Emit at most three notes per turn. If nothing was decided, emit no notes.

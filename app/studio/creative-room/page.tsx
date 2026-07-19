@@ -87,6 +87,13 @@ type NotebookNote = {
   accepted: boolean;
 };
 
+const HERO_NOTE_TITLES = new Set(["ГЕРОЙ", "ПРОТАГОНИСТ"]);
+const IDEA_NOTE_TITLES = new Set(["ЗАМЫСЕЛ", "ИДЕЯ", "КОНЦЕПТ", "ЛОГЛАЙН"]);
+
+function normalizedNoteTitle(value: string) {
+  return value.trim().toLocaleUpperCase("ru-RU");
+}
+
 const INITIAL_AGENTS: Record<AgentId, boolean> = {
   secondDirector: true,
   screenwriter: true,
@@ -427,6 +434,7 @@ export default function CreativeRoomPage() {
           enabledAgents: (Object.keys(activeAgents) as AgentId[]).filter(
             (agent) => activeAgents[agent]
           ),
+          notebook: notebook.filter((note) => note.accepted).map(({ title, detail }) => ({ title, detail })),
         }),
       });
       const data = await response.json();
@@ -561,8 +569,12 @@ export default function CreativeRoomPage() {
   async function buildProjectDocument() {
     if (!session || isLoading || isBuildingDocument) return;
     const acceptedNotes = notebook.filter((note) => note.accepted);
-    if (acceptedNotes.length === 0) {
-      setError("SELECT AT LEAST ONE PROJECT NOTE BEFORE CONTINUING.");
+    const acceptedTitles = new Set(acceptedNotes.map((note) => normalizedNoteTitle(note.title)));
+    const hasHero = [...acceptedTitles].some((title) => HERO_NOTE_TITLES.has(title));
+    const hasIdea = [...acceptedTitles].some((title) => IDEA_NOTE_TITLES.has(title));
+    const hasSubstantiveBrief = session.notes.trim().replace(/\s+/g, " ").length >= 20;
+    if (!hasSubstantiveBrief || acceptedNotes.length < 3 || !hasHero || !hasIdea) {
+      setError("NOT ENOUGH STORY INFORMATION. DEFINE THE CORE IDEA, THE HERO AND AT LEAST ONE MORE STORY DECISION.");
       return;
     }
     setIsBuildingDocument(true);
@@ -605,6 +617,13 @@ export default function CreativeRoomPage() {
       )
     );
   }
+
+  const acceptedNotes = notebook.filter((note) => note.accepted);
+  const acceptedNoteTitles = new Set(acceptedNotes.map((note) => normalizedNoteTitle(note.title)));
+  const hasHeroDecision = [...acceptedNoteTitles].some((title) => HERO_NOTE_TITLES.has(title));
+  const hasIdeaDecision = [...acceptedNoteTitles].some((title) => IDEA_NOTE_TITLES.has(title));
+  const hasSubstantiveInitialBrief = Boolean(session?.notes.trim().replace(/\s+/g, " ").length && session.notes.trim().replace(/\s+/g, " ").length >= 20);
+  const canContinueToScreenplay = hasSubstantiveInitialBrief && acceptedNotes.length >= 3 && hasHeroDecision && hasIdeaDecision;
 
   if (!session) {
     return (
@@ -999,7 +1018,7 @@ export default function CreativeRoomPage() {
             onSubmit={sendMessage}
             className="border-t border-white/10 p-2.5 sm:p-5"
           >
-            {notebook.some((note) => note.accepted) && showDocumentConfirm && (
+            {canContinueToScreenplay && showDocumentConfirm && (
               <div className="flex justify-end">
                   <div className="flex items-center gap-2 rounded-full border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-1 pl-4">
                     <span className="text-[9px] font-black uppercase text-white/45">Build project document?</span>
@@ -1064,11 +1083,11 @@ export default function CreativeRoomPage() {
                   </svg>
                 </button>
                 <AIProviderSwitch />
-                {notebook.some((note) => note.accepted) && <button type="button" onClick={() => setShowDocumentConfirm(true)} className="ml-auto h-8 rounded-full border border-white/10 px-3 text-[8px] font-black uppercase text-white/40">{session.projectDocument ? "UPDATE SCREENPLAY" : "REVIEW"} →</button>}
+                <button type="button" onClick={() => setShowDocumentConfirm(true)} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
-                className={`${notebook.some((note) => note.accepted) ? "" : "ml-auto"} h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25`}
+                className="h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
               >
                 SEND
               </button>

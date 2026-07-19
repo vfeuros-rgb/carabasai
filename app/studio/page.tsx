@@ -1102,15 +1102,15 @@ export default function StudioPage() {
                   type="button"
                   onClick={() => void startCreativeSession()}
                   disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession}
-                  className="h-10 cursor-pointer rounded-full border border-white/10 px-4 text-[8px] font-black tracking-[0.08em] text-white/45 transition hover:border-white/25 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-20"
+                  className="h-10 cursor-pointer rounded-full bg-[#FFDF00] px-5 text-[9px] font-black tracking-[0.08em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25"
                 >
                   <span className="flex items-center justify-center gap-3">
                     {isStartingSession && <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" />}
-                    {isStartingSession ? "STARTING..." : "DISCUSS WITH TEAM"}
+                    {isStartingSession ? "STARTING..." : "DISCUSS"}
                   </span>
                 </button>
-                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession} className="h-10 cursor-pointer rounded-full bg-[#FFDF00] px-5 text-[9px] font-black tracking-[0.08em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25">
-                  {isSkippingDiscussion ? "TEAM IS BUILDING..." : "LET TEAM DECIDE → SCREENPLAY"}
+                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession} className="h-10 cursor-pointer rounded-full border border-white/10 px-4 text-[8px] font-black tracking-[0.08em] text-white/45 transition hover:border-white/25 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-20">
+                  {isSkippingDiscussion ? "TEAM IS BUILDING..." : "LEAVE IT TO THE TEAM"}
                 </button>
               </div>
             </div>
