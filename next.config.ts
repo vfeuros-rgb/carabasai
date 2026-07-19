@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
       "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf",
       "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf",
       "./node_modules/dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf",
+      "./public/carabasai-pdf-logo-transparent.png",
     ],
   },
   allowedDevOrigins: [

@@ -78,7 +78,7 @@ export default function AccountPage() {
     if (!openScreenplay || !libraryScreenplayDraft.trim() || screenplayDownloading) return;
     setScreenplayDownloading(true);
     try {
-      const response = await authenticatedFetch("/api/screenplay-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: openScreenplay.projectDocument?.title ?? openScreenplay.title, logline: openScreenplay.projectDocument?.logline ?? openScreenplay.notes, screenplay: libraryScreenplayDraft, director: openScreenplay.secondDirector?.name, screenwriter: openScreenplay.screenwriter?.name }) });
+      const response = await authenticatedFetch("/api/screenplay-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: openScreenplay.title ?? openScreenplay.projectDocument?.title, logline: openScreenplay.projectDocument?.logline ?? openScreenplay.notes, screenplay: libraryScreenplayDraft, secondDirector: openScreenplay.secondDirector?.name, screenwriter: openScreenplay.screenwriter?.name }) });
       if (!response.ok) throw new Error("PDF COULD NOT BE CREATED.");
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");

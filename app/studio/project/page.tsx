@@ -18,6 +18,7 @@ type ProjectDocument = { title: string; logline: string; sections: ProjectSectio
 type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number; previousText?: string; rewrittenText?: string; rewrittenAt?: number; rewriteCount?: number; acceptedAt?: number };
 type ProjectSession = {
   id?: string;
+  title?: string;
   projectDocument?: ProjectDocument;
   notes?: string;
   notebook?: Array<{ author: string; title: string; detail: string; accepted: boolean }>;
@@ -292,10 +293,10 @@ export default function ProjectPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: session?.projectDocument?.title,
+          title: session?.title || session?.projectDocument?.title,
           logline: session?.projectDocument?.logline,
           screenplay: screenplayDraft,
-          director: session?.secondDirector.name,
+          secondDirector: session?.secondDirector.name,
           screenwriter: session?.screenwriter.name,
         }),
       });
@@ -307,7 +308,7 @@ export default function ProjectPage() {
       const url = URL.createObjectURL(blob);
       const anchor = window.document.createElement("a");
       anchor.href = url;
-      anchor.download = `${session?.projectDocument?.title || "screenplay"} - Carabasai.pdf`;
+      anchor.download = `${session?.title || session?.projectDocument?.title || "screenplay"} - Carabasai.pdf`;
       anchor.style.display = "none";
       window.document.body.appendChild(anchor);
       anchor.click();

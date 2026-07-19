@@ -10,7 +10,7 @@ type Payload = {
   title?: string;
   logline?: string;
   screenplay?: string;
-  director?: string;
+  secondDirector?: string;
   screenwriter?: string;
 };
 
@@ -23,8 +23,9 @@ function fontBuffer(packagePath: string) {
 }
 
 export async function POST(request: Request) {
+  let authenticated: Awaited<ReturnType<typeof authenticateAiRequest>>;
   try {
-    await authenticateAiRequest(request);
+    authenticated = await authenticateAiRequest(request);
   } catch (error) {
     const accessError = error instanceof AiAccessError ? error : new AiAccessError("PDF EXPORT ACCESS FAILED.", 401);
     return NextResponse.json({ error: accessError.message }, { status: accessError.status });
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
   if (!body.screenplay?.trim()) return NextResponse.json({ error: "SCREENPLAY IS EMPTY." }, { status: 400 });
 
   const title = body.title?.trim() || "UNTITLED SCREENPLAY";
+  const director = String(authenticated.user.user_metadata.full_name ?? "").trim()
+    || authenticated.user.email?.split("@")[0]
+    || "NOT SPECIFIED";
   const screenplay = body.screenplay.replace(/\r\n/g, "\n");
   const chunks: Buffer[] = [];
   const document = new PDFDocument({ size: "A4", margins: { top: 62, right: 58, bottom: 62, left: 58 }, bufferPages: true, info: { Title: title, Author: body.screenwriter || "Carabasai Studio", Creator: "Carabasai Studio" } });
@@ -46,7 +50,7 @@ export async function POST(request: Request) {
   document.registerFont("Carabasai", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSans.ttf"));
   document.registerFont("CarabasaiBold", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf"));
   document.registerFont("Screenplay", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf"));
-  const logo = readFileSync(join(process.cwd(), "public", "apple-touch-icon-carabasai-v2.png"));
+  const logo = readFileSync(join(process.cwd(), "public", "carabasai-pdf-logo-transparent.png"));
 
   document.rect(0, 0, 595.28, 841.89).fill("#090909");
   document.rect(0, 0, 595.28, 14).fill("#FFDF00");
@@ -57,9 +61,11 @@ export async function POST(request: Request) {
   document.fillColor("#9A9A9A").font("Carabasai").fontSize(11).text(body.logline?.trim() || "A CARABASAI STUDIO SCREENPLAY.", 58, 274, { width: 420, lineGap: 5 });
   document.moveTo(58, 590).lineTo(537, 590).lineWidth(0.7).strokeColor("#353535").stroke();
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("DIRECTOR", 58, 620, { characterSpacing: 1.4 });
-  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.director?.trim() || "NOT SPECIFIED", 58, 637);
-  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SCREENWRITER", 300, 620, { characterSpacing: 1.4 });
-  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.screenwriter?.trim() || "NOT SPECIFIED", 300, 637);
+  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(director, 58, 637, { width: 145 });
+  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SECOND DIRECTOR", 220, 620, { characterSpacing: 1.4 });
+  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.secondDirector?.trim() || "NOT SPECIFIED", 220, 637, { width: 145 });
+  document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SCREENWRITER", 382, 620, { characterSpacing: 1.4 });
+  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.screenwriter?.trim() || "NOT SPECIFIED", 382, 637, { width: 155 });
   document.fillColor("#555555").font("Carabasai").fontSize(7).text(`GENERATED ${new Date().toISOString().slice(0, 10)}`, 58, 760);
 
   document.addPage();
