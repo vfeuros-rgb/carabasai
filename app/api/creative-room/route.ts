@@ -27,6 +27,7 @@ type CreativeSession = {
   secondDirector: CreativeAgent;
   screenwriter: CreativeAgent;
   references: Array<{ name: string; type: string; size: number }>;
+  screenplay?: string;
 };
 
 function extractOutputText(response: {
@@ -164,6 +165,11 @@ ${session.notes}
 CURRENT ACCEPTED PROJECT NOTEBOOK:
 ${(body.notebook ?? []).map((note) => `${note.title ?? "DECISION"}: ${note.detail ?? ""}`).join("\n") || "NO ACCEPTED STORY DECISIONS YET"}
 
+PROJECT PHASE:
+${session.screenplay
+  ? "THE FINAL SCREENPLAY ALREADY EXISTS. THIS CHAT IS CONSULTATION ONLY. Answer questions and discuss the existing project, but do not formulate new project decisions, do not update the Project Notebook, do not promise to revise the screenplay and do not tell the Director that you changed it. The Director alone edits the screenplay from this point onward."
+  : "THE SCREENPLAY HAS NOT BEEN CREATED YET. Develop decisions for the screenplay brief normally."}
+
 ATTACHED REFERENCE FILENAMES:
 ${references}
 
@@ -237,6 +243,7 @@ LIVE GROUP-CHAT RULES:
 - Do not finalize a treatment until the Director explicitly asks for it.
 
 PROJECT NOTEBOOK:
+- If the final screenplay already exists, return an empty notes array. The notebook is permanently closed for this project.
 - Extract only concrete project decisions or promising discoveries from this turn.
 - Notes are proposals for the Director to approve, not established facts.
 - Each note must be a screenplay input, never an explanation of the discussion.
@@ -401,7 +408,7 @@ PROJECT NOTEBOOK:
         content: message.content.replaceAll("—", ",").trim(),
       }))
       .filter((message) => message.content.length > 0);
-    const notes = (parsed.notes ?? [])
+    const notes = (session.screenplay ? [] : (parsed.notes ?? []))
       .filter((note) => enabledAgents.includes(note.author))
       .map((note) => ({
         ...note,

@@ -628,6 +628,7 @@ export default function CreativeRoomPage() {
   }
 
   function toggleNote(id: string) {
+    if (session?.screenplay) return;
     setNotebook((current) =>
       current.map((note) =>
         note.id === id ? { ...note, accepted: !note.accepted } : note
@@ -641,6 +642,7 @@ export default function CreativeRoomPage() {
   const hasIdeaDecision = [...acceptedNoteTitles].some((title) => IDEA_NOTE_TITLES.has(title));
   const hasSubstantiveInitialBrief = Boolean(session?.notes.trim().replace(/\s+/g, " ").length && session.notes.trim().replace(/\s+/g, " ").length >= 20);
   const canContinueToScreenplay = hasSubstantiveInitialBrief && acceptedNotes.length >= 3 && hasHeroDecision && hasIdeaDecision;
+  const screenplayReady = Boolean(session?.screenplay);
 
   if (!session) {
     return (
@@ -820,11 +822,11 @@ export default function CreativeRoomPage() {
           <div className="hidden h-[440px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:flex">
             <div className="flex shrink-0 items-center justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
-                  PROJECT NOTEBOOK
+              <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#FFDF00]">
+                  {screenplayReady ? "PROJECT NOTEBOOK · CLOSED" : "PROJECT NOTEBOOK"}
                 </p>
                 <p className="mt-2 text-[9px] uppercase leading-5 text-white/30">
-                  APPROVE IDEAS THAT SHOULD MOVE FORWARD
+                  {screenplayReady ? "LOCKED AFTER FINAL SCREENPLAY" : "APPROVE IDEAS THAT SHOULD MOVE FORWARD"}
                 </p>
               </div>
               <span className="text-[10px] font-black text-white/35">
@@ -844,8 +846,9 @@ export default function CreativeRoomPage() {
                     <button
                       key={note.id}
                       type="button"
+                      disabled={screenplayReady}
                       onClick={() => toggleNote(note.id)}
-                      className={`w-full cursor-pointer rounded-[16px] border p-3 text-left transition ${
+                      className={`w-full rounded-[16px] border p-3 text-left transition ${screenplayReady ? "cursor-default opacity-65" : "cursor-pointer"} ${
                         note.accepted
                           ? "border-[#FFDF00]/35 bg-[#FFDF00]/8"
                           : "border-white/10 bg-black/20"
@@ -923,6 +926,7 @@ export default function CreativeRoomPage() {
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#FFDF00]">CREATIVE DEVELOPMENT</p>
               <h1 className="mt-1 text-lg font-black uppercase tracking-[-0.04em] sm:mt-2 sm:text-3xl">DEVELOP THE TREATMENT WITH YOUR TEAM.</h1>
+              {screenplayReady && <div className="mt-3 border-l-2 border-[#FFDF00] pl-3"><p className="text-[10px] font-black text-[#FFDF00]">SCREENPLAY IS READY</p><p className="mt-1 text-[10px] leading-5 text-white/40">Creative development is closed. You can continue consulting the agents, but the notebook is locked and only you can edit the screenplay.</p></div>}
               {relationship && (
                 <div className="group relative mt-2 inline-flex sm:mt-4">
                   <span className="cursor-help rounded-full border border-[#FFDF00]/25 bg-[#FFDF00]/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-[#FFDF00] sm:px-4 sm:py-2 sm:text-[9px]">
@@ -1091,7 +1095,7 @@ export default function CreativeRoomPage() {
                   </svg>
                 </button>
                 <AIProviderSwitch />
-                <button type="button" onClick={() => void confirmProjectDocument()} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>
+                {!screenplayReady && <button type="button" onClick={() => void confirmProjectDocument()} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>}
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
@@ -1107,8 +1111,8 @@ export default function CreativeRoomPage() {
             <section className="fixed bottom-24 left-3 right-3 z-[95] max-h-[58vh] overflow-hidden rounded-[22px] border border-[#FFDF00]/25 bg-[#0B0B0B] shadow-[0_-20px_60px_rgba(0,0,0,0.75)] lg:hidden" aria-label="Project notebook">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
                 <div>
-                  <p className="text-[10px] font-black tracking-[0.15em] text-[#FFDF00]">PROJECT NOTEBOOK</p>
-                  <p className="mt-1 text-[8px] uppercase text-white/30">SELECT IDEAS TO MOVE FORWARD</p>
+                  <p className="text-[10px] font-black tracking-[0.15em] text-[#FFDF00]">{screenplayReady ? "PROJECT NOTEBOOK · CLOSED" : "PROJECT NOTEBOOK"}</p>
+                  <p className="mt-1 text-[8px] uppercase text-white/30">{screenplayReady ? "LOCKED AFTER FINAL SCREENPLAY" : "SELECT IDEAS TO MOVE FORWARD"}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[9px] font-black text-white/35">{notebook.filter((note) => note.accepted).length}/{notebook.length}</span>
@@ -1117,7 +1121,7 @@ export default function CreativeRoomPage() {
               </div>
               <div className="max-h-[calc(58vh-72px)] space-y-2 overflow-y-auto p-3">
                 {notebook.length === 0 ? <p className="p-4 text-[9px] uppercase leading-5 text-white/25">USEFUL DECISIONS WILL APPEAR HERE DURING THE CONVERSATION.</p> : notebook.map((note) => {
-                  return <button key={note.id} type="button" onClick={() => toggleNote(note.id)} className={`w-full rounded-[15px] border p-3 text-left transition ${note.accepted ? "border-[#FFDF00]/40 bg-[#FFDF00]/8" : "border-white/10 bg-white/[0.025]"}`}>
+                  return <button key={note.id} type="button" disabled={screenplayReady} onClick={() => toggleNote(note.id)} className={`w-full rounded-[15px] border p-3 text-left transition ${screenplayReady ? "cursor-default opacity-65" : ""} ${note.accepted ? "border-[#FFDF00]/40 bg-[#FFDF00]/8" : "border-white/10 bg-white/[0.025]"}`}>
                     <div className="flex items-start gap-3">
                       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] ${note.accepted ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/20 text-transparent"}`}>✓</span>
                       <div className="min-w-0">

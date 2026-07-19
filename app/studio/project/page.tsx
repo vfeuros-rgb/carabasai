@@ -237,7 +237,7 @@ export default function ProjectPage() {
     const confirmed = await platformConfirm({
       eyebrow: "SCREENPLAY",
       title: "CREATE FINAL SCREENPLAY?",
-      message: "The approved screenplay brief will be used to write the final screenplay. When generation is complete, this workspace becomes the editable script.",
+      message: "The approved brief will be used to create this project's one final screenplay. After it is ready, creative development and the Project Notebook will be locked. The agents remain available for consultation, but they will not change the screenplay. All further edits are made by you in the screenplay editor.",
       confirmLabel: "CREATE SCREENPLAY",
     });
     if (!confirmed) return;
