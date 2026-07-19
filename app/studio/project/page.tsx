@@ -429,12 +429,22 @@ export default function ProjectPage() {
 
   function acceptDialogueRewrite(id: string) {
     if (!session) return;
+    const accepted = session.dialogueFeedback?.find((item) => item.id === id);
     const updated: ProjectSession = { ...session, dialogueFeedback: (session.dialogueFeedback ?? []).map((item) => item.id === id ? { ...item, acceptedAt: Date.now() } : item) };
     sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
     setActiveFeedbackId("");
+    setSelectedScriptText(null);
+    setFeedbackSentiment(null);
+    window.setTimeout(() => {
+      const textarea = screenplayRef.current;
+      if (!textarea) return;
+      const caret = Math.min(accepted?.end ?? textarea.selectionEnd, screenplayDraft.length);
+      textarea.setSelectionRange(caret, caret);
+      textarea.blur();
+    }, 0);
   }
 
   function hireCharacterCastingSpecialist() {
