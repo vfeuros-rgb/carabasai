@@ -5,6 +5,16 @@ export const maxDuration = 120;
 
 type Fragment = { id?: string; text?: string; category?: string; context?: string };
 
+function cleanReplacement(original: string, replacement: string) {
+  const source = original.trim();
+  let lines = replacement.trim().split(/\r?\n/).map((line) => line.trimEnd());
+  const cue = /^[A-ZА-ЯЁ][A-ZА-ЯЁ0-9 .'-]{1,38}$/;
+  if (!source.includes("\n")) {
+    while (lines.length > 1 && cue.test(lines[0].trim())) lines = lines.slice(1);
+  }
+  return lines.join("\n").trim();
+}
+
 export async function POST(request: Request) {
   let access;
   try {
@@ -39,7 +49,7 @@ export async function POST(request: Request) {
     required: ["rewrites"],
     additionalProperties: false,
   };
-  const system = `You are ${body.screenwriter ?? "the selected screenwriter"} acting only as a precise dialogue editor. Rewrite ONLY each supplied BAD fragment. Never rewrite its context, the scene, or the screenplay. Preserve language, screenplay formatting, speaker identity, factual meaning, character knowledge, continuity and dramatic intent. Fix the named defect with natural, playable speech or action. Return one replacement for every supplied id and no commentary.`;
+  const system = `You are ${body.screenwriter ?? "the selected screenwriter"} acting only as a precise dialogue editor. Rewrite ONLY each supplied BAD fragment. The replacement must cover exactly the same syntactic unit as the selected text. If the selection contains only spoken words, return only new spoken words: never prepend a character cue, speaker name, scene heading or formatting label. Never copy a speaker cue from read-only context. Never rewrite context, the scene, or the screenplay. Preserve language, speaker identity, factual meaning, character knowledge, continuity and dramatic intent. The replacement must materially fix the named defect rather than repeat the original unchanged. Return one replacement for every supplied id and no commentary.`;
   const input = fragments.map((item, index) => `FRAGMENT ${index + 1}\nID: ${item.id}\nDEFECT: ${item.category}\nEXACT TEXT TO REPLACE:\n${item.text}\n\nREAD-ONLY CONTEXT:\n${item.context ?? ""}`).join("\n\n---\n\n");
 
   try {
@@ -58,8 +68,13 @@ export async function POST(request: Request) {
       : data.content?.find((item: { type?: string }) => item.type === "text")?.text;
     if (!text) throw new Error("EMPTY DIALOGUE REWRITE");
     const parsed = JSON.parse(text) as { rewrites?: Array<{ id: string; replacement: string }> };
-    const allowedIds = new Set(fragments.map((item) => item.id));
-    const rewrites = (parsed.rewrites ?? []).filter((item) => allowedIds.has(item.id) && item.replacement?.trim());
+    const originals = new Map(fragments.map((item) => [item.id, item.text?.trim() ?? ""]));
+    const rewrites = (parsed.rewrites ?? []).flatMap((item) => {
+      const original = originals.get(item.id);
+      if (!original || !item.replacement?.trim()) return [];
+      const replacement = cleanReplacement(original, item.replacement);
+      return replacement && replacement !== original ? [{ ...item, replacement }] : [];
+    });
     if (!rewrites.length) throw new Error("NO VALID REPLACEMENTS RETURNED");
     return NextResponse.json({ rewrites });
   } catch (error) {

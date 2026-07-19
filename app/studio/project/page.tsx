@@ -40,6 +40,10 @@ function isUnresolvedPoint(point: string) {
   return /\?|не определ|не решен|не выбран|нужно\s+(решить|выбрать|определить|уточнить)|следует\s+(решить|выбрать|определить|уточнить)|предстоит\s+(решить|выбрать|определить)|требуется\s+(решить|выбрать|определить|уточнить)|остается\s+(решить|выбрать|определить)|пока нет|отсутствует/i.test(point);
 }
 
+function collapseDuplicateCharacterCues(screenplay: string) {
+  return screenplay.replace(/(^|\n)([A-ZА-ЯЁ][A-ZА-ЯЁ0-9 .'-]{1,38}\n)(?:\2)+/gm, "$1$2");
+}
+
 export default function ProjectPage() {
   const router = useRouter();
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -73,7 +77,14 @@ export default function ProjectPage() {
       if (restored !== tabSnapshot) sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(restored));
       setSession(restored);
       setActiveSection((current) => restored.projectDocument?.sections.some((item) => item.id === current) ? current : restored.projectDocument?.sections[0]?.id ?? "");
-      setScreenplayDraft(restored.screenplay ?? "");
+      const repairedScreenplay = restored.screenplay ? collapseDuplicateCharacterCues(restored.screenplay) : "";
+      if (restored.screenplay && repairedScreenplay !== restored.screenplay) {
+        restored.screenplay = repairedScreenplay;
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(restored));
+        const repairedHistory = getCachedProjects<ProjectSession>().filter((item) => item.id !== restored.id);
+        saveProjects([restored, ...repairedHistory].slice(0, 20));
+      }
+      setScreenplayDraft(repairedScreenplay);
       setActiveFeedbackId(restored.dialogueFeedback?.find((item) => !item.acceptedAt)?.id ?? "");
       if (restored.characterCastingSpecialist) {
         setActiveSpecialist(restored.characterCastingSpecialist);
