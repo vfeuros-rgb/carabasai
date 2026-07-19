@@ -3,7 +3,7 @@ import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 import { deriveProjectTitle } from "../../../lib/project-title";
 
 export const runtime = "nodejs";
-const COVER_MODEL = "flux-2-dev-16x9-v3";
+const COVER_MODEL = "flux-2-dev-poster-9x16-v1";
 
 async function createProjectTitle(accountId: string, apiToken: string, brief: string) {
   try {
@@ -63,22 +63,24 @@ export async function POST(request: Request) {
   }
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
+  const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
+  const posterTitle = generatedTitle.replace(/["“”«»]/g, "").trim();
   const prompt = [
-    "Create a cinematic key art image for a film project in an exact 16:9 widescreen composition.",
+    "Create premium theatrical key art as an exact vertical 9:16 film poster.",
     `The image must clearly and literally depict this exact project concept: ${brief}.`,
     "Identify the central character, action, location and genre directly from that concept. Do not replace them with a generic movie studio, camera equipment, abstract scenery or an unrelated portrait.",
-    "Show one decisive story moment with a clear focal subject and visual storytelling that makes the premise immediately recognizable.",
-    "Professional film still, specific production design, controlled dramatic lighting, coherent anatomy, believable environment.",
-    "The image must contain absolutely no text of any kind. No letters, words, numbers, titles, subtitles, captions, signs, labels, logos, brands, watermarks, credits, UI elements or typographic symbols anywhere in the image.",
-    "If the scene naturally contains a sign, screen, package, document or poster, keep its surface blank and without readable marks.",
-    "Single cinematic frame only, no poster layout, no title treatment, no borders and no collage.",
+    "Use one iconic focal image, disciplined negative space, restrained composition, controlled cinematic lighting and an expensive international film-festival finish.",
+    "Minimalist and sophisticated, not busy: no collage, no floating heads, no multiple panels, no decorative border, no streaming-service UI.",
+    posterTitle ? `A small elegant title treatment may use only this exact title: ${posterTitle}. If clean typography cannot be rendered perfectly, omit all text instead.` : "Omit all text.",
+    "No taglines, credits, billing block, release date, logos, brands, watermarks or any other words and symbols.",
+    "Keep faces, hands, anatomy, architecture and perspective coherent. The finished image must look like a costly professionally art-directed film poster, not an AI illustration or a generic template.",
   ].filter(Boolean).join(" ");
 
   const form = new FormData();
   form.append("prompt", prompt);
   form.append("steps", "20");
-  form.append("width", "1024");
-  form.append("height", "576");
+  form.append("width", "576");
+  form.append("height", "1024");
 
   const cloudflareResponse = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/black-forest-labs/flux-2-dev`,
@@ -113,7 +115,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
 
-  const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
   const { data: projectRow } = await access.supabase
     .from("projects")
     .select("project_document")

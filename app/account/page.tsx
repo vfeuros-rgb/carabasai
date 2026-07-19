@@ -13,7 +13,7 @@ import { authenticatedFetch } from "../../lib/authenticated-fetch";
 type Mode = "sign-in" | "sign-up";
 type WorkspaceActor = { image: string; actorName?: string; storagePath?: string; source?: "portfolio" | "generated" };
 type AccountSession = { id?: string; title?: string; notes?: string; startedAt?: number; favorite?: boolean; coverPath?: string; coverModel?: string; secondDirector?: { name?: string }; screenwriter?: { name?: string }; references?: { dataUrl?: string; type?: string }[]; messages?: unknown[]; notebook?: unknown[]; projectDocument?: unknown; stage?: "crew" | "dialogue" | "summary"; characterCasting?: { myCast?: WorkspaceActor[]; generationMessages?: Array<{ image?: string; candidate?: WorkspaceActor }> } };
-const CURRENT_COVER_MODEL = "flux-2-dev-16x9-v3";
+const CURRENT_COVER_MODEL = "flux-2-dev-poster-9x16-v1";
 
 export default function AccountPage() {
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -284,7 +284,7 @@ export default function AccountPage() {
       >
         <div role="button" tabIndex={0} onClick={() => { if (projectSwipeMoved.current) { projectSwipeMoved.current = false; return; } openProject(project); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openProject(project); }} className="flex min-w-0 w-full max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[20px] text-left">
           <div
-            className="flex aspect-video w-full items-center justify-center rounded-t-[20px] bg-[#101010] bg-cover bg-center"
+            className="flex aspect-[9/16] w-full items-center justify-center rounded-t-[20px] bg-[#101010] bg-cover bg-center"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           >
             {!image && <span className="px-3 text-center text-[7px] font-black tracking-[0.12em] text-white/20">GENERATING COVER...</span>}
@@ -434,7 +434,7 @@ export default function AccountPage() {
         </section>
         {message && <p className="mt-6 text-[10px] leading-5 text-white/50">{message}</p>}
       </div>
-      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
+      {projectsOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-6"><button aria-label="Close projects" onClick={() => setProjectsOpen(false)} className="absolute inset-0"/><div className="relative max-h-[86vh] w-full max-w-6xl overflow-y-auto rounded-[28px] border border-white/12 bg-[#090909] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-2xl font-black">ALL PROJECTS</h2><button onClick={() => setProjectsOpen(false)} className="h-10 w-10 rounded-full border border-white/10 text-white/50">×</button></div><div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{accountSessions.map((project, index) => renderAccountProject(project, index))}</div></div></div>}
     </section>
   </main>;
 
