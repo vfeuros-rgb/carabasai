@@ -9,6 +9,7 @@ import {
   deleteProject,
   getCachedProjects,
   projectChangeEvent,
+  renameProject,
   saveProjects,
   setProjectFavorite,
   syncProjects,
@@ -251,12 +252,10 @@ export default function StudioSidebar() {
 
   function finishRename(session: SavedSession) {
     const title = editingTitle.trim();
-    if (title)
-      persist(
-        sessions.map((item) =>
-          item.id === session.id ? { ...item, title } : item,
-        ),
-      );
+    if (title && session.id) {
+      renameProject(session.id, title);
+      setSessions((current) => current.map((item) => item.id === session.id ? { ...item, title } : item));
+    }
     setEditingId(null);
   }
 

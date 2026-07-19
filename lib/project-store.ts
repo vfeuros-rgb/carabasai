@@ -211,6 +211,36 @@ export function saveProject(project: StoredProject) {
   return project;
 }
 
+export function renameProject(id: string, title: string) {
+  const nextTitle = title.trim().slice(0, 240);
+  if (!nextTitle) return null;
+  const rename = (project: StoredProject): StoredProject => {
+    if (project.id !== id) return project;
+    const projectDocument = project.projectDocument && typeof project.projectDocument === "object"
+      ? { ...(project.projectDocument as Record<string, unknown>), title: nextTitle }
+      : project.projectDocument;
+    return { ...project, title: nextTitle, projectDocument };
+  };
+  const projects = readLocal().map(rename);
+  const renamed = projects.find((project) => project.id === id) ?? null;
+  if (!renamed) return null;
+  saveProjects(projects);
+  try {
+    const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw) as StoredProject;
+      if (active.id === id) {
+        const renamedActive = rename(active);
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(renamedActive));
+        window.dispatchEvent(new Event("carabasai-active-project-change"));
+      }
+    }
+  } catch {
+    // Project history remains the source of truth if tab state is malformed.
+  }
+  return renamed;
+}
+
 export async function deleteProject(id: string) {
   const allProjects = readLocal();
   const deletedProject = allProjects.find((project) => project.id === id);

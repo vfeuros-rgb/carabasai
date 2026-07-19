@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
 import WorkflowNav from "../../components/WorkflowNav";
-import { getCachedProjects, saveProjects } from "../../../lib/project-store";
+import { getCachedProjects, renameProject, saveProjects } from "../../../lib/project-store";
 import { platformConfirm } from "../../../lib/platform-dialog";
 import { characterCastingSpecialists, type CharacterCastingSpecialist } from "../../../lib/character-casting";
 
@@ -75,6 +75,8 @@ export default function ProjectPage() {
   const [error, setError] = useState("");
   const [editingPoint, setEditingPoint] = useState("");
   const [editingValue, setEditingValue] = useState("");
+  const [editingProjectTitle, setEditingProjectTitle] = useState(false);
+  const [projectTitleDraft, setProjectTitleDraft] = useState("");
   const [highlightedPoints, setHighlightedPoints] = useState<string[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
   const [specialistRosterOpen, setSpecialistRosterOpen] = useState(false);
@@ -91,6 +93,15 @@ export default function ProjectPage() {
   const screenplayRef = useRef<HTMLTextAreaElement>(null);
   const screenplayHighlightRef = useRef<HTMLPreElement>(null);
   const feedbackNavigationRef = useRef(false);
+
+  function saveProjectTitle() {
+    if (!session?.id) return;
+    const title = projectTitleDraft.trim();
+    if (!title) return;
+    const renamed = renameProject(session.id, title) as ProjectSession | null;
+    if (renamed) setSession(renamed);
+    setEditingProjectTitle(false);
+  }
 
   useEffect(() => {
     const restore = () => {
@@ -620,7 +631,7 @@ export default function ProjectPage() {
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
         <section className="flex h-[calc(100dvh-11.25rem)] min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#090909] sm:rounded-[28px] lg:h-[calc(100dvh-12.5rem)] lg:min-h-[620px]">
-          <div className="panel-header h-[210px] shrink-0 overflow-y-auto border-b border-white/10 bg-[#353535] p-6 sm:h-[228px] sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{showScreenplay ? "FINAL SCREENPLAY" : "PROJECT SUMMARY"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
+          <div className="panel-header h-[210px] shrink-0 overflow-y-auto border-b border-white/10 bg-[#353535] p-6 sm:h-[228px] sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{showScreenplay ? "FINAL SCREENPLAY" : "PROJECT SUMMARY"}</p><div className="mt-3 flex items-center gap-3">{editingProjectTitle ? <input autoFocus value={projectTitleDraft} onChange={(event) => setProjectTitleDraft(event.target.value)} onBlur={saveProjectTitle} onKeyDown={(event) => { if (event.key === "Enter") saveProjectTitle(); if (event.key === "Escape") setEditingProjectTitle(false); }} className="min-w-0 flex-1 border-b border-[#FFDF00]/50 bg-transparent text-3xl font-black tracking-[-0.04em] text-white outline-none sm:text-5xl" /> : <><h1 className="min-w-0 truncate text-3xl font-black tracking-[-0.04em] sm:text-5xl">{session.title || document.title}</h1><button type="button" onClick={() => { setProjectTitleDraft(session.title || document.title); setEditingProjectTitle(true); }} className="shrink-0 text-sm text-white/25 hover:text-[#FFDF00]" aria-label="Edit project title">✎</button></>}</div><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
           <div className="flex gap-2 overflow-x-auto border-b border-white/10 bg-[#303030] p-3 sm:px-6">
             {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${item.id === activeSection ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
             {session.screenplay && <button type="button" onClick={() => setActiveSection("screenplay")} className={`shrink-0 rounded-full px-5 py-2 text-[9px] font-black tracking-[0.1em] ${showScreenplay ? "bg-[#FFDF00] text-black shadow-[0_0_24px_rgba(255,223,0,0.2)]" : "border border-[#FFDF00]/35 text-[#FFDF00]"}`}>SCREENPLAY</button>}
