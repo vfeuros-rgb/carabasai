@@ -298,6 +298,24 @@ export default function CreativeRoomPage() {
   }, []);
 
   useEffect(() => {
+    const restoreCloudActiveProject = () => {
+      const storedSession = sessionStorage.getItem("carabasaiCreativeSession");
+      if (!storedSession) return;
+      try {
+        const restored = JSON.parse(storedSession) as CreativeSession;
+        setSession(restored);
+        setNotebook(restored.notebook ?? []);
+        setMessages(restored.messages ?? []);
+        hasStarted.current = Boolean(restored.messages?.length);
+      } catch {
+        // Ignore an incomplete tab snapshot; the cloud cache remains intact.
+      }
+    };
+    window.addEventListener("carabasai-active-project-change", restoreCloudActiveProject);
+    return () => window.removeEventListener("carabasai-active-project-change", restoreCloudActiveProject);
+  }, []);
+
+  useEffect(() => {
     if (!session) return;
     const savedSession = { ...session, notebook, messages };
     sessionStorage.setItem(

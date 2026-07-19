@@ -19,6 +19,8 @@ export type StoredProject = {
   [key: string]: unknown;
 };
 
+type ProjectMediaNode = Record<string, unknown>;
+
 const STORAGE_KEY = "carabasaiSessionHistory";
 export const ACTIVE_PROJECT_KEY = "carabasaiActiveProjectId";
 const CHANGE_EVENT = "carabasai-projects-change";
@@ -51,6 +53,57 @@ function readLocal(): StoredProject[] {
   } catch {
     return [];
   }
+}
+
+function collectStoragePaths(value: unknown, paths: Set<string>) {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectStoragePaths(item, paths));
+    return;
+  }
+  const node = value as ProjectMediaNode;
+  if (typeof node.storagePath === "string" && node.storagePath) paths.add(node.storagePath);
+  Object.values(node).forEach((item) => collectStoragePaths(item, paths));
+}
+
+function restoreMediaUrls(value: unknown, urls: Map<string, string>) {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => restoreMediaUrls(item, urls));
+    return;
+  }
+  const node = value as ProjectMediaNode;
+  if (typeof node.storagePath === "string") {
+    const url = urls.get(node.storagePath);
+    if (url) node.image = url;
+  }
+  const candidate = node.candidate;
+  if (candidate && typeof candidate === "object") {
+    const candidatePath = (candidate as ProjectMediaNode).storagePath;
+    if (typeof candidatePath === "string") {
+      const url = urls.get(candidatePath);
+      if (url) node.image = url;
+    }
+  }
+  Object.values(node).forEach((item) => restoreMediaUrls(item, urls));
+}
+
+async function hydrateProjectMedia(projects: StoredProject[], supabase: ReturnType<typeof createClient>) {
+  const paths = new Set<string>();
+  projects.forEach((project) => collectStoragePaths(project, paths));
+  if (!paths.size) return projects;
+  const pathList = [...paths];
+  const { data, error } = await supabase.storage.from("carabasai-media").createSignedUrls(pathList, 60 * 60 * 24 * 7);
+  if (error) {
+    console.error("Project media URL refresh failed", error);
+    return projects;
+  }
+  const urls = new Map<string, string>();
+  data?.forEach((item, index) => {
+    if (item.signedUrl) urls.set(pathList[index], item.signedUrl);
+  });
+  projects.forEach((project) => restoreMediaUrls(project, urls));
+  return projects;
 }
 
 function readPendingIds() {
@@ -189,6 +242,7 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
       projectDocument: row.stage === "summary" ? row.project_document : undefined,
     };
   });
+  await hydrateProjectMedia(remote, supabase);
   // The database is authoritative. Only projects explicitly changed on this
   // device may be uploaded; stale local copies must never resurrect deletions.
   const pending = readPendingIds();
@@ -207,6 +261,19 @@ export async function syncProjects<T extends StoredProject = StoredProject>(): P
     return Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0);
   });
   cacheProjects(merged);
+  try {
+    const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw) as StoredProject;
+      const remoteActive = merged.find((project) => project.id === active.id);
+      if (remoteActive && active.id && !pending.has(active.id)) {
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(remoteActive));
+        window.dispatchEvent(new Event("carabasai-active-project-change"));
+      }
+    }
+  } catch {
+    // A malformed tab-only session must not block account cloud sync.
+  }
   return merged as T[];
 }
 

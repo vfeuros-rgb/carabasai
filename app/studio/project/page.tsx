@@ -62,18 +62,21 @@ export default function ProjectPage() {
   const screenplayRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("carabasaiCreativeSession");
-    if (!stored) return;
-    const restored = JSON.parse(stored) as ProjectSession;
-    // This document is restored once from browser-only session storage.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSession(restored);
-    setActiveSection(restored.projectDocument?.sections[0]?.id ?? "");
-    setScreenplayDraft(restored.screenplay ?? "");
-    if (restored.characterCastingSpecialist) {
-      setActiveSpecialist(restored.characterCastingSpecialist);
-      setSelectedDepartments(["CHARACTER CASTING"]);
-    }
+    const restore = () => {
+      const stored = sessionStorage.getItem("carabasaiCreativeSession");
+      if (!stored) return;
+      const restored = JSON.parse(stored) as ProjectSession;
+      setSession(restored);
+      setActiveSection((current) => restored.projectDocument?.sections.some((item) => item.id === current) ? current : restored.projectDocument?.sections[0]?.id ?? "");
+      setScreenplayDraft(restored.screenplay ?? "");
+      if (restored.characterCastingSpecialist) {
+        setActiveSpecialist(restored.characterCastingSpecialist);
+        setSelectedDepartments(["CHARACTER CASTING"]);
+      }
+    };
+    queueMicrotask(restore);
+    window.addEventListener("carabasai-active-project-change", restore);
+    return () => window.removeEventListener("carabasai-active-project-change", restore);
   }, []);
 
   if (!session?.projectDocument) {
