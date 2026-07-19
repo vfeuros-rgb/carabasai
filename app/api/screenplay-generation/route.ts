@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest, consumeAiQuota } from "../../../lib/ai-access";
+import { retrieveDialogueReferences, retrieveSceneReferences, vectorizeIsConfigured } from "../../../lib/screenplay-vectorize";
 
 export const maxDuration = 300;
 
@@ -151,27 +152,40 @@ export async function POST(request: Request) {
       `${index + 1}. ${item.sentiment?.toUpperCase()} / ${item.category}: ${item.text}`
     ).join("\n");
     const tags = writer.retrieval?.function_tags ?? ["inciting_incident", "turning_point", "climax"];
-    const referenceResponsesPromise = serviceUrl ? Promise.all(tags.map((functionTag) => fetch(`${serviceUrl}/retrieve`, {
-      method: "POST",
-      headers: serviceHeaders(),
-      body: JSON.stringify({ query: brief, genre: body.genre || "drama", function_tag: functionTag, limit: 2 }),
-      signal: controller.signal,
-    }))) : Promise.resolve([]);
-    const dialogueResponsePromise = serviceUrl ? fetch(`${serviceUrl}/retrieve-dialogues`, {
-      method: "POST",
-      headers: serviceHeaders(),
-      body: JSON.stringify({ query: brief, genre: body.genre || "drama", limit: 6 }),
-      signal: controller.signal,
-    }) : null;
+    const selectedGenre = (body.genre || "drama").toLowerCase();
+    const referenceGroupsPromise = serviceUrl
+      ? Promise.all(tags.map(async (functionTag) => {
+        const response = await fetch(`${serviceUrl}/retrieve`, {
+          method: "POST",
+          headers: serviceHeaders(),
+          body: JSON.stringify({ query: brief, genre: selectedGenre, function_tag: functionTag, limit: 2 }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("SCREENPLAY REFERENCE INDEX IS UNAVAILABLE.");
+        return response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>;
+      }))
+      : vectorizeIsConfigured()
+        ? Promise.all(tags.map((functionTag) => retrieveSceneReferences(brief, selectedGenre, functionTag, 2, controller.signal)))
+        : Promise.resolve([]);
+    const dialogueReferencesPromise = serviceUrl
+      ? (async () => {
+        const response = await fetch(`${serviceUrl}/retrieve-dialogues`, {
+          method: "POST",
+          headers: serviceHeaders(),
+          body: JSON.stringify({ query: brief, genre: selectedGenre, limit: 6 }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
+        return response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>;
+      })()
+      : vectorizeIsConfigured()
+        ? retrieveDialogueReferences(brief, selectedGenre, 6, controller.signal)
+        : Promise.resolve([]);
     const voiceBiblePromise = complete(writer, `Create a compact VOICE BIBLE for every speaking character implied by this project. For each character define: objective, hidden intention, vocabulary, sentence length, evasion strategy, pressure behaviour, forbidden words and one speech habit. Make voices clearly distinguishable and playable by actors. Do not write screenplay scenes yet.\n\n${brief}`, controller.signal);
     const dialoguePlanPromise = complete(writer, `Do not write dialogue or screenplay prose. Build a DIALOGUE LOGIC PLAN for every expected scene. Reject any scene whose physical or causal logic is unsupported. For each scene provide: interaction type, why the characters are physically present, why they cannot simply leave, objective and hidden intention of each speaker, knowledge ledger showing what each person knows and how they learned it, secrets, physical activity, power at start and end, concrete scene result, and a turn-by-turn simulation containing only speaker + action verb + intended effect. Every planned line must have a playable action verb such as test, evade, force, conceal, accuse or reassure. Mark continuity risks explicitly.\n\n${brief}`, controller.signal);
-    const [referenceResponses, dialogueResponse, voiceBible, dialoguePlan] = await Promise.all([
-      referenceResponsesPromise, dialogueResponsePromise, voiceBiblePromise, dialoguePlanPromise,
+    const [referenceGroups, dialogueReferences, voiceBible, dialoguePlan] = await Promise.all([
+      referenceGroupsPromise, dialogueReferencesPromise, voiceBiblePromise, dialoguePlanPromise,
     ]);
-    if (referenceResponses.some((response) => !response.ok)) throw new Error("SCREENPLAY REFERENCE INDEX IS UNAVAILABLE.");
-    if (dialogueResponse && !dialogueResponse.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
-    const referenceGroups = await Promise.all(referenceResponses.map((response) => response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>));
-    const dialogueReferences = dialogueResponse ? await dialogueResponse.json() as Array<{ text: string; metadata: Record<string, unknown> }> : [];
     const maxReferenceChars = writer.retrieval?.max_reference_chars ?? 14000;
     const references = referenceGroups.flat().map((scene, index) =>
       `REFERENCE ${index + 1}: ${scene.metadata.source_file}, scene ${scene.metadata.scene_number}, ${scene.metadata.function_tag}\n${scene.text}`
