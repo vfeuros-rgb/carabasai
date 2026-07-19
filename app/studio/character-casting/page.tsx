@@ -80,6 +80,10 @@ type CastingSession = StoredProject & {
   characterCastingSpecialist?: CharacterCastingSpecialist;
   characterCasting?: CastingState;
 };
+type CastingProjectDocument = {
+  logline?: string;
+  sections?: Array<{ id?: string; title?: string; points?: string[] }>;
+};
 type BusyMode = "summary" | "reply" | "generation" | null;
 type ImageModelId =
   | "gemini-3.1-flash-image"
@@ -99,6 +103,28 @@ const imageModels: Array<{
 ];
 
 const uid = () => crypto.randomUUID();
+
+function buildCastingBrief(projectDocument: unknown) {
+  if (!projectDocument || typeof projectDocument !== "object") return {};
+  const document = projectDocument as CastingProjectDocument;
+  const allowedSections = new Set([
+    "brief", "concept", "characters", "character", "portraits",
+    "production", "visual", "sound", "requirements",
+  ]);
+  const sections = (document.sections ?? [])
+    .filter((section) => {
+      const key = `${section.id ?? ""} ${section.title ?? ""}`.toLowerCase();
+      return [...allowedSections].some((allowed) => key.includes(allowed));
+    })
+    .map((section) => ({
+      id: section.id,
+      points: (section.points ?? []).slice(0, 8),
+    }));
+  return {
+    logline: document.logline?.slice(0, 500),
+    sections,
+  };
+}
 
 function normalizeRoleKey(member: CastMember) {
   return (member.role || member.name)
@@ -639,10 +665,7 @@ export default function CharacterCastingPage() {
         signal: AbortSignal.timeout(65000),
         body: JSON.stringify({
           provider,
-          summary: {
-            projectDocument: current.projectDocument,
-            screenplay: current.screenplay,
-          },
+          castingBrief: buildCastingBrief(current.projectDocument),
           specialist,
           messages: nextMessages.map(({ role, content }) => ({
             role,
@@ -726,7 +749,7 @@ export default function CharacterCastingPage() {
       .catch((e: Error) => {
         setError(
           e.name === "TimeoutError"
-            ? "THE CASTING AGENT TOOK TOO LONG TO STUDY THE SUMMARY. YOU CAN STILL SEND A MESSAGE."
+            ? "THE CASTING AGENT TOOK TOO LONG TO PREPARE THE ROLE LIST. YOU CAN STILL SEND A MESSAGE."
             : e.message,
         );
         persist({
