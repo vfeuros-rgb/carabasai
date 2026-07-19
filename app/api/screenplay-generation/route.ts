@@ -34,6 +34,29 @@ type AgentProfile = {
   retrieval?: { function_tags?: string[]; max_reference_chars?: number };
 };
 
+type DialogueSituationCard = {
+  scene: string;
+  relationship: string;
+  interaction_type: string;
+  speaker_objectives: string;
+  hidden_information: string;
+  pressure: string;
+  required_outcome: string;
+  dialogue_needed: boolean;
+};
+
+function parseDialogueSituationCards(value: string): DialogueSituationCard[] {
+  try {
+    const start = value.indexOf("[");
+    const end = value.lastIndexOf("]");
+    if (start < 0 || end <= start) return [];
+    const parsed = JSON.parse(value.slice(start, end + 1)) as DialogueSituationCard[];
+    return parsed.filter((item) => item && item.dialogue_needed && item.scene && item.speaker_objectives).slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
 const STRUCTURE = `Write a 5-8 minute short film around one irreversible choice. Use a hook, disturbance, first decision, escalating obstacles, a loss of support, a climax choice and a brief visual consequence. Every scene must change goal, power, information, risk or relationship. Format with INT./EXT. sluglines, present-tense filmable action, uppercase character cues and dialogue without quotation marks.`;
 
 const BUILT_IN_PROFILES: Record<string, AgentProfile> = {
@@ -167,38 +190,51 @@ export async function POST(request: Request) {
       : vectorizeIsConfigured()
         ? Promise.all(tags.map((functionTag) => retrieveSceneReferences(brief, selectedGenre, functionTag, 2, controller.signal)))
         : Promise.resolve([]);
-    const dialogueReferencesPromise = serviceUrl
-      ? (async () => {
-        const response = await fetch(`${serviceUrl}/retrieve-dialogues`, {
-          method: "POST",
-          headers: serviceHeaders(),
-          body: JSON.stringify({ query: brief, genre: selectedGenre, limit: 6 }),
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
-        return response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>;
-      })()
-      : vectorizeIsConfigured()
-        ? retrieveDialogueReferences(brief, selectedGenre, 6, controller.signal)
-        : Promise.resolve([]);
     const voiceBiblePromise = complete(writer, `Create a compact VOICE BIBLE for every speaking character implied by this project. For each character define: objective, hidden intention, vocabulary, sentence length, evasion strategy, pressure behaviour, forbidden words and one speech habit. Make voices clearly distinguishable and playable by actors. Do not write screenplay scenes yet.\n\n${brief}`, controller.signal);
     const dialoguePlanPromise = complete(writer, `Do not write dialogue or screenplay prose. Build a DIALOGUE LOGIC PLAN for every expected scene. Reject any scene whose physical or causal logic is unsupported. For each scene provide: interaction type, why the characters are physically present, why they cannot simply leave, objective and hidden intention of each speaker, knowledge ledger showing what each person knows and how they learned it, secrets, physical activity, power at start and end, concrete scene result, and a turn-by-turn simulation containing only speaker + action verb + intended effect. Every planned line must have a playable action verb such as test, evade, force, conceal, accuse or reassure. Mark continuity risks explicitly.\n\n${brief}`, controller.signal);
-    const [referenceGroups, dialogueReferences, voiceBible, dialoguePlan] = await Promise.all([
-      referenceGroupsPromise, dialogueReferencesPromise, voiceBiblePromise, dialoguePlanPromise,
+    const [referenceGroups, voiceBible, dialoguePlan] = await Promise.all([
+      referenceGroupsPromise, voiceBiblePromise, dialoguePlanPromise,
     ]);
+    const situationCardsRaw = await complete(writer, `Return ONLY a JSON array describing the scenes in this project that genuinely require spoken dialogue. Do not include scenes where action, silence, a look or a practical gesture can carry the beat. Each object must contain: scene, relationship, interaction_type, speaker_objectives, hidden_information, pressure, required_outcome, dialogue_needed. Describe dramatic behaviour, not subject matter. The retrieval description must distinguish who wants what, what cannot be said directly, why the exchange happens now, and what changes. Maximum 8 objects.\n\nPROJECT:\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN:\n${dialoguePlan}`, controller.signal);
+    const situationCards = parseDialogueSituationCards(situationCardsRaw);
+    const retrievedBySituation = await Promise.all(situationCards.map(async (card) => {
+      const query = `SCENE: ${card.scene}\nRELATIONSHIP: ${card.relationship}\nINTERACTION: ${card.interaction_type}\nOBJECTIVES: ${card.speaker_objectives}\nHIDDEN INFORMATION: ${card.hidden_information}\nPRESSURE: ${card.pressure}\nREQUIRED CHANGE: ${card.required_outcome}`;
+      const referencesForCard = serviceUrl
+        ? await (async () => {
+          const response = await fetch(`${serviceUrl}/retrieve-dialogues`, {
+            method: "POST",
+            headers: serviceHeaders(),
+            body: JSON.stringify({ query, genre: selectedGenre, limit: 2 }),
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
+          return response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>;
+        })()
+        : vectorizeIsConfigured()
+          ? await retrieveDialogueReferences(query, selectedGenre, 2, controller.signal)
+          : [];
+      return { card, references: referencesForCard };
+    }));
+    const seenDialogueReferences = new Set<string>();
+    const dialogueReferences = retrievedBySituation.flatMap(({ card, references: matched }) => matched.flatMap((reference) => {
+      const key = `${reference.metadata.source_file ?? ""}:${reference.metadata.scene_number ?? ""}:${reference.text.slice(0, 120)}`;
+      if (seenDialogueReferences.has(key)) return [];
+      seenDialogueReferences.add(key);
+      return [{ ...reference, situation: card }];
+    })).slice(0, 12);
     const maxReferenceChars = writer.retrieval?.max_reference_chars ?? 14000;
     const references = referenceGroups.flat().map((scene, index) =>
       `REFERENCE ${index + 1}: ${scene.metadata.source_file}, scene ${scene.metadata.scene_number}, ${scene.metadata.function_tag}\n${scene.text}`
     ).join("\n\n---\n\n").slice(0, maxReferenceChars);
     const dialogueExamples = dialogueReferences.map((scene, index) =>
-      `DIALOGUE EXAMPLE ${index + 1}: ${scene.metadata.source_file}, ${scene.metadata.interaction_type}, ${scene.metadata.speakers}\n${scene.text}`
+      `DIALOGUE BEHAVIOUR REFERENCE ${index + 1}\nTARGET SCENE: ${scene.situation.scene}\nTARGET RELATIONSHIP: ${scene.situation.relationship}\nTARGET OBJECTIVES: ${scene.situation.speaker_objectives}\nTARGET HIDDEN INFORMATION: ${scene.situation.hidden_information}\nTARGET OUTCOME: ${scene.situation.required_outcome}\nSOURCE: ${scene.metadata.source_file}, ${scene.metadata.interaction_type}, ${scene.metadata.speakers}\n${scene.text}`
     ).join("\n\n---\n\n").slice(0, 12000);
 
     const draftTask = body.existingScreenplay
       ? `Rewrite the existing screenplay using the user's structured dialogue feedback. Preserve positively rated passages unless story logic requires a small adjustment. Correct negatively rated patterns throughout the entire script, not only in the quoted fragments.\n\nEXISTING SCREENPLAY:\n${body.existingScreenplay}\n\nUSER DIALOGUE FEEDBACK:\n${dialogueFeedback || "No structured feedback supplied."}`
       : "Create the complete first draft.";
-    const draft = await complete(writer, `${draftTask} Learn structural principles from references but never copy their wording, characters, dialogue or unique situations. Follow the approved logic plan. Every line of dialogue must perform its assigned action, answer or evade the previous beat, and change information, power, risk or relationship. Prefer playable action and subtext over stated emotion. If the logic plan marks a scene unsupported, repair its premise before writing it.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nSCENE REFERENCES:\n${references}\n\nDIALOGUE REFERENCES — study function and rhythm only, never copy wording:\n${dialogueExamples}`, controller.signal);
-    const screenplay = await complete(writer, `Produce the final shooting-ready screenplay from the draft. Perform the dialogue and production checks silently inside this single pass; do not output notes, scores, audits or commentary. Enforce the voice bible and knowledge ledger. Remove stated emotion, repeated shared information, interchangeable voices, non-sequiturs, literary AI phrasing and dialogue without an immediate intention. Replace dialogue with action or silence whenever stronger. Respect this director's production method: ${director.system_context}. Keep locations, blocking, sound, performance and editorial pace filmable. No character may know information they have not acquired. Read every exchange as a chain of reactions. Output only the screenplay.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nDRAFT:\n${draft}`, controller.signal);
+    const draft = await complete(writer, `${draftTask} Learn structural principles from references but never copy their wording, characters, dialogue, jokes, metaphors or unique situations. Follow the approved logic plan. A reference is evidence of behavioural mechanics only: how objective meets resistance, how information is withheld, how power shifts and how an exchange ends. Never force a conversation because a reference exists. First attempt every beat with physical behaviour or silence; write dialogue only when a speaker must affect another person and cannot achieve it without speaking. Every surviving line must perform its assigned action, answer or evade the previous beat, and change information, power, risk or relationship. Delete aphorisms, thematic statements, polished banter and lines written merely to sound clever. If the logic plan marks a scene unsupported, repair its premise before writing it.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nSCENE REFERENCES:\n${references}\n\nSITUATION-MATCHED DIALOGUE REFERENCES FROM THE 506-SCREENPLAY CORPUS — study behaviour and rhythm only, never copy wording:\n${dialogueExamples || "No suitable dialogue reference was found. Do not invent dialogue merely to fill the scene."}`, controller.signal);
+    const screenplay = await complete(writer, `Produce the final shooting-ready screenplay from the draft. Perform the dialogue and production checks silently inside this single pass; do not output notes, scores, audits or commentary. Enforce the voice bible and knowledge ledger. Remove stated emotion, repeated shared information, interchangeable voices, non-sequiturs, literary AI phrasing, aphorisms, instant intimacy, convenient answers and dialogue without an immediate intention. Run a silence test on every exchange: if deleting a line preserves the beat, delete it; if behaviour can carry the beat, replace the line with behaviour. Run an acquaintance test: no character may speak with more intimacy, insight or honesty than the established relationship permits. Respect this director's production method: ${director.system_context}. Keep locations, blocking, sound, performance and editorial pace filmable. No character may know information they have not acquired. Read every exchange as a chain of reactions. Output only the screenplay.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nDRAFT:\n${draft}`, controller.signal);
     return NextResponse.json({ screenplay, dialogue_plan: dialoguePlan, voice_bible: voiceBible, reference_count: referenceGroups.flat().length, dialogue_reference_count: dialogueReferences.length, screenwriter_profile: writer.id, director_profile: director.id });
   } catch (error) {
     const message = error instanceof Error && error.name === "AbortError"
