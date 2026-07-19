@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   document.fillColor("#9A9A9A").font("Carabasai").fontSize(11).text(body.logline?.trim() || "A CARABASAI STUDIO SCREENPLAY.", 58, 274, { width: 420, lineGap: 5 });
   document.moveTo(58, 590).lineTo(537, 590).lineWidth(0.7).strokeColor("#353535").stroke();
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("DIRECTOR", 58, 620, { characterSpacing: 1.4 });
-  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(director, 58, 637, { width: 145 });
+  document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(director.toLocaleUpperCase(), 58, 637, { width: 145 });
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SECOND DIRECTOR", 220, 620, { characterSpacing: 1.4 });
   document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.secondDirector?.trim() || "NOT SPECIFIED", 220, 637, { width: 145 });
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("SCREENWRITER", 382, 620, { characterSpacing: 1.4 });
