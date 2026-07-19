@@ -15,7 +15,7 @@ import { characterCastingSpecialists, type CharacterCastingSpecialist } from "..
 type ProjectSection = { id: string; title: string; summary: string; points: string[]; ratings?: { secondDirector: number; screenwriter: number; reason: string } };
 type OpenQuestion = { id: string; label: string; question: string };
 type ProjectDocument = { title: string; logline: string; sections: ProjectSection[]; openQuestions?: OpenQuestion[] };
-type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number; rewrittenText?: string; rewrittenAt?: number };
+type DialogueFeedback = { id: string; text: string; start: number; end: number; sentiment: "good" | "bad"; category: string; createdAt: number; previousText?: string; rewrittenText?: string; rewrittenAt?: number; rewriteCount?: number; acceptedAt?: number };
 type ProjectSession = {
   id?: string;
   projectDocument?: ProjectDocument;
@@ -60,6 +60,7 @@ export default function ProjectPage() {
   const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
   const [selectedScriptText, setSelectedScriptText] = useState<{ text: string; start: number; end: number } | null>(null);
   const [feedbackSentiment, setFeedbackSentiment] = useState<"good" | "bad" | null>(null);
+  const [activeFeedbackId, setActiveFeedbackId] = useState("");
   const screenplayRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function ProjectPage() {
       setSession(restored);
       setActiveSection((current) => restored.projectDocument?.sections.some((item) => item.id === current) ? current : restored.projectDocument?.sections[0]?.id ?? "");
       setScreenplayDraft(restored.screenplay ?? "");
+      setActiveFeedbackId(restored.dialogueFeedback?.find((item) => !item.acceptedAt)?.id ?? "");
       if (restored.characterCastingSpecialist) {
         setActiveSpecialist(restored.characterCastingSpecialist);
         setSelectedDepartments(["CHARACTER CASTING"]);
@@ -82,6 +84,18 @@ export default function ProjectPage() {
     window.addEventListener("carabasai-active-project-change", restore);
     return () => window.removeEventListener("carabasai-active-project-change", restore);
   }, []);
+
+  useEffect(() => {
+    if (!activeFeedbackId) return;
+    const item = session?.dialogueFeedback?.find((feedback) => feedback.id === activeFeedbackId);
+    const textarea = screenplayRef.current;
+    if (!item || !textarea) return;
+    const timer = window.setTimeout(() => {
+      textarea.focus({ preventScroll: true });
+      textarea.setSelectionRange(item.start, item.end);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeFeedbackId, session?.dialogueFeedback, screenplayDraft]);
 
   useEffect(() => {
     if (!session?.id || session.screenplay) return;
@@ -175,6 +189,7 @@ export default function ProjectPage() {
     const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
     saveProjects([updated, ...history].slice(0, 20));
     setSession(updated);
+    setActiveFeedbackId(feedback.id);
     void authenticatedFetch("/api/dialogue-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -189,7 +204,10 @@ export default function ProjectPage() {
     }).catch(() => undefined);
     setSelectedScriptText(null);
     setFeedbackSentiment(null);
-    screenplayRef.current?.focus();
+    window.setTimeout(() => {
+      screenplayRef.current?.focus({ preventScroll: true });
+      screenplayRef.current?.setSelectionRange(feedback.start, feedback.end);
+    }, 0);
   }
 
   function removeDialogueFeedback(id: string) {
@@ -282,11 +300,11 @@ export default function ProjectPage() {
     }
   }
 
-  async function rewriteScreenplayWithFeedback() {
+  async function rewriteScreenplayWithFeedback(onlyId?: string) {
     if (!session?.screenplay || isGeneratingScreenplay) return;
-    const pending = (session.dialogueFeedback ?? []).filter((item) => item.sentiment === "bad" && !item.rewrittenText);
+    const pending = (session.dialogueFeedback ?? []).filter((item) => item.sentiment === "bad" && !item.acceptedAt && (onlyId ? item.id === onlyId : !item.rewrittenText));
     if (!pending.length) return;
-    const confirmed = await platformConfirm({
+    const confirmed = onlyId || await platformConfirm({
       eyebrow: "DIALOGUE FEEDBACK",
       title: "REWRITE ONLY THE FLAGGED FRAGMENTS?",
       message: `The screenwriter will rewrite ${pending.length} BAD fragment${pending.length === 1 ? "" : "s"}. Every other character in the screenplay will remain unchanged.`,
@@ -330,18 +348,35 @@ export default function ProjectPage() {
       }
       if (!applied.size) throw new Error("THE FLAGGED TEXT HAS CHANGED. SELECT THE FRAGMENTS AGAIN.");
       const rewrittenAt = Date.now();
-      const updated: ProjectSession = { ...session, screenplay: patched, dialogueFeedback: (session.dialogueFeedback ?? []).map((item) => applied.has(item.id) ? { ...item, rewrittenText: applied.get(item.id), rewrittenAt } : item) };
+      const updatedFeedback = (session.dialogueFeedback ?? []).map((item) => {
+        const replacement = applied.get(item.id);
+        if (!replacement) return item;
+        const nextStart = patched.indexOf(replacement);
+        return { ...item, previousText: item.text, text: replacement, start: nextStart >= 0 ? nextStart : item.start, end: nextStart >= 0 ? nextStart + replacement.length : item.start + replacement.length, rewrittenText: replacement, rewrittenAt, rewriteCount: (item.rewriteCount ?? 0) + 1, acceptedAt: undefined };
+      });
+      const updated: ProjectSession = { ...session, screenplay: patched, dialogueFeedback: updatedFeedback };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
       setSession(updated);
       setScreenplayDraft(patched);
       setSelectedScriptText(null);
+      setActiveFeedbackId(pending[0]?.id ?? "");
     } catch (rewriteError) {
       setError(rewriteError instanceof Error ? rewriteError.message : "DIALOGUE FRAGMENTS COULD NOT BE REWRITTEN.");
     } finally {
       setIsGeneratingScreenplay(false);
     }
+  }
+
+  function acceptDialogueRewrite(id: string) {
+    if (!session) return;
+    const updated: ProjectSession = { ...session, dialogueFeedback: (session.dialogueFeedback ?? []).map((item) => item.id === id ? { ...item, acceptedAt: Date.now() } : item) };
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+    const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
+    saveProjects([updated, ...history].slice(0, 20));
+    setSession(updated);
+    setActiveFeedbackId("");
   }
 
   function hireCharacterCastingSpecialist() {
@@ -515,7 +550,7 @@ export default function ProjectPage() {
                 </div>
                 {selectedScriptText && <div className="sticky top-3 z-20 mt-4 w-fit max-w-full border border-[#FFDF00]/30 bg-[#11100a]/95 px-3 py-2 shadow-xl backdrop-blur-xl"><div className="flex min-w-0 items-center gap-3"><p className="max-w-[420px] truncate text-[9px] text-white/40">“{selectedScriptText.text.replace(/\s+/g, " ").slice(0, 140)}”</p><button type="button" onClick={() => setFeedbackSentiment("good")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "good" ? "border-emerald-400 bg-emerald-400 text-black" : "border-emerald-300/30 text-emerald-300"}`}>GOOD</button><button type="button" onClick={() => setFeedbackSentiment("bad")} className={`shrink-0 border px-3 py-1.5 text-[8px] font-black ${feedbackSentiment === "bad" ? "border-red-400 bg-red-400 text-black" : "border-red-300/30 text-red-300"}`}>BAD</button><button type="button" onClick={() => { setSelectedScriptText(null); setFeedbackSentiment(null); }} className="shrink-0 px-1 text-sm text-white/25">×</button></div>{feedbackSentiment && <div className="mt-2 flex max-w-[720px] flex-wrap gap-1.5 border-t border-white/10 pt-2">{(feedbackSentiment === "good" ? GOOD_DIALOGUE_CATEGORIES : BAD_DIALOGUE_CATEGORIES).map((category) => <button key={category} type="button" onClick={() => saveDialogueFeedback(category)} className="border border-white/10 px-2 py-1.5 text-[7px] font-black text-white/60 transition hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">{category}</button>)}</div>}</div>}
                 <textarea ref={screenplayRef} value={screenplayDraft} onSelect={captureScriptSelection} onMouseUp={captureScriptSelection} onKeyUp={captureScriptSelection} onChange={(event) => { setScreenplayDraft(event.target.value); setScreenplaySaved(false); setSelectedScriptText(null); }} spellCheck className="mt-5 h-[clamp(260px,32dvh,420px)] w-full resize-none overflow-y-scroll rounded-[20px] border border-[#FFDF00]/20 bg-black/35 p-5 font-mono text-sm leading-7 text-white/85 outline-none transition [scrollbar-color:rgba(255,223,0,0.45)_rgba(255,255,255,0.05)] [scrollbar-width:thin] focus:border-[#FFDF00]/60 sm:p-7" aria-label="Editable and scrollable screenplay. Select text to rate it." />
-                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-4 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">Only BAD fragments are rewritten. The rest of the screenplay stays unchanged.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-3 max-h-32 space-y-2 overflow-y-auto pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">{session.dialogueFeedback?.map((item) => <div key={item.id} className={`flex items-start gap-3 rounded-[12px] border px-3 py-2 ${item.rewrittenText ? "border-[#FFDF00]/45 bg-[#FFDF00]/[0.07]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${item.rewrittenText ? "bg-[#FFDF00] text-black" : item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{item.rewrittenText ? "REWRITTEN" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1"><p className={`truncate text-[10px] ${item.rewrittenText ? "text-white/30 line-through" : "text-white/40"}`}>{item.text.replace(/\s+/g, " ")}</p>{item.rewrittenText && <p className="mt-1 whitespace-pre-wrap text-[10px] leading-5 text-[#FFDF00]">{item.rewrittenText}</p>}</div><button type="button" onClick={() => removeDialogueFeedback(item.id)} className="text-sm text-white/20 hover:text-red-300">×</button></div>)}</div></section>}
+                {(session.dialogueFeedback?.length ?? 0) > 0 && <section className="mt-4 rounded-[18px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">DIALOGUE FEEDBACK · {session.dialogueFeedback?.length}</p><p className="mt-2 text-[10px] text-white/30">Marked fragments remain with the project. Rewritten text stays gold until you approve it.</p></div><button type="button" onClick={() => void rewriteScreenplayWithFeedback()} disabled={isGeneratingScreenplay || !(session.dialogueFeedback ?? []).some((item) => item.sentiment === "bad" && !item.rewrittenText && !item.acceptedAt)} className="rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black disabled:opacity-30">{isGeneratingScreenplay ? "REWRITING..." : "REWRITE BAD FRAGMENTS"}</button></div><div className="mt-3 max-h-44 space-y-2 overflow-y-auto pr-1 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">{session.dialogueFeedback?.map((item) => { const awaitingApproval = Boolean(item.rewrittenText && !item.acceptedAt); return <div key={item.id} onClick={() => setActiveFeedbackId(item.id)} className={`flex cursor-pointer items-start gap-3 rounded-[12px] border px-3 py-2 ${awaitingApproval ? "border-[#FFDF00]/60 bg-[#FFDF00]/[0.09]" : activeFeedbackId === item.id ? "border-white/25 bg-white/[0.04]" : "border-white/5"}`}><span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[7px] font-black ${awaitingApproval ? "bg-[#FFDF00] text-black" : item.acceptedAt ? "bg-white/10 text-white/45" : item.sentiment === "good" ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"}`}>{awaitingApproval ? "REWRITTEN" : item.acceptedAt ? "APPROVED" : item.sentiment.toUpperCase()} · {item.category}</span><div className="min-w-0 flex-1">{item.previousText && awaitingApproval && <p className="truncate text-[10px] text-white/25 line-through">{item.previousText.replace(/\s+/g, " ")}</p>}<p className={`mt-1 whitespace-pre-wrap text-[10px] leading-5 ${awaitingApproval ? "font-bold text-[#FFDF00]" : "text-white/45"}`}>{item.text}</p></div>{awaitingApproval ? <div className="flex shrink-0 gap-1"><button type="button" onClick={(event) => { event.stopPropagation(); acceptDialogueRewrite(item.id); }} className="border border-[#FFDF00]/50 bg-[#FFDF00] px-3 py-1.5 text-[8px] font-black text-black">OK</button><button type="button" onClick={(event) => { event.stopPropagation(); void rewriteScreenplayWithFeedback(item.id); }} disabled={isGeneratingScreenplay} className="border border-white/15 px-3 py-1.5 text-[8px] font-black text-white/60 disabled:opacity-30">AGAIN</button></div> : <button type="button" onClick={(event) => { event.stopPropagation(); removeDialogueFeedback(item.id); }} className="text-sm text-white/20 hover:text-red-300">×</button>}</div>; })}</div></section>}
                 {session.screenplayDirectorNotes && <details className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-white/40">DIRECTOR NOTES</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.screenplayDirectorNotes}</p></details>}
                 {session.dialogueAudit && <details className="mt-3 rounded-[18px] border border-[#FFDF00]/15 bg-[#FFDF00]/[0.025] p-4"><summary className="cursor-pointer text-[9px] font-black tracking-[0.12em] text-[#FFDF00]">AUTOMATIC DIALOGUE AUDIT</summary><p className="mt-4 whitespace-pre-wrap text-xs leading-6 text-white/50">{session.dialogueAudit}</p></details>}
               </div>
