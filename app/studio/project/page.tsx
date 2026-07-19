@@ -89,6 +89,7 @@ export default function ProjectPage() {
   const [activeFeedbackId, setActiveFeedbackId] = useState("");
   const screenplayRef = useRef<HTMLTextAreaElement>(null);
   const screenplayHighlightRef = useRef<HTMLPreElement>(null);
+  const feedbackNavigationRef = useRef(false);
 
   useEffect(() => {
     const restore = () => {
@@ -125,10 +126,16 @@ export default function ProjectPage() {
     const textarea = screenplayRef.current;
     if (!item || !textarea) return;
     const timer = window.setTimeout(() => {
+      feedbackNavigationRef.current = true;
       textarea.focus({ preventScroll: true });
       textarea.setSelectionRange(item.start, item.end);
+      const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight) || 28;
+      const linesBefore = screenplayDraft.slice(0, item.start).split("\n").length - 1;
+      const targetTop = Math.max(0, linesBefore * lineHeight - textarea.clientHeight * 0.42);
+      textarea.scrollTo({ top: targetTop, behavior: "smooth" });
+      window.setTimeout(() => { feedbackNavigationRef.current = false; }, 350);
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); feedbackNavigationRef.current = false; };
   }, [activeFeedbackId, session?.dialogueFeedback, screenplayDraft]);
 
   useEffect(() => {
@@ -207,6 +214,7 @@ export default function ProjectPage() {
 
   function captureScriptSelection() {
     const textarea = screenplayRef.current;
+    if (feedbackNavigationRef.current) return;
     if (!textarea || textarea.selectionStart === textarea.selectionEnd) {
       setSelectedScriptText(null);
       setFeedbackSentiment(null);
