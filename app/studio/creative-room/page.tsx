@@ -209,6 +209,7 @@ export default function CreativeRoomPage() {
   const [isBuildingDocument, setIsBuildingDocument] = useState(false);
   const [showDocumentConfirm, setShowDocumentConfirm] = useState(false);
   const [documentBuildFailed, setDocumentBuildFailed] = useState(false);
+  const [directorBriefOpen, setDirectorBriefOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const notebookScrollRef = useRef<HTMLDivElement>(null);
@@ -857,15 +858,15 @@ export default function CreativeRoomPage() {
             </div>
           </div>
 
-          <details className="director-brief-panel group overflow-hidden rounded-[20px] border border-white/10 bg-[#090909]">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 marker:hidden">
+          <section className="director-brief-panel overflow-hidden rounded-[20px] border border-white/10 bg-[#090909]">
+            <button type="button" onClick={() => setDirectorBriefOpen((current) => !current)} aria-expanded={directorBriefOpen} className="flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/45">DIRECTOR&apos;S BRIEF</p>
                 <p className="mt-1 max-w-[220px] truncate text-[9px] text-white/25">{session.notes}</p>
               </div>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-sm text-white/35 transition-transform group-open:rotate-180 group-open:border-[#FFDF00]/30 group-open:text-[#FFDF00]">⌄</span>
-            </summary>
-            <div className="max-h-72 overflow-y-auto overscroll-contain border-t border-white/8 px-5 py-4 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
+              <span className={`flex h-7 w-7 items-center justify-center rounded-full border text-sm transition-transform ${directorBriefOpen ? "rotate-180 border-[#FFDF00]/30 text-[#FFDF00]" : "border-white/10 text-white/35"}`}>⌄</span>
+            </button>
+            {directorBriefOpen && <div className="max-h-72 overflow-y-auto overscroll-contain border-t border-white/8 px-5 py-4 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
               <p className="whitespace-pre-wrap text-xs uppercase leading-6 text-white/65">{session.notes}</p>
               {session.references.length > 0 && (
                 <div className="mt-5 border-t border-white/10 pt-4">
@@ -875,8 +876,8 @@ export default function CreativeRoomPage() {
                   </div>
                 </div>
               )}
-            </div>
-          </details>
+            </div>}
+          </section>
         </aside>
 
         <section className="grid grid-cols-2 gap-1.5 lg:hidden" aria-label="Conversation participants">
