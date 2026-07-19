@@ -22,9 +22,12 @@ export const metadata: Metadata = {
   applicationName: "Studio CARABASAI",
   description: "Carabasai AI film production studio.",
   icons: {
-    icon: [{ url: "/favicon-carabasai-round.svg", type: "image/svg+xml" }],
-    shortcut: "/favicon-carabasai-round.svg",
-    apple: "/favicon-carabasai-round.svg",
+    icon: [
+      { url: "/favicon-carabasai-v2.png", type: "image/png", sizes: "32x32" },
+      { url: "/carabasai-official-logo-v2.svg", type: "image/svg+xml", sizes: "any" },
+    ],
+    shortcut: [{ url: "/favicon-carabasai-v2.png", type: "image/png", sizes: "32x32" }],
+    apple: [{ url: "/apple-touch-icon-carabasai-v2.png", type: "image/png", sizes: "180x180" }],
   },
   appleWebApp: {
     capable: true,
