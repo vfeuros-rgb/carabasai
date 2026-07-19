@@ -78,6 +78,7 @@ export default function ProjectPage() {
   const [openingCasting, setOpeningCasting] = useState(false);
   const [screenplayDraft, setScreenplayDraft] = useState("");
   const [screenplaySaved, setScreenplaySaved] = useState(false);
+  const [isDownloadingScreenplay, setIsDownloadingScreenplay] = useState(false);
   const [isGeneratingScreenplay, setIsGeneratingScreenplay] = useState(false);
   const [selectedScriptText, setSelectedScriptText] = useState<{ text: string; start: number; end: number } | null>(null);
   const [feedbackSentiment, setFeedbackSentiment] = useState<"good" | "bad" | null>(null);
@@ -249,7 +250,8 @@ export default function ProjectPage() {
   }
 
   async function downloadScreenplay() {
-    if (!screenplayDraft.trim()) return;
+    if (!screenplayDraft.trim() || isDownloadingScreenplay) return;
+    setIsDownloadingScreenplay(true);
     setError("");
     try {
       const response = await authenticatedFetch("/api/screenplay-pdf", {
@@ -272,10 +274,17 @@ export default function ProjectPage() {
       const anchor = window.document.createElement("a");
       anchor.href = url;
       anchor.download = `${session?.projectDocument?.title || "screenplay"} - Carabasai.pdf`;
+      anchor.style.display = "none";
+      window.document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => {
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }, 30_000);
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "PDF COULD NOT BE CREATED.");
+    } finally {
+      setIsDownloadingScreenplay(false);
     }
   }
 
@@ -576,7 +585,7 @@ export default function ProjectPage() {
                 <div className="shrink-0 border-b border-white/10 bg-[#0d0d0d] p-5 sm:px-8 sm:py-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">FINAL SCREENPLAY</p><h2 className="mt-2 text-2xl font-black">EDIT THE SCRIPT</h2><p className="mt-2 text-xs leading-5 text-white/35">Changes are saved to this project and remain editable.</p><p className="mt-2 text-xs font-bold leading-5 text-[#FFDF00]/70">Select any passage to mark what works or what needs improvement.</p></div>
-                  <div className="flex gap-2"><button type="button" onClick={() => void downloadScreenplay()} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00]">DOWNLOAD PDF</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
+                  <div className="flex gap-2"><button type="button" onClick={() => void downloadScreenplay()} disabled={isDownloadingScreenplay} className="rounded-full border border-white/15 px-4 py-2 text-[9px] font-black text-white/55 hover:border-[#FFDF00]/40 hover:text-[#FFDF00] disabled:opacity-40">{isDownloadingScreenplay ? "CREATING PDF..." : "DOWNLOAD PDF"}</button><button type="button" onClick={saveScreenplay} className="rounded-full bg-[#FFDF00] px-5 py-2 text-[9px] font-black text-black">{screenplaySaved ? "SAVED ✓" : "SAVE CHANGES"}</button></div>
                 </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">

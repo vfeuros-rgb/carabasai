@@ -46,12 +46,15 @@ export async function POST(request: Request) {
   document.registerFont("Carabasai", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSans.ttf"));
   document.registerFont("CarabasaiBold", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf"));
   document.registerFont("Screenplay", fontBuffer("dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf"));
+  const logo = readFileSync(join(process.cwd(), "public", "apple-touch-icon-carabasai-v2.png"));
 
   document.rect(0, 0, 595.28, 841.89).fill("#090909");
   document.rect(0, 0, 595.28, 14).fill("#FFDF00");
-  document.fillColor("#FFDF00").font("CarabasaiBold").fontSize(11).text("CARABASAI STUDIO", 58, 64, { characterSpacing: 2.1 });
+  document.image(logo, 58, 54, { width: 42, height: 42 });
+  document.fillColor("#FFDF00").font("CarabasaiBold").fontSize(11).text("CARABASAI STUDIO", 114, 68, { characterSpacing: 2.1 });
   document.fillColor("#FFFFFF").font("CarabasaiBold").fontSize(31).text(title.toUpperCase(), 58, 150, { width: 479, lineGap: 5 });
-  if (body.logline?.trim()) document.fillColor("#9A9A9A").font("Carabasai").fontSize(11).text(body.logline.trim(), 58, 265, { width: 420, lineGap: 5 });
+  document.fillColor("#FFDF00").font("CarabasaiBold").fontSize(7).text("PROJECT DESCRIPTION", 58, 252, { characterSpacing: 1.4 });
+  document.fillColor("#9A9A9A").font("Carabasai").fontSize(11).text(body.logline?.trim() || "A CARABASAI STUDIO SCREENPLAY.", 58, 274, { width: 420, lineGap: 5 });
   document.moveTo(58, 590).lineTo(537, 590).lineWidth(0.7).strokeColor("#353535").stroke();
   document.fillColor("#707070").font("CarabasaiBold").fontSize(7).text("DIRECTOR", 58, 620, { characterSpacing: 1.4 });
   document.fillColor("#FFFFFF").font("Carabasai").fontSize(10).text(body.director?.trim() || "NOT SPECIFIED", 58, 637);
