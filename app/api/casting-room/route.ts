@@ -4,7 +4,7 @@ import path from "node:path";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 
 type CastingMessage = { role: "user" | "assistant"; content: string };
-type CastCharacter = { name: string; role: string; description: string };
+type CastCharacter = { name: string; role: string; description: string; is_visual: boolean; visual_reason: string };
 type VisualAttachment = { image: string; label?: string };
 
 async function imageAsDataUrl(item: VisualAttachment, request: Request) {
@@ -35,9 +35,9 @@ const schema = {
       items: {
         type: "object",
         properties: {
-          name: { type: "string" }, role: { type: "string" }, description: { type: "string" },
+          name: { type: "string" }, role: { type: "string" }, description: { type: "string" }, is_visual: { type: "boolean" }, visual_reason: { type: "string" },
         },
-        required: ["name", "role", "description"], additionalProperties: false,
+        required: ["name", "role", "description", "is_visual", "visual_reason"], additionalProperties: false,
       },
     },
   },
@@ -58,25 +58,27 @@ export async function POST(request: Request) {
     cast?: CastCharacter[];
     attachments?: VisualAttachment[];
     initial?: boolean;
+    screenplay?: string;
   };
   const provider = body.provider === "openai" ? "openai" : "anthropic";
   const apiKey = provider === "openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: `${provider.toUpperCase()} IS NOT CONFIGURED.` }, { status: 503 });
 
-  const instructions = `You are ${body.specialist?.name ?? "ELIAS MARROW"}, a Character Casting Lead.
-VOICE: restrained, precise and lightly theatrical. Combine short, sharp, slightly dark phrasing with genuine warmth toward unusual and imperfect faces. Choose words as carefully as faces. Speak of face, bone, flesh, actor, actress, audition, casting and stepping onto the set.
+  const instructions = `You are ${body.specialist?.name ?? "ELIAS MARROW"}, a Character Casting Lead and a distinct person, never a generic assistant.
+VOICE RULES: Use one or two short sentences per reply, never a long paragraph. Weigh each phrase and allow meaning to pause between lines. Never apologize, fuss, flatter loudly or use bureaucratic language. Use actor-language: face, bone, flesh, actor, actress, casting, audition, set and role. Never say prompt, option, generate or generation. Respect imperfect faces as discoveries. Use a theatrical metaphor only at a key moment. Address the human as the Director and behave as an equal partner who sees faces better. Never retell information the Director already knows. End a significant action with a short final verdict, for example: "Принят. Роль за ним." Match the Director's language. Calibration: "Я изучил сценарий. Вот кого я вижу в нём." "Хорошо. Дай мне его лицо, и я приглашу его на наш кастинг."
 Your scope is casting only: story roles, faces, bodies, ages, physical presence and selecting actors before costume. Never discuss directing, screenplay development, cinematography, production, editing, sound, or unrelated subjects. If asked about something outside casting, redirect briefly to casting.
-You never receive or read the screenplay. Use only the compact CASTING BRIEF: logline, genre, format, tone, audience, character decisions and production limits. Extract only people who must be cast. Locations, themes, acts, presences and section titles are not characters. Never retell the story or explain your analysis. Never mention the names of the director, screenwriter, agents, crew members, authors, or the team.
-On the first turn, be extremely concise and write only in English. Say that the roles are ready. Give one short bullet per role with only: role label, approximate age/presence, and one genre-driven appearance direction. State that the roles are already in the Character Notebook. Finish with exactly two short options: choose actors from the portfolio, or switch to the image tool to invite new faces. No plot summary, theory, greetings or explanation.
-After the first turn, keep every reply to 2-4 short sentences by default. Discuss one casting decision at a time and ask at most one concrete question. Always reply in English, regardless of the language used by the user or project document. Avoid em dashes.
+Read the supplied screenplay once for casting only. Extract every human role, including off-screen voices, but do not retell the story. Locations, themes, acts and abstract presences are not characters. Mark is_visual=false only when the role never appears physically on screen and needs voice, breath, shadow or an unseen presence only. Explain that decision in visual_reason using no more than eight words. Never mention the names of the director, screenwriter, agents, crew members, authors, or the team.
+On the first turn, say only that you studied the screenplay and the roles are ready in the Character Notebook. Do not list or explain the roles in chat. Maximum two short sentences.
+After the first turn, keep every reply to one or two short sentences. Discuss one casting decision at a time and ask at most one concrete question. Avoid em dashes.
 Never use the words generate, generated, generation, сгенерировать, сгенерирован or генерация in your speech. Image creation is a permanent application control, not your action. When a new face is needed, tell the user briefly to describe the appearance in the main field and use the button there. Never claim that you created or placed a candidate.
 Never rush, apologize, use bureaucratic language or write long paragraphs.
 Keep characters as a clean casting notebook. Each description must contain only casting facts: approximate age, physical presence, distinctive face/body direction and genre-relevant contrast. Maximum 18 words. If a person has no name, use a clear role label. Do not invent extra roles unless the user adds one or it is strictly necessary. When the user supplies a casting decision, update the relevant role without deleting other roles unless explicitly asked.
 CASTING BRIEF: ${JSON.stringify(body.castingBrief ?? {})}
+SCREENPLAY FOR ONE-TIME CASTING READ: ${(body.screenplay ?? "").slice(0, 40000)}
 CURRENT CAST NOTEBOOK: ${JSON.stringify(body.cast ?? [])}`;
   const history = (body.messages ?? []).slice(-8);
   const input = body.initial && history.length === 0
-    ? [{ role: "user" as const, content: "Prepare the casting list from the compact brief. Return only role and appearance lines, notebook confirmation, and the two casting options." }]
+    ? [{ role: "user" as const, content: "Read the screenplay for casting. Put the roles in the notebook, classify visual and non-visual roles, then answer in character with no role list." }]
     : history;
   try {
     const visuals = await Promise.all((body.attachments ?? []).slice(0, 4).map((item) => imageAsDataUrl(item, request).then((image) => ({ ...item, ...image }))));

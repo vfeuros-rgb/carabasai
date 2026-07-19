@@ -35,6 +35,8 @@ type CastMember = {
   image?: string;
   storagePath?: string;
   source?: "portfolio" | "generated";
+  isVisual?: boolean;
+  visualReason?: string;
 };
 type Candidate = {
   image: string;
@@ -79,6 +81,7 @@ type CastingSession = StoredProject & {
   projectDocument?: unknown;
   characterCastingSpecialist?: CharacterCastingSpecialist;
   characterCasting?: CastingState;
+  screenplay?: string;
 };
 type CastingProjectDocument = {
   logline?: string;
@@ -666,6 +669,7 @@ export default function CharacterCastingPage() {
         body: JSON.stringify({
           provider,
           castingBrief: buildCastingBrief(current.projectDocument),
+          screenplay: initial ? current.screenplay : undefined,
           specialist,
           messages: nextMessages.map(({ role, content }) => ({
             role,
@@ -681,7 +685,7 @@ export default function CharacterCastingPage() {
       });
       const data = (await response.json()) as {
         reply?: string;
-        characters?: Array<{ name: string; role: string; description: string }>;
+        characters?: Array<{ name: string; role: string; description: string; is_visual: boolean; visual_reason: string }>;
         error?: string;
       };
       if (!response.ok || !data.reply)
@@ -693,7 +697,11 @@ export default function CharacterCastingPage() {
         (data.characters ?? []).map((item, index) => {
           return {
             id: `story-${index}-${item.name}`,
-            ...item,
+            name: item.name,
+            role: item.role,
+            description: item.description,
+            isVisual: item.is_visual,
+            visualReason: item.visual_reason,
           } as CastMember;
         }),
       );
@@ -734,6 +742,8 @@ export default function CharacterCastingPage() {
     setError("");
     void askAgent(session, [], true)
       .then(({ reply, characters: found }) => {
+        setBusyMode("reply");
+        return new Promise<void>((resolve) => window.setTimeout(resolve, 900)).then(() => {
         persist({
           ...session,
           characterCastingSpecialist: specialist,
@@ -744,6 +754,7 @@ export default function CharacterCastingPage() {
             messages: [reply],
             characters: found,
           },
+        });
         });
       })
       .catch((e: Error) => {
@@ -887,6 +898,19 @@ export default function CharacterCastingPage() {
   }
 
   async function assignCandidateToRole(member: CastMember) {
+    if (member.isVisual === false) {
+      const makeVisual = await platformConfirm({
+        eyebrow: "NON-VISUAL ROLE",
+        title: "THIS ROLE DOES NOT NEED AN ACTOR ON SCREEN",
+        message: member.visualReason || "According to the screenplay, this character is never seen. Keep the role locked or make it visual?",
+        confirmLabel: "MAKE VISUAL",
+        cancelLabel: "OK",
+      });
+      if (!makeVisual || !session) return;
+      const unlocked = characters.map((item) => item.id === member.id ? { ...item, isVisual: true } : item);
+      persist({ ...session, characterCasting: { ...casting, characters: unlocked } });
+      return;
+    }
     if (!session || !candidate) return;
     if (member.image || member.storagePath) {
       const replaceActor = await platformConfirm({
@@ -1603,12 +1627,12 @@ export default function CharacterCastingPage() {
                     ) : (
                       <button
                         type="button"
-                        disabled={generationFlow?.stage !== "hire-role" || !candidate}
+                        disabled={member.isVisual === false ? false : generationFlow?.stage !== "hire-role" || !candidate}
                         onClick={() => assignCandidateToRole(member)}
-                        title={candidate ? "Assign candidate to this role" : "No actor assigned"}
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs transition ${generationFlow?.stage === "hire-role" && candidate ? "bg-[#FFDF00]/10 text-[#FFDF00] ring-2 ring-[#FFDF00] hover:bg-[#FFDF00] hover:text-black" : "bg-white/5 text-white/45"}`}
+                        title={member.isVisual === false ? "Non-visual role. Actor assignment is locked." : candidate ? "Assign candidate to this role" : "No actor assigned"}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs transition ${member.isVisual === false ? "border border-white/10 bg-black/35 text-white/25" : generationFlow?.stage === "hire-role" && candidate ? "bg-[#FFDF00]/10 text-[#FFDF00] ring-2 ring-[#FFDF00] hover:bg-[#FFDF00] hover:text-black" : "bg-white/5 text-white/45"}`}
                       >
-                        ?
+                        {member.isVisual === false ? "🔒" : "?"}
                       </button>
                     )}
                     <div className="min-w-0 flex-1">
@@ -1647,7 +1671,7 @@ export default function CharacterCastingPage() {
                             <span>✎</span>
                           </button>
                           <p className="mt-1 truncate text-[8px] text-white/35">
-                            {member.actorName ?? "NO ACTOR"}
+                            {member.isVisual === false ? "NON-VISUAL ROLE" : member.actorName ?? "NO ACTOR"}
                           </p>
                         </>
                       )}
@@ -1841,10 +1865,11 @@ export default function CharacterCastingPage() {
                       <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1">
                         <Image src={specialist.portrait} alt={specialist.name} width={80} height={80} className="h-full w-full rounded-full object-cover object-top" />
                       </div>
-                      <h2 className="mt-5 text-lg font-black">{specialist.name.toUpperCase()} IS STUDYING THE SCRIPT.</h2>
-                      <p className="mt-3 text-[11px] leading-6 text-white/35">The casting brief and role list will appear here.</p>
+                      <h2 className="mt-5 text-lg font-black">{busyMode === "reply" ? `${specialist.name.toUpperCase()} IS TYPING...` : `${specialist.name.toUpperCase()} IS READING YOUR SCREENPLAY.`}</h2>
+                      <p className="mt-3 text-[11px] leading-6 text-white/35">{busyMode === "reply" ? "" : "He is identifying only the roles that need a face on screen."}</p>
                     </div>
                   )}
+                  {interactionMode === "specialist" && activeConversation.length > 0 && busyMode === "reply" && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-2 w-2 animate-pulse rounded-full bg-[#FFDF00]" />{specialist.name.toUpperCase()} IS TYPING...</div>}
                 </div>
               </section>
               {busyMode === "generation" && (
