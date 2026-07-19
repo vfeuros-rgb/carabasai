@@ -103,21 +103,14 @@ export default function AccountPage() {
           .map((entry) => [entry.id, entry.url])
       ));
       const invalidIds = new Set(entries.filter((entry) => !entry.valid).map((entry) => entry.id));
-      if (invalidIds.size) {
-        const repaired = getCachedProjects<AccountSession>().map((project) =>
-          project.id && invalidIds.has(project.id) ? { ...project, coverPath: undefined, coverModel: undefined } : project
-        );
-        invalidIds.forEach((id) => coverAttempts.current.delete(id));
-        saveProjects(repaired);
-        setAccountSessions(repaired);
-      }
+      invalidIds.forEach((id) => console.warn("Project cover URL is temporarily unavailable", id));
     });
     return () => { cancelled = true; };
   }, [accountSessions]);
 
   useEffect(() => {
     const project = accountSessions.find((item) =>
-      item.id && item.notes?.trim() && (!item.coverPath || item.coverModel !== CURRENT_COVER_MODEL) && !coverAttempts.current.has(item.id)
+      item.id && item.notes?.trim() && !item.coverPath && !coverAttempts.current.has(item.id)
     );
     if (!userEmail || !project?.id || !project.notes) return;
     coverAttempts.current.add(project.id);

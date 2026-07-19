@@ -63,6 +63,24 @@ export async function POST(request: Request) {
   }
   if (!brief) return NextResponse.json({ error: "PROJECT BRIEF IS REQUIRED." }, { status: 400 });
 
+  const { data: projectRow } = await access.supabase
+    .from("projects")
+    .select("title, project_document")
+    .eq("id", projectId)
+    .eq("user_id", access.user.id)
+    .maybeSingle();
+  const currentDocument = (projectRow?.project_document ?? {}) as Record<string, unknown>;
+  const currentSession = (currentDocument.carabasai_session ?? {}) as Record<string, unknown>;
+  const existingCoverPath = typeof currentSession.coverPath === "string" ? currentSession.coverPath.trim() : "";
+  if (existingCoverPath) {
+    return NextResponse.json({
+      coverPath: existingCoverPath,
+      coverModel: typeof currentSession.coverModel === "string" ? currentSession.coverModel : COVER_MODEL,
+      title: typeof currentSession.title === "string" ? currentSession.title : projectRow?.title || undefined,
+      reused: true,
+    });
+  }
+
   const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
   const prompt = [
     "Create premium theatrical key art as an exact vertical 9:16 film poster image with absolutely no text.",
@@ -114,14 +132,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
 
-  const { data: projectRow } = await access.supabase
-    .from("projects")
-    .select("project_document")
-    .eq("id", projectId)
-    .eq("user_id", access.user.id)
-    .maybeSingle();
-  const currentDocument = (projectRow?.project_document ?? {}) as Record<string, unknown>;
-  const currentSession = (currentDocument.carabasai_session ?? {}) as Record<string, unknown>;
   if (projectRow) {
     const { error: projectUpdateError } = await access.supabase
       .from("projects")

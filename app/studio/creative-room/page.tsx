@@ -223,7 +223,7 @@ export default function CreativeRoomPage() {
 
   useEffect(() => {
     if (!session?.id || !session.notes.trim()) return;
-    if (session.coverPath && session.coverModel === CURRENT_COVER_MODEL) return;
+    if (session.coverPath) return;
     if (coverGenerationStarted.current.has(session.id)) return;
 
     coverGenerationStarted.current.add(session.id);
