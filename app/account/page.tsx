@@ -254,11 +254,11 @@ export default function AccountPage() {
     const progress = project.projectDocument || project.stage === "summary" ? 70 : project.messages?.length || project.stage === "dialogue" ? 45 : project.notes ? 20 : 10;
     const reachedDialogue = Boolean(project.messages?.length || project.stage === "dialogue" || project.stage === "summary" || project.projectDocument);
     const reachedSummary = Boolean(project.projectDocument || project.stage === "summary");
-    const currentStage = reachedSummary ? "SUMMARY" : reachedDialogue ? "DIALOGUE" : "CREW SETUP";
+    const currentStage = reachedSummary ? "SCREENPLAY" : reachedDialogue ? "DIALOGUE" : "CREW SETUP";
     const stages: Array<{ id: "crew" | "dialogue" | "summary"; label: string; reached: boolean }> = [
       { id: "crew", label: "CREW SETUP", reached: true },
       { id: "dialogue", label: "DIALOGUE", reached: reachedDialogue },
-      { id: "summary", label: "SUMMARY", reached: reachedSummary },
+      { id: "summary", label: "SCREENPLAY", reached: reachedSummary },
     ];
     const image = (project.id ? projectCoverUrls[project.id] : undefined) || project.references?.find((item) => item.type?.startsWith("image/"))?.dataUrl;
     return <div key={key} className={`relative h-full min-w-0 w-full max-w-full rounded-[20px] ${deleteRevealed ? "bg-red-950/50" : favoriteRevealed ? "bg-[#FFDF00]/20" : "bg-transparent"}`}>

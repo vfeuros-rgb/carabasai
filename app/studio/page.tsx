@@ -977,7 +977,7 @@ export default function StudioPage() {
                 </div>
                 <button type="button" onClick={() => editingSessionId === saved.id ? saveSessionTitle(saved.id) : (setEditingSessionId(saved.id ?? null), setEditingTitle(!saved.title || saved.title === saved.notes.slice(0, 42) ? saved.notes : saved.title))} className="h-8 w-8 shrink-0 text-xs text-white/25 hover:text-white" aria-label={editingSessionId === saved.id ? "Save session title" : "Edit session title"}>{editingSessionId === saved.id ? "✓" : "✎"}</button>
                 <button type="button" onClick={() => setExpandedSessionId((current) => current === saved.id ? null : saved.id ?? null)} className="h-8 w-8 shrink-0 text-sm text-white/30 hover:text-white" aria-label={expandedSessionId === saved.id ? "Collapse session details" : "Expand session details"}>{expandedSessionId === saved.id ? "⌃" : "⌄"}</button>
-                {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
+                {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open screenplay">▤</button>}
                 <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 shrink-0 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20 hover:text-[#FFDF00]"}`} aria-label={saved.favorite ? "Remove from favorites" : "Add to favorites"}>★</button>
                 <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
               </div>
@@ -994,7 +994,7 @@ export default function StudioPage() {
         <div className="flex items-center gap-2 text-[9px] font-black tracking-[0.1em]">
           <span className="text-[#FFDF00]">CREW SETUP</span>
           {hasDialogueStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/creative-room")} className="text-white/45">DIALOGUE</button></>}
-          {hasSummaryStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/project")} className="text-white/45">SUMMARY</button></>}
+          {hasSummaryStage && <><span className="text-white/20">/</span><button type="button" onClick={() => router.push("/studio/project")} className="text-white/45">SCREENPLAY</button></>}
         </div>
       </header>
 
@@ -1098,19 +1098,19 @@ export default function StudioPage() {
                 <AIProviderSwitch />
               </div>
               <div className="ml-auto flex items-center gap-1.5">
-                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion} className="h-10 cursor-pointer rounded-full border border-[#FFDF00]/25 px-4 text-[8px] font-black uppercase tracking-[0.08em] text-[#FFDF00] transition hover:bg-[#FFDF00]/5 disabled:cursor-not-allowed disabled:opacity-20">
-                  {isSkippingDiscussion ? "TEAM IS BUILDING..." : "SKIP DISCUSSION →"}
-                </button>
                 <button
                   type="button"
                   onClick={() => void startCreativeSession()}
                   disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession}
-                  className="h-10 cursor-pointer rounded-full bg-[#FFDF00] px-5 text-[9px] font-black uppercase tracking-[0.1em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25"
+                  className="h-10 cursor-pointer rounded-full border border-white/10 px-4 text-[8px] font-black tracking-[0.08em] text-white/45 transition hover:border-white/25 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-20"
                 >
                   <span className="flex items-center justify-center gap-3">
                     {isStartingSession && <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/25 border-t-black" aria-hidden="true" />}
-                    {isStartingSession ? "STARTING SESSION..." : "START CREATIVE SESSION"}
+                    {isStartingSession ? "STARTING..." : "DISCUSS WITH TEAM"}
                   </span>
+                </button>
+                <button type="button" onClick={() => void skipDiscussion()} disabled={!notes.trim() || !selectedSecondDirector || !selectedScreenwriter || isSkippingDiscussion || isStartingSession} className="h-10 cursor-pointer rounded-full bg-[#FFDF00] px-5 text-[9px] font-black tracking-[0.08em] text-black transition hover:bg-[#FFE633] disabled:cursor-not-allowed disabled:opacity-25">
+                  {isSkippingDiscussion ? "TEAM IS BUILDING..." : "LET TEAM DECIDE → SCREENPLAY"}
                 </button>
               </div>
             </div>

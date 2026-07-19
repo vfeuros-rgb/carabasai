@@ -39,7 +39,7 @@ export default function WorkflowNav() {
   const steps = [
     { id: "setup", label: "Crew setup", href: "/studio", available: true },
     { id: "dialogue", label: "Dialogue", href: "/studio/creative-room", available: Boolean(progress.messages?.length) || active === "dialogue" || active === "summary" },
-    { id: "summary", label: "Summary", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
+    { id: "summary", label: "Screenplay", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
     { id: "casting", label: "Casting", href: "/studio/character-casting", available: Boolean(progress.characterCasting) || progress.stage === "casting" || active === "casting" },
   ].filter((step) => step.available);
 

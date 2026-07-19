@@ -193,8 +193,8 @@ export default function ProjectPage() {
     if (!session || isGeneratingScreenplay) return;
     const confirmed = await platformConfirm({
       eyebrow: "SCREENPLAY",
-      title: "CREATE SCREENPLAY FROM SUMMARY?",
-      message: "The approved Summary decisions will be used to create the screenplay. When generation is complete, the Summary workspace will be replaced by the editable screenplay.",
+      title: "CREATE FINAL SCREENPLAY?",
+      message: "The approved screenplay brief will be used to write the final screenplay. When generation is complete, this workspace becomes the editable script.",
       confirmLabel: "CREATE SCREENPLAY",
     });
     if (!confirmed) return;
@@ -454,7 +454,7 @@ export default function ProjectPage() {
       <WorkflowNav />
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_340px]">
         <section className="flex h-[calc(100dvh-11.25rem)] min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#090909] sm:rounded-[28px] lg:h-[calc(100dvh-12.5rem)] lg:min-h-[620px]">
-          <div className="panel-header h-[210px] shrink-0 overflow-y-auto border-b border-white/10 bg-[#353535] p-6 sm:h-[228px] sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{session.screenplay ? "FINAL SCREENPLAY" : "DIRECTOR + SCREENWRITER SUMMARY"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
+          <div className="panel-header h-[210px] shrink-0 overflow-y-auto border-b border-white/10 bg-[#353535] p-6 sm:h-[228px] sm:p-8"><p className="text-[10px] font-black tracking-[0.16em] text-[#FFDF00]">{session.screenplay ? "FINAL SCREENPLAY" : "SCREENPLAY BRIEF"}</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{document.title}</h1><p className="mt-5 max-w-3xl text-sm leading-7 text-white/55">{document.logline}</p><p className="mt-5 text-[9px] text-white/25">{session.secondDirector.name} + {session.screenwriter.name}</p></div>
           {!session.screenplay && <div className="flex gap-2 overflow-x-auto border-b border-white/10 bg-[#303030] p-3 sm:px-6">
             {document.sections.map((item) => <button key={item.id} type="button" onClick={() => setActiveSection(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black tracking-[0.1em] ${item.id === section.id ? "bg-[#FFDF00] text-black" : "border border-white/10 text-white/40"}`}>{item.title}</button>)}
           </div>}
@@ -485,7 +485,7 @@ export default function ProjectPage() {
           </div>
           {!session.screenplay && <div className="shrink-0 border-t border-white/10 bg-[#0B0B0B] px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center gap-4">
-              <p className="hidden min-w-0 flex-1 text-[10px] leading-5 text-white/35 sm:block">All Summary decisions are ready for the selected screenwriter and director.</p>
+              <p className="hidden min-w-0 flex-1 text-[10px] leading-5 text-white/35 sm:block">The screenplay brief is ready for the selected screenwriter and director.</p>
               {error && <p className="min-w-0 flex-1 truncate text-[10px] text-red-300" title={error}>{error}</p>}
               <button type="button" onClick={() => void createScreenplay()} disabled={isGeneratingScreenplay} className="ml-auto h-11 w-full shrink-0 rounded-full bg-[#FFDF00] px-6 text-[10px] font-black tracking-[0.12em] text-black shadow-[0_0_24px_rgba(255,223,0,0.12)] disabled:opacity-35 sm:w-auto sm:min-w-[280px]">{isGeneratingScreenplay ? "SCREENWRITER + DIRECTOR ARE WORKING..." : "CREATE SCREENPLAY"}</button>
             </div>

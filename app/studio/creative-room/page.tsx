@@ -648,7 +648,7 @@ export default function CreativeRoomPage() {
                     <button type="button" onClick={() => { setMobileMenuOpen(false); openSavedSession(saved); }} className="min-w-0 flex-1 px-2 py-2 text-left"><p className="truncate text-[10px] font-black text-white/70">{saved.title || saved.notes}</p><p className="mt-1 text-[8px] text-white/25">{saved.startedAt ? new Date(saved.startedAt).toLocaleDateString("en-GB") : ""}</p></button>
                   )}
                   <button type="button" onClick={() => editingSessionId === saved.id ? saveSessionTitle(saved.id) : (setEditingSessionId(saved.id ?? null), setEditingTitle(!saved.title || saved.title === saved.notes.slice(0, 42) ? saved.notes : saved.title))} className="h-8 w-7 shrink-0 text-xs text-white/30" aria-label="Edit session title">{editingSessionId === saved.id ? "✓" : "✎"}</button>
-                  {Boolean(saved.projectDocument) && <button type="button" onClick={() => { setMobileMenuOpen(false); openSavedSummary(saved); }} className="h-8 w-8 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
+                  {Boolean(saved.projectDocument) && <button type="button" onClick={() => { setMobileMenuOpen(false); openSavedSummary(saved); }} className="h-8 w-8 text-xs text-[#FFDF00]" aria-label="Open screenplay">▤</button>}
                   <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20"}`} aria-label="Favorite session">★</button>
                   <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-7 shrink-0 text-sm text-white/20" aria-label="Delete session">×</button>
                 </div>
@@ -700,7 +700,7 @@ export default function CreativeRoomPage() {
               </div>
               <button type="button" onClick={() => editingSessionId === saved.id ? saveSessionTitle(saved.id) : (setEditingSessionId(saved.id ?? null), setEditingTitle(!saved.title || saved.title === saved.notes.slice(0, 42) ? saved.notes : saved.title))} className="h-8 w-8 shrink-0 text-xs text-white/25 hover:text-white" aria-label={editingSessionId === saved.id ? "Save session title" : "Edit session title"}>{editingSessionId === saved.id ? "✓" : "✎"}</button>
               <button type="button" onClick={() => setExpandedSessionId((current) => current === saved.id ? null : saved.id ?? null)} className="h-8 w-8 shrink-0 text-sm text-white/30 hover:text-white" aria-label={expandedSessionId === saved.id ? "Collapse session details" : "Expand session details"}>{expandedSessionId === saved.id ? "⌃" : "⌄"}</button>
-              {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open summary">▤</button>}
+              {Boolean(saved.projectDocument) && <button type="button" onClick={() => openSavedSummary(saved)} className="h-8 w-8 shrink-0 text-xs text-[#FFDF00]" aria-label="Open screenplay">▤</button>}
               <button type="button" onClick={() => updateSessionHistory(saved.id, "favorite")} className={`h-8 w-8 shrink-0 text-base ${saved.favorite ? "text-[#FFDF00]" : "text-white/20 hover:text-[#FFDF00]"}`} aria-label={saved.favorite ? "Remove from favorites" : "Add to favorites"}>★</button>
               <button type="button" onClick={() => void platformConfirm({ eyebrow: "SESSION HISTORY", title: "DELETE SESSION?", message: "This creative session will be permanently removed.", confirmLabel: "DELETE SESSION", tone: "danger" }).then((confirmed) => { if (confirmed) updateSessionHistory(saved.id, "delete"); })} className="h-8 w-8 shrink-0 text-sm text-white/15 hover:text-red-300" aria-label="Delete session">×</button>
             </div>
@@ -986,7 +986,7 @@ export default function CreativeRoomPage() {
                   <div className="flex items-center gap-2 rounded-full border border-[#FFDF00]/20 bg-[#FFDF00]/5 p-1 pl-4">
                     <span className="text-[9px] font-black uppercase text-white/45">Build project document?</span>
                     <button type="button" onClick={() => setShowDocumentConfirm(false)} className="rounded-full px-3 py-2 text-[9px] font-black text-white/35">CANCEL</button>
-                    <button type="button" onClick={() => void buildProjectDocument()} disabled={isBuildingDocument} className="rounded-full bg-[#FFDF00] px-4 py-2 text-[9px] font-black text-black disabled:opacity-30">{isBuildingDocument ? "BUILDING..." : session.projectDocument ? "UPDATE SUMMARY" : "CONTINUE"}</button>
+                    <button type="button" onClick={() => void buildProjectDocument()} disabled={isBuildingDocument} className="rounded-full bg-[#FFDF00] px-4 py-2 text-[9px] font-black text-black disabled:opacity-30">{isBuildingDocument ? "BUILDING..." : session.projectDocument ? "UPDATE SCREENPLAY" : "CONTINUE"}</button>
                   </div>
               </div>
             )}
@@ -1046,7 +1046,7 @@ export default function CreativeRoomPage() {
                   </svg>
                 </button>
                 <AIProviderSwitch />
-                {notebook.some((note) => note.accepted) && <button type="button" onClick={() => setShowDocumentConfirm(true)} className="ml-auto h-8 rounded-full border border-white/10 px-3 text-[8px] font-black uppercase text-white/40">{session.projectDocument ? "UPDATE SUMMARY" : "REVIEW"} →</button>}
+                {notebook.some((note) => note.accepted) && <button type="button" onClick={() => setShowDocumentConfirm(true)} className="ml-auto h-8 rounded-full border border-white/10 px-3 text-[8px] font-black uppercase text-white/40">{session.projectDocument ? "UPDATE SCREENPLAY" : "REVIEW"} →</button>}
               <button
                 type="submit"
                 disabled={(!draft.trim() && attachments.length === 0) || isLoading}
