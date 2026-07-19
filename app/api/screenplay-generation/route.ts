@@ -147,7 +147,7 @@ export async function POST(request: Request) {
       .filter((note) => note.accepted)
       .map((note) => `${note.title ?? "Decision"}: ${note.detail ?? ""}`)
       .join("\n");
-    const brief = `DIRECTOR'S BRIEF:\n${body.brief}\n\nCREATIVE ROOM CONVERSATION:\n${conversation}\n\nAPPROVED DECISIONS:\n${approvedNotes || "None separately approved."}`;
+    const brief = `LANGUAGE RULE (HIGHEST PRIORITY): Infer the language from the original DIRECTOR'S BRIEF below. Write the voice bible, dialogue plan, draft and final screenplay entirely in that same language. Keep character names consistent. If the original brief is empty or genuinely ambiguous, use English. Never default to Russian.\n\nDIRECTOR'S BRIEF:\n${body.brief}\n\nCREATIVE ROOM CONVERSATION:\n${conversation}\n\nAPPROVED DECISIONS:\n${approvedNotes || "None separately approved."}`;
     const dialogueFeedback = (body.dialogueFeedback ?? []).map((item, index) =>
       `${index + 1}. ${item.sentiment?.toUpperCase()} / ${item.category}: ${item.text}`
     ).join("\n");

@@ -87,8 +87,8 @@ type NotebookNote = {
   accepted: boolean;
 };
 
-const HERO_NOTE_TITLES = new Set(["ГЕРОЙ", "ПРОТАГОНИСТ"]);
-const IDEA_NOTE_TITLES = new Set(["ЗАМЫСЕЛ", "ИДЕЯ", "КОНЦЕПТ", "ЛОГЛАЙН"]);
+const HERO_NOTE_TITLES = new Set(["ГЕРОЙ", "ПРОТАГОНИСТ", "HERO", "PROTAGONIST"]);
+const IDEA_NOTE_TITLES = new Set(["ЗАМЫСЕЛ", "ИДЕЯ", "КОНЦЕПТ", "ЛОГЛАЙН", "CORE IDEA", "IDEA", "CONCEPT", "LOGLINE"]);
 
 function normalizedNoteTitle(value: string) {
   return value.trim().toLocaleUpperCase("ru-RU");
@@ -510,7 +510,7 @@ export default function CreativeRoomPage() {
       id: createId(),
       role: "user",
       content:
-        "Начните рабочую сессию без философского вступления. Сначала определите, какой конкретики не хватает в брифе. Коротко назовите это и задайте один или два простых главных вопроса о проекте. Если бриф уже достаточно конкретный, предложите ближайшее практическое решение.",
+        "Start the working session without a philosophical introduction. Reply strictly in the language of the project's original brief; if that language is ambiguous, use English. First identify what concrete information is missing. Name it briefly and ask one or two essential questions. If the brief is already specific enough, propose the next practical decision.",
       hidden: true,
       attachments: session.references
         .filter((file) => file.dataUrl)
