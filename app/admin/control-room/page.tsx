@@ -4,6 +4,10 @@ import { requireAdmin } from "../../../lib/admin-access";
 export const dynamic = "force-dynamic";
 
 type State = "online" | "configured" | "attention" | "offline";
+type AdminIncident = {
+  id: string; createdAt: string; service: string; action: string; status: number; message: string;
+  userEmail?: string; projectId?: string; projectTitle?: string;
+};
 type Service = {
   name: string; purpose: string; state: State; status: string; detail: string;
   model?: string; usage?: string; cost?: string; href: string;
@@ -14,8 +18,13 @@ type Service = {
 type BillingItem = {
   name: string; purpose: string; cadence: "monthly" | "annual" | "usage" | "free";
   monthlyUsd: number; annualUsd: number; allowance: string; consumed: string; remaining: string;
-  source: "live" | "estimated" | "manual"; href: string;
+  source: "live" | "estimated" | "manual"; href: string; connected?: boolean; nextCharge?: string;
 };
+
+function envText(name: string, fallback: string) {
+  const value = process.env[name]?.trim();
+  return value || fallback;
+}
 
 async function exchangeRates() {
   const fallback = { usdPerEur: 1.1405, rubPerEur: 88.9097, asOf: "16 Jul 2026" };
@@ -85,6 +94,15 @@ export default async function AdminControlRoom() {
   ]);
 
   const projects = projectsResult.data ?? [];
+  const incidents = projects
+    .flatMap((project) => {
+      const stored = project.project_document && typeof project.project_document === "object"
+        ? (project.project_document as { admin_incidents?: AdminIncident[] }).admin_incidents
+        : [];
+      return (stored ?? []).map((incident) => ({ ...incident, projectTitle: incident.projectTitle ?? project.id }));
+    })
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 30);
   const media = mediaResult.data ?? [];
   const totalMediaBytes = media.reduce((sum, item) => sum + Number(item.size_bytes ?? 0), 0);
   const aiRequestsToday = (usageResult.data ?? []).reduce((sum, item) => sum + Number(item.request_count ?? 0), 0);
@@ -115,24 +133,30 @@ export default async function AdminControlRoom() {
   const chatGptPlusMonthlyUsd = chatGptPlusMonthlyEur * rates.usdPerEur;
   const supabaseMonthly = envMoney("SUPABASE_MONTHLY_USD");
   const vercelMonthly = envMoney("VERCEL_MONTHLY_USD", 24.40);
+  const byteplusUsageMonth = envMoney("BYTEPLUS_USAGE_MONTH_USD");
+  const geminiUsageMonth = envMoney("GEMINI_USAGE_MONTH_USD");
+  const replicateUsageMonth = envMoney("REPLICATE_USAGE_MONTH_USD");
   const godaddyAnnualEur = envMoney("GODADDY_CARABASAI_ANNUAL_EUR", 21.99) + envMoney("GODADDY_FLORIANI_ANNUAL_EUR", 21.99);
   const tildaAnnualRub = envMoney("TILDA_BUSINESS_ANNUAL_RUB", 12_000);
   const godaddyAnnual = godaddyAnnualEur * rates.usdPerEur;
   const tildaAnnualUsd = (tildaAnnualRub / rates.rubPerEur) * rates.usdPerEur;
   const billing: BillingItem[] = [
-    { name: "Cloudflare Workers AI", purpose: "Project cover generation", cadence: "monthly", monthlyUsd: cloudflareBaseMonthly + cloudflareUsageMonth, annualUsd: (cloudflareBaseMonthly + cloudflareUsageMonth) * 12, allowance: "10,000 neurons / day included", consumed: `≈ ${estimatedNeuronsToday.toLocaleString("en-US")} neurons today · ${coversThisMonth} covers this month`, remaining: `≈ ${estimatedNeuronsRemaining.toLocaleString("en-US")} neurons today`, source: "estimated", href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai" },
+    { name: "BytePlus · Seedance", purpose: "Seedance video generation", cadence: "usage", monthlyUsd: byteplusUsageMonth, annualUsd: byteplusUsageMonth * 12, allowance: "Prepaid / usage-based video API", consumed: byteplusUsageMonth ? `${money(byteplusUsageMonth)} entered this month` : "Usage not entered yet", remaining: "Balance and credits are shown in ModelArk", source: byteplusUsageMonth ? "manual" : "estimated", connected: Boolean(process.env.BYTEPLUS_API_KEY), nextCharge: envText("BYTEPLUS_NEXT_CHARGE", "Usage-based · no fixed date"), href: "https://console.byteplus.com/ark/region:ap-southeast-1/usage" },
+    { name: "Google Gemini", purpose: "Gemini and Veo generation", cadence: "usage", monthlyUsd: geminiUsageMonth, annualUsd: geminiUsageMonth * 12, allowance: "Usage-based Google AI API", consumed: geminiUsageMonth ? `${money(geminiUsageMonth)} entered this month` : "Usage not entered yet", remaining: "Check Google AI billing and quotas", source: geminiUsageMonth ? "manual" : "estimated", connected: Boolean(process.env.GEMINI_API_KEY), nextCharge: envText("GEMINI_NEXT_CHARGE", "Usage-based · provider invoice"), href: "https://console.cloud.google.com/billing" },
+    { name: "Replicate", purpose: "Image and video model inference", cadence: "usage", monthlyUsd: replicateUsageMonth, annualUsd: replicateUsageMonth * 12, allowance: "Usage-based inference", consumed: replicateUsageMonth ? `${money(replicateUsageMonth)} entered this month` : "Usage not entered yet", remaining: "Balance and usage are shown in Replicate", source: replicateUsageMonth ? "manual" : "estimated", connected: Boolean(process.env.REPLICATE_API_TOKEN), nextCharge: envText("REPLICATE_NEXT_CHARGE", "Usage-based · no fixed date"), href: "https://replicate.com/account/billing" },
+    { name: "Cloudflare Workers AI", purpose: "Project cover generation", cadence: "monthly", monthlyUsd: cloudflareBaseMonthly + cloudflareUsageMonth, annualUsd: (cloudflareBaseMonthly + cloudflareUsageMonth) * 12, allowance: "10,000 neurons / day included", consumed: `≈ ${estimatedNeuronsToday.toLocaleString("en-US")} neurons today · ${coversThisMonth} covers this month`, remaining: `≈ ${estimatedNeuronsRemaining.toLocaleString("en-US")} neurons today`, source: "estimated", connected: Boolean(process.env.CLOUDFLARE_API_TOKEN), nextCharge: envText("CLOUDFLARE_NEXT_CHARGE", "Set CLOUDFLARE_NEXT_CHARGE"), href: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai" },
     { name: "Anthropic", purpose: "Claude dialogue and documents", cadence: "usage", monthlyUsd: anthropicUsageMonth, annualUsd: anthropicUsageMonth * 12, allowance: "Usage-based API", consumed: `${providerCounts.anthropic ?? 0} projects · ${money(anthropicUsageMonth)} entered`, remaining: "Balance needs an Admin API connection", source: anthropicUsageMonth ? "manual" : "estimated", href: "https://console.anthropic.com/settings/billing" },
     { name: "OpenAI API", purpose: "GPT dialogue and documents", cadence: "usage", monthlyUsd: openAiUsageMonth, annualUsd: openAiUsageMonth * 12, allowance: "Prepaid / usage-based API", consumed: `${providerCounts.openai ?? 0} projects · ${money(openAiUsageMonth)} entered`, remaining: "Balance needs an organization Admin key", source: openAiUsageMonth ? "manual" : "estimated", href: "https://platform.openai.com/usage" },
     { name: "ChatGPT Plus", purpose: "Personal ChatGPT subscription", cadence: "monthly", monthlyUsd: chatGptPlusMonthlyUsd, annualUsd: chatGptPlusMonthlyUsd * 12, allowance: "Personal subscription · separate from the OpenAI API", consumed: `${euro(chatGptPlusMonthlyEur)} / month`, remaining: `${euro(chatGptPlusMonthlyEur * 12)} / year projection`, source: "manual", href: "https://chatgpt.com/#settings/Subscription" },
     { name: "Supabase", purpose: "Auth, database and media", cadence: supabaseMonthly ? "monthly" : "free", monthlyUsd: supabaseMonthly, annualUsd: supabaseMonthly * 12, allowance: supabaseMonthly ? "Paid plan" : "Free development plan", consumed: `${projects.length} projects · ${bytes(totalMediaBytes)}`, remaining: "Exact quotas in Supabase Usage", source: "manual", href: "https://supabase.com/dashboard" },
-    { name: "Vercel Pro", purpose: "Hosting and deployments", cadence: "monthly", monthlyUsd: vercelMonthly, annualUsd: vercelMonthly * 12, allowance: "Pro hosting plan", consumed: "$24.40 paid this month", remaining: "Cancel renewal before the next billing date", source: "manual", href: "https://vercel.com/carabasai/~/settings/billing" },
-    { name: "GoDaddy · carabasai.com", purpose: "Carabasai domain and business email", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 31 Jan 2027", consumed: "€21.99 / year", remaining: "Renew by 31 Jan 2027", source: "manual", href: "https://account.godaddy.com/products" },
-    { name: "GoDaddy · Floriani", purpose: "Other website on the same account", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 20 Apr 2027", consumed: "€21.99 / year", remaining: "Renew by 20 Apr 2027", source: "manual", href: "https://account.godaddy.com/products" },
-    { name: "Tilda Business", purpose: "Website builder subscription", cadence: "annual", monthlyUsd: tildaAnnualUsd / 12, annualUsd: tildaAnnualUsd, allowance: "Paid through 13 Oct 2027", consumed: "₽12,000 / year", remaining: "Renew by 13 Oct 2027", source: "manual", href: "https://tilda.cc/identity/plan/" },
+    { name: "Vercel Pro", purpose: "Hosting and deployments", cadence: "monthly", monthlyUsd: vercelMonthly, annualUsd: vercelMonthly * 12, allowance: "Pro hosting plan", consumed: "$24.40 paid this month", remaining: "Cancel renewal before the next billing date", source: "manual", connected: true, nextCharge: envText("VERCEL_NEXT_CHARGE", "Set VERCEL_NEXT_CHARGE"), href: "https://vercel.com/carabasai/~/settings/billing" },
+    { name: "GoDaddy · carabasai.com", purpose: "Carabasai domain and business email", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 31 Jan 2027", consumed: "€21.99 / year", remaining: "Renew by 31 Jan 2027", source: "manual", connected: true, nextCharge: "31 Jan 2027", href: "https://account.godaddy.com/products" },
+    { name: "GoDaddy · Floriani", purpose: "Other website on the same account", cadence: "annual", monthlyUsd: 21.99 * rates.usdPerEur / 12, annualUsd: 21.99 * rates.usdPerEur, allowance: "Paid through 20 Apr 2027", consumed: "€21.99 / year", remaining: "Renew by 20 Apr 2027", source: "manual", connected: true, nextCharge: "20 Apr 2027", href: "https://account.godaddy.com/products" },
+    { name: "Tilda Business", purpose: "Website builder subscription", cadence: "annual", monthlyUsd: tildaAnnualUsd / 12, annualUsd: tildaAnnualUsd, allowance: "Paid through 13 Oct 2027", consumed: "₽12,000 / year", remaining: "Renew by 13 Oct 2027", source: "manual", connected: true, nextCharge: "13 Oct 2027", href: "https://tilda.cc/identity/plan/" },
     { name: "Cloudflare Turnstile", purpose: "Bot protection", cadence: "free", monthlyUsd: 0, annualUsd: 0, allowance: "Free", consumed: "Registration and recovery", remaining: "No subscription payment", source: "live", href: "https://dash.cloudflare.com/?to=/:account/turnstile" },
   ];
   const fixedMonthly = cloudflareBaseMonthly + chatGptPlusMonthlyUsd + supabaseMonthly + vercelMonthly + godaddyAnnual / 12 + tildaAnnualUsd / 12;
-  const variableMonthly = cloudflareUsageMonth + anthropicUsageMonth + openAiUsageMonth;
+  const variableMonthly = cloudflareUsageMonth + anthropicUsageMonth + openAiUsageMonth + byteplusUsageMonth + geminiUsageMonth + replicateUsageMonth;
   const monthlyTotal = fixedMonthly + variableMonthly;
   const annualCommitted = cloudflareBaseMonthly * 12 + chatGptPlusMonthlyUsd * 12 + supabaseMonthly * 12 + vercelMonthly * 12 + godaddyAnnual + tildaAnnualUsd;
   const annualProjection = monthlyTotal * 12;
@@ -140,6 +164,30 @@ export default async function AdminControlRoom() {
   const annualProjectionEur = annualProjection / rates.usdPerEur;
 
   const services: Service[] = [
+    {
+      name: "BytePlus · Seedance", purpose: "AI video generation",
+      state: process.env.BYTEPLUS_API_KEY ? "configured" : "offline",
+      status: process.env.BYTEPLUS_API_KEY ? "API key connected" : "Not configured", detail: "Seedance video models through BytePlus ModelArk.",
+      model: "Seedance family", usage: byteplusUsageMonth ? `${money(byteplusUsageMonth)} this month` : "Usage total not connected",
+      cost: "Usage-based", launchPlan: "upgrade", launchNote: "Track credits, video jobs and model errors before launch.",
+      href: "https://console.byteplus.com/ark/region:ap-southeast-1/usage",
+    },
+    {
+      name: "Google Gemini", purpose: "Gemini and Veo models",
+      state: process.env.GEMINI_API_KEY ? "configured" : "offline",
+      status: process.env.GEMINI_API_KEY ? "API key connected" : "Not configured", detail: "Google image, reasoning and video generation.",
+      model: "Gemini / Veo", usage: geminiUsageMonth ? `${money(geminiUsageMonth)} this month` : "Usage total not connected",
+      cost: "Usage-based", launchPlan: "upgrade", launchNote: "Verify Veo quotas and billing before public video generation.",
+      href: "https://console.cloud.google.com/billing",
+    },
+    {
+      name: "Replicate", purpose: "Hosted image and video models",
+      state: process.env.REPLICATE_API_TOKEN ? "configured" : "offline",
+      status: process.env.REPLICATE_API_TOKEN ? "API token connected" : "Not configured", detail: "External image and video model inference.",
+      model: process.env.REPLICATE_R001_MODEL ?? "Configured model", usage: replicateUsageMonth ? `${money(replicateUsageMonth)} this month` : "Usage total not connected",
+      cost: "Usage-based", launchPlan: "upgrade", launchNote: "Add spending limits and production monitoring before launch.",
+      href: "https://replicate.com/account/billing",
+    },
     {
       name: "Anthropic", purpose: "Claude creative agents",
       state: anthropicOnline ? "online" : process.env.ANTHROPIC_API_KEY ? "attention" : "offline",
@@ -230,6 +278,38 @@ export default async function AdminControlRoom() {
           ))}
         </section>
 
+        <section className="mb-10 overflow-hidden rounded-3xl border border-red-400/20 bg-[#0A0808]">
+          <div className="flex items-end justify-between gap-4 border-b border-white/10 px-6 py-5">
+            <div>
+              <p className="text-[9px] font-black tracking-[0.18em] text-red-300">PRIVATE SYSTEM ALERTS</p>
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">Provider incidents</h2>
+            </div>
+            <p className="text-[10px] text-white/30">Visible only to administrators</p>
+          </div>
+          {incidents.length === 0 ? (
+            <p className="px-6 py-6 text-xs text-white/35">No recorded provider incidents.</p>
+          ) : (
+            <div className="divide-y divide-white/10">
+              {incidents.map((incident) => (
+                <article key={incident.id} className="grid gap-3 px-6 py-5 lg:grid-cols-[170px_1fr_220px]">
+                  <div>
+                    <p className="text-[10px] font-black text-red-300">{incident.service} · {incident.status}</p>
+                    <p className="mt-1 text-[9px] text-white/30">{new Date(incident.createdAt).toLocaleString("en-GB", { timeZone: "Europe/Berlin" })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white/70">{incident.action}</p>
+                    <p className="mt-1 break-words text-[10px] leading-5 text-white/40">{incident.message}</p>
+                  </div>
+                  <div className="text-[9px] leading-4 text-white/30">
+                    <p>{incident.projectTitle ?? incident.projectId ?? "Unknown project"}</p>
+                    <p>{incident.userEmail ?? "Unknown user"}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="mb-10">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -268,16 +348,17 @@ export default async function AdminControlRoom() {
               </div>
             </div>
           </div>
-          <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0A0A0A]">
-            <div className="hidden grid-cols-[1.25fr_.8fr_.7fr_.7fr_1.5fr_1.1fr] gap-4 border-b border-white/10 px-6 py-4 text-[8px] font-black tracking-[0.15em] text-white/25 lg:grid">
-              <span>SERVICE</span><span>BILLING</span><span>MONTH</span><span>YEAR</span><span>USAGE / ALLOWANCE</span><span>REMAINING</span>
+          <div className="mt-4 overflow-hidden rounded-3xl border border-[#FFDF00]/25 bg-[#0A0A0A]">
+            <div className="hidden grid-cols-[1.2fr_.65fr_.65fr_.65fr_1.15fr_1fr_1fr] gap-4 border-b border-[#FFDF00]/20 bg-[#FFDF00]/[0.04] px-6 py-4 text-[8px] font-black tracking-[0.15em] text-white/35 lg:grid">
+              <span>SERVICE</span><span>STATUS</span><span>MONTH</span><span>YEAR</span><span>NEXT CHARGE</span><span>USAGE</span><span>LIMIT / BALANCE</span>
             </div>
             {billing.map((item) => (
-              <a key={item.name} href={item.href} target="_blank" rel="noreferrer" className="grid gap-4 border-b border-white/10 px-6 py-5 last:border-0 hover:bg-white/[0.025] lg:grid-cols-[1.25fr_.8fr_.7fr_.7fr_1.5fr_1.1fr]">
+              <a key={item.name} href={item.href} target="_blank" rel="noreferrer" className="grid gap-4 border-b border-white/10 px-6 py-5 last:border-0 hover:bg-[#FFDF00]/[0.035] lg:grid-cols-[1.2fr_.65fr_.65fr_.65fr_1.15fr_1fr_1fr]">
                 <div><p className="text-sm font-black">{item.name}</p><p className="mt-1 text-[10px] text-white/35">{item.purpose}</p></div>
-                <div><p className="text-[8px] text-white/25 lg:hidden">BILLING</p><p className="text-[10px] font-black tracking-[0.12em] text-[#FFDF00]">{item.cadence.toUpperCase()}</p><p className="mt-1 text-[8px] font-bold text-white/25">{item.source.toUpperCase()}</p></div>
+                <div><p className="text-[8px] text-white/25 lg:hidden">STATUS</p><p className={`text-[10px] font-black tracking-[0.1em] ${item.connected === false ? "text-red-400" : "text-emerald-300"}`}>{item.connected === false ? "NO KEY" : item.connected ? "CONNECTED" : item.cadence.toUpperCase()}</p><p className="mt-1 text-[8px] font-bold text-white/25">{item.source.toUpperCase()}</p></div>
                 <div><p className="text-[8px] text-white/25 lg:hidden">MONTH</p><p className="text-sm font-black">{money(item.monthlyUsd)}</p></div>
                 <div><p className="text-[8px] text-white/25 lg:hidden">YEAR</p><p className="text-sm font-black">{money(item.annualUsd)}</p></div>
+                <div><p className="text-[8px] text-white/25 lg:hidden">NEXT CHARGE</p><p className="text-[10px] font-black leading-4 text-[#FFDF00]">{item.nextCharge ?? "Not specified"}</p><p className="mt-1 text-[8px] text-white/25">{item.cadence.toUpperCase()}</p></div>
                 <div><p className="text-[10px] font-bold text-white/60">{item.consumed}</p><p className="mt-1 text-[9px] text-white/30">{item.allowance}</p></div>
                 <div><p className="text-[10px] leading-4 text-white/45">{item.remaining}</p></div>
               </a>
