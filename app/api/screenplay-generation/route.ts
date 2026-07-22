@@ -15,6 +15,7 @@ const SCREENWRITER_PROFILES: Record<string, string> = {
 };
 
 type Payload = {
+  provider?: "openai" | "anthropic";
   brief?: string;
   genre?: string;
   conversation?: Array<{ role?: string; speaker?: string; content?: string }>;
@@ -36,12 +37,15 @@ type AgentProfile = {
 
 type DialogueSituationCard = {
   scene: string;
+  scene_function: string;
   relationship: string;
   interaction_type: string;
+  emotional_movement: string;
   speaker_objectives: string;
   hidden_information: string;
   pressure: string;
   required_outcome: string;
+  minimum_turns: number;
   dialogue_needed: boolean;
 };
 
@@ -58,6 +62,50 @@ function parseDialogueSituationCards(value: string): DialogueSituationCard[] {
 }
 
 const STRUCTURE = `Write a 5-8 minute short film around one irreversible choice. Use a hook, disturbance, first decision, escalating obstacles, a loss of support, a climax choice and a brief visual consequence. Every scene must change goal, power, information, risk or relationship. Format with INT./EXT. sluglines, present-tense filmable action, uppercase character cues and dialogue without quotation marks.`;
+
+const SCENE_BOUNDARY_STANDARD = `SCENE BOUNDARY FORMAT (MANDATORY FOR DOWNSTREAM LOCATION SPLITTING):
+- One continuous place and time equals one scene. Every change of physical location or time of day starts a new scene, even when the same characters and action continue.
+- Begin every scene with exactly one standalone slugline. Use INT./EXT./INT-EXT. when writing in English, or ИНТ./НАТ./ИНТ-НАТ. when writing in Russian. Follow it with LOCATION — TIME OF DAY.
+- Put a blank line before and after every slugline. Never attach the next slugline to the final action, dialogue or generation block of the previous scene.
+- Do not prefix sluglines with Markdown markers such as # or ##. Do not number scenes with Markdown headings.
+- No action or dialogue belonging to the previous location may appear beneath the new slugline. Finish the old scene first, then write the new slugline, then only material taking place in the new location.
+- Place all GENERATION blocks for a scene beneath that scene's slugline. A generation block must never contain a second location, time jump or another scene's slugline.`;
+
+function normalizeSceneHeadings(screenplay: string) {
+  const heading = String.raw`(?:INT\.|EXT\.|INT\/EXT\.|INT-EXT\.|I\/E\.|ИНТ\.|НАТ\.|ИНТ\/НАТ\.|ИНТ-НАТ\.)`;
+  return screenplay
+    .replace(new RegExp(String.raw`^[ \t]*#{1,6}[ \t]+(${heading}[^\n]*)$`, "gmi"), "$1")
+    .replace(new RegExp(String.raw`\n[ \t]*(${heading}[^\n]*)[ \t]*\n`, "gmi"), "\n\n$1\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const DIALOGUE_STANDARD = `DIALOGUE STANDARD (MANDATORY):
+- Do not confuse concision with shortness. A substantive conversation normally needs 6-14 turns to complete pressure, resistance, adjustment and consequence. Use 3-5 turns only for a genuinely brief practical exchange. Use 1-2 turns only for interruption, refusal, shock or a final blow.
+- Before writing an exchange, construct a private causal beat chain: TRIGGER -> speaker interpretation -> tactic -> other person's specific reaction -> adjusted tactic -> irreversible result. Every reply must be caused by an exact word, action or newly learned fact in the preceding beat.
+- Give every speaker a concrete objective and a different method. They may evade, misunderstand, interrupt, bargain, test or refuse, but they may not answer an unrelated thought or speak merely to keep the conversation alive.
+- Let a thought develop when pressure requires it. Vary sentence length by character and emotional state; do not produce uniform one-line ping-pong.
+- A conversation must end because something changed: information, decision, power, risk, trust or physical action. If nothing changes, remove or rebuild the exchange.
+- Read the exchange once as literal human behaviour. Repair unexplained intimacy, information nobody acquired, unnatural cleverness, repeated meaning, generic aphorisms and reactions that no actor could motivate.`;
+
+const AI_GENERATION_STANDARD = `AI VIDEO GENERATION STANDARD (SEEDANCE-READY):
+- Apply established film grammar synthesized from Steven D. Katz's shot design and previsualization, Blain Brown's visual storytelling through space/composition/motion/POV, Christopher Bowen's continuity and shooting-for-editing principles, and Walter Murch's priority of emotion, story and audience attention at the cut. Use the principles, never imitate or quote book text.
+- Divide the entire screenplay into numbered GENERATION blocks. Every block is one independently generatable continuous clip lasting from 4 to 15 seconds inclusive.
+- Never combine a location change, time jump or separate dramatic event inside one generation. A generation MAY contain 2-3 short shots of the same continuous action in the same place and time. Seedance supports native multi-shot storytelling; use it when the shot changes clarify geography, action or a decisive detail.
+- Build compact visual syntax rather than decorative coverage: establish the spatial situation when the audience needs it, move closer when attention shifts to the character's action or reaction, and use an extreme close-up only for a story-bearing detail. Every cut must reveal new information, redirect attention or compress time. Do not repeat the same information at three shot sizes.
+- Preserve screen direction, eyelines, body position, hand continuity, props and light across internal cuts. If blocking, physical contact, several simultaneous actions or continuity become difficult, split the material into separate generations instead of overloading one prompt.
+- Choose duration from the dramatic action, not arbitrarily. If the final edit needs under 4 seconds, write GENERATE 4s / USE Ns / TRIM the remainder. Never request less than 4s or more than 15s.
+- Do not cut dialogue in the middle of a sentence or reaction. Spoken words, silence and physical response must fit naturally inside the selected duration. Continue a longer conversation across consecutive blocks while preserving eyelines, position, props, light and emotional state.
+- Each block must use this compact header and fields:
+[GEN 001 | GENERATE 8s | USE 8s]
+REFERENCES: CHARACTERS: names/IDs; LOCATION: name/ID; PROPS: only continuity-critical items.
+CONTINUITY IN: exact pose, position, eyeline, held object and emotional pressure inherited from the prior clip, or START.
+SHOTS: a concise time-coded progression. Example: 0-4s WIDE — kitchen geography, protagonist crosses to the kettle; 4-11s CLOSE — hand sets the kettle on its base; 11-15s EXTREME CLOSE-UP — thumb presses the switch, indicator lights. Use one shot when one shot tells the beat better; never add cuts merely to fill the duration.
+AUDIO / DIALOGUE: timed playable speech, sound and intentional silence that fit the duration.
+CONTINUITY OUT: exact final state needed by the next clip.
+- Treat references as identity and continuity anchors. Do not ask one reference to represent conflicting people, places or states. Reuse the same character and location references across adjacent blocks.
+- Describe visible and audible facts, not abstract emotion or editing theory. Specify subject, environment, chronological action, shot scale, motivated camera movement, light and sound. Keep the instruction short enough to remain unambiguous. Avoid contradictory camera commands and overloaded action lists.
+- Preserve a readable screenplay: keep INT./EXT. scene headings, then place the relevant GENERATION blocks beneath each heading. Number blocks sequentially across the whole film.`;
 
 const BUILT_IN_PROFILES: Record<string, AgentProfile> = {
   grisha_pravdin: { id: "grisha_pravdin", display_name: "Grisha Pravdin", role: "director", provider: "anthropic", model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6", system_context: "Direct through lived-in realism, material truth, natural light, consequential blocking and restrained sound. Reject decorative glamour and psychological explanation when concrete behaviour can carry the scene. End on a physical consequence, never a spoken moral.", retrieval: { function_tags: ["exposition", "inciting_incident", "turning_point", "climax", "resolution"], max_reference_chars: 14000 } },
@@ -165,6 +213,12 @@ export async function POST(request: Request) {
       director = BUILT_IN_PROFILES[directorId];
       writer = BUILT_IN_PROFILES[writerId];
     }
+    const selectedProvider = body.provider === "openai" ? "openai" : "anthropic";
+    const selectedModel = selectedProvider === "openai"
+      ? process.env.OPENAI_MODEL ?? "gpt-5.6-terra"
+      : process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+    director = { ...director, provider: selectedProvider, model: selectedModel };
+    writer = { ...writer, provider: selectedProvider, model: selectedModel };
 
     const approvedNotes = (body.notes ?? [])
       .filter((note) => note.accepted)
@@ -191,27 +245,27 @@ export async function POST(request: Request) {
         ? Promise.all(tags.map((functionTag) => retrieveSceneReferences(brief, selectedGenre, functionTag, 2, controller.signal)))
         : Promise.resolve([]);
     const voiceBiblePromise = complete(writer, `Create a compact VOICE BIBLE for every speaking character implied by this project. For each character define: objective, hidden intention, vocabulary, sentence length, evasion strategy, pressure behaviour, forbidden words and one speech habit. Make voices clearly distinguishable and playable by actors. Do not write screenplay scenes yet.\n\n${brief}`, controller.signal);
-    const dialoguePlanPromise = complete(writer, `Do not write dialogue or screenplay prose. Build a DIALOGUE LOGIC PLAN for every expected scene. Reject any scene whose physical or causal logic is unsupported. For each scene provide: interaction type, why the characters are physically present, why they cannot simply leave, objective and hidden intention of each speaker, knowledge ledger showing what each person knows and how they learned it, secrets, physical activity, power at start and end, concrete scene result, and a turn-by-turn simulation containing only speaker + action verb + intended effect. Every planned line must have a playable action verb such as test, evade, force, conceal, accuse or reassure. Mark continuity risks explicitly.\n\n${brief}`, controller.signal);
+    const dialoguePlanPromise = complete(writer, `Do not write dialogue or screenplay prose. Build a DIALOGUE LOGIC PLAN for every expected scene. Reject any scene whose physical or causal logic is unsupported. For each scene provide: interaction type, why the characters are physically present, why they cannot simply leave, objective and hidden intention of each speaker, knowledge ledger showing what each person knows and how they learned it, secrets, physical activity, power at start and end, concrete scene result, and a causal beat chain containing trigger -> interpretation -> tactic -> specific reaction -> adjusted tactic -> irreversible result. Then provide a turn-by-turn simulation containing only speaker + action verb + intended effect + the exact prior stimulus causing that turn. Every planned line must have a playable action verb such as test, evade, force, conceal, accuse or reassure. Substantive conversations require 6-14 planned turns; 3-5 is reserved for brief practical exchanges; 1-2 only for interruption, refusal, shock or a final blow. Mark continuity risks explicitly.\n\n${brief}`, controller.signal);
     const [referenceGroups, voiceBible, dialoguePlan] = await Promise.all([
       referenceGroupsPromise, voiceBiblePromise, dialoguePlanPromise,
     ]);
-    const situationCardsRaw = await complete(writer, `Return ONLY a JSON array describing the scenes in this project that genuinely require spoken dialogue. Do not include scenes where action, silence, a look or a practical gesture can carry the beat. Each object must contain: scene, relationship, interaction_type, speaker_objectives, hidden_information, pressure, required_outcome, dialogue_needed. Describe dramatic behaviour, not subject matter. The retrieval description must distinguish who wants what, what cannot be said directly, why the exchange happens now, and what changes. Maximum 8 objects.\n\nPROJECT:\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN:\n${dialoguePlan}`, controller.signal);
+    const situationCardsRaw = await complete(writer, `Return ONLY a JSON array describing the scenes in this project that genuinely require spoken dialogue. Do not include scenes where action, silence, a look or a practical gesture can carry the beat. Each object must contain: scene, scene_function, relationship, interaction_type, emotional_movement, speaker_objectives, hidden_information, pressure, required_outcome, minimum_turns, dialogue_needed. Describe dramatic behaviour, not subject matter. The retrieval description must distinguish who wants what, what cannot be said directly, why the exchange happens now, and what changes. Set minimum_turns to the smallest complete causal exchange: normally 6-14 turns for a substantive conversation, 3-5 for a brief practical exchange, and 1-2 only for a deliberate interruption, refusal, shock or final blow. Maximum 8 objects.\n\nPROJECT:\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN:\n${dialoguePlan}`, controller.signal);
     const situationCards = parseDialogueSituationCards(situationCardsRaw);
     const retrievedBySituation = await Promise.all(situationCards.map(async (card) => {
-      const query = `SCENE: ${card.scene}\nRELATIONSHIP: ${card.relationship}\nINTERACTION: ${card.interaction_type}\nOBJECTIVES: ${card.speaker_objectives}\nHIDDEN INFORMATION: ${card.hidden_information}\nPRESSURE: ${card.pressure}\nREQUIRED CHANGE: ${card.required_outcome}`;
+      const query = `SCENE: ${card.scene}\nSCENE FUNCTION: ${card.scene_function}\nRELATIONSHIP: ${card.relationship}\nINTERACTION: ${card.interaction_type}\nEMOTIONAL MOVEMENT: ${card.emotional_movement}\nOBJECTIVES: ${card.speaker_objectives}\nHIDDEN INFORMATION: ${card.hidden_information}\nPRESSURE: ${card.pressure}\nREQUIRED CHANGE: ${card.required_outcome}\nMINIMUM BELIEVABLE TURNS: ${card.minimum_turns}`;
       const referencesForCard = serviceUrl
         ? await (async () => {
           const response = await fetch(`${serviceUrl}/retrieve-dialogues`, {
             method: "POST",
             headers: serviceHeaders(),
-            body: JSON.stringify({ query, genre: selectedGenre, limit: 2 }),
+            body: JSON.stringify({ query, genre: selectedGenre, limit: 4 }),
             signal: controller.signal,
           });
           if (!response.ok) throw new Error("DIALOGUE REFERENCE INDEX IS UNAVAILABLE.");
           return response.json() as Promise<Array<{ text: string; metadata: Record<string, unknown> }>>;
         })()
         : vectorizeIsConfigured()
-          ? await retrieveDialogueReferences(query, selectedGenre, 2, controller.signal)
+          ? await retrieveDialogueReferences(query, selectedGenre, 4, controller.signal)
           : [];
       return { card, references: referencesForCard };
     }));
@@ -233,9 +287,10 @@ export async function POST(request: Request) {
     const draftTask = body.existingScreenplay
       ? `Rewrite the existing screenplay using the user's structured dialogue feedback. Preserve positively rated passages unless story logic requires a small adjustment. Correct negatively rated patterns throughout the entire script, not only in the quoted fragments.\n\nEXISTING SCREENPLAY:\n${body.existingScreenplay}\n\nUSER DIALOGUE FEEDBACK:\n${dialogueFeedback || "No structured feedback supplied."}`
       : "Create the complete first draft.";
-    const draft = await complete(writer, `${draftTask} Learn structural principles from references but never copy their wording, characters, dialogue, jokes, metaphors or unique situations. Follow the approved logic plan. A reference is evidence of behavioural mechanics only: how objective meets resistance, how information is withheld, how power shifts and how an exchange ends. Never force a conversation because a reference exists. First attempt every beat with physical behaviour or silence; write dialogue only when a speaker must affect another person and cannot achieve it without speaking. Every surviving line must perform its assigned action, answer or evade the previous beat, and change information, power, risk or relationship. Delete aphorisms, thematic statements, polished banter and lines written merely to sound clever. If the logic plan marks a scene unsupported, repair its premise before writing it.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nSCENE REFERENCES:\n${references}\n\nSITUATION-MATCHED DIALOGUE REFERENCES FROM THE 506-SCREENPLAY CORPUS — study behaviour and rhythm only, never copy wording:\n${dialogueExamples || "No suitable dialogue reference was found. Do not invent dialogue merely to fill the scene."}`, controller.signal);
-    const screenplay = await complete(writer, `Produce the final shooting-ready screenplay from the draft. Perform the dialogue and production checks silently inside this single pass; do not output notes, scores, audits or commentary. Enforce the voice bible and knowledge ledger. Remove stated emotion, repeated shared information, interchangeable voices, non-sequiturs, literary AI phrasing, aphorisms, instant intimacy, convenient answers and dialogue without an immediate intention. Run a silence test on every exchange: if deleting a line preserves the beat, delete it; if behaviour can carry the beat, replace the line with behaviour. Run an acquaintance test: no character may speak with more intimacy, insight or honesty than the established relationship permits. Respect this director's production method: ${director.system_context}. Keep locations, blocking, sound, performance and editorial pace filmable. No character may know information they have not acquired. Read every exchange as a chain of reactions. Output only the screenplay.\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nDRAFT:\n${draft}`, controller.signal);
-    return NextResponse.json({ screenplay, dialogue_plan: dialoguePlan, voice_bible: voiceBible, reference_count: referenceGroups.flat().length, dialogue_reference_count: dialogueReferences.length, screenwriter_profile: writer.id, director_profile: director.id });
+    const draft = await complete(writer, `${draftTask} Learn structural principles from references but never copy their wording, characters, dialogue, jokes, metaphors or unique situations. The project's genre is a tonal constraint, NOT a retrieval boundary: a thriller may use the behavioural mechanics of a drama, romance, comedy or crime scene when the relationship and scene function match better. Follow the approved logic plan. A reference is evidence of behavioural mechanics only: how objective meets resistance, how information is withheld, how power shifts and how an exchange ends. Never force a conversation because a reference exists. First attempt every beat with physical behaviour or silence; write dialogue only when a speaker must affect another person and cannot achieve it without speaking. If the logic plan marks a scene unsupported, repair its premise before writing it.\n\n${DIALOGUE_STANDARD}\n\n${AI_GENERATION_STANDARD}\n\n${SCENE_BOUNDARY_STANDARD}\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nSCENE REFERENCES:\n${references}\n\nSITUATION-MATCHED CROSS-GENRE DIALOGUE REFERENCES FROM THE SCREENPLAY CORPUS — study behaviour and rhythm only, never copy wording:\n${dialogueExamples || "No suitable dialogue reference was found. Do not invent dialogue merely to fill the scene."}`, controller.signal);
+    const rawScreenplay = await complete(writer, `Produce the final shooting-ready screenplay from the draft. Perform the dialogue and production checks silently inside this single pass; do not output notes, scores, audits or commentary. Enforce the voice bible and knowledge ledger. Remove stated emotion, repeated shared information, interchangeable voices, non-sequiturs, literary AI phrasing, aphorisms, instant intimacy, convenient answers and dialogue without an immediate intention. For every reply identify the exact preceding word, action or new fact that caused it; rewrite any reply without a cause. Each substantial conversation must reach its planned change rather than stop after two vague lines. Concision means no redundant turns, not uniformly tiny replies. Preserve enough turns for pressure, resistance, adjustment and a credible shift. No character may speak with more intimacy, insight or honesty than the established relationship permits. Respect this director's production method: ${director.system_context}. Keep locations, blocking, sound, performance and editorial pace filmable. No character may know information they have not acquired. Output only the screenplay, including its numbered generation blocks.\n\n${DIALOGUE_STANDARD}\n\n${AI_GENERATION_STANDARD}\n\n${SCENE_BOUNDARY_STANDARD}\n\n${STRUCTURE}\n\n${brief}\n\nVOICE BIBLE:\n${voiceBible}\n\nDIALOGUE LOGIC PLAN + KNOWLEDGE LEDGER:\n${dialoguePlan}\n\nDRAFT:\n${draft}`, controller.signal);
+    const screenplay = normalizeSceneHeadings(rawScreenplay);
+    return NextResponse.json({ screenplay, provider: selectedProvider, dialogue_plan: dialoguePlan, voice_bible: voiceBible, reference_count: referenceGroups.flat().length, dialogue_reference_count: dialogueReferences.length, screenwriter_profile: writer.id, director_profile: director.id });
   } catch (error) {
     const message = error instanceof Error && error.name === "AbortError"
       ? "SCREENPLAY GENERATION TIMED OUT."

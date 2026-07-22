@@ -8,6 +8,7 @@ export type StoredProject = {
   title?: string;
   notes?: string;
   startedAt?: number;
+  updatedAt?: number;
   favorite?: boolean;
   secondDirector?: unknown;
   screenwriter?: unknown;
@@ -15,8 +16,9 @@ export type StoredProject = {
   notebook?: unknown[];
   projectDocument?: unknown;
   references?: unknown[];
-  stage?: "crew" | "dialogue" | "summary" | "casting";
+  stage?: "crew" | "dialogue" | "summary" | "casting" | "costume" | "locations" | "cinematography" | "storyboard";
   libraryArchive?: boolean;
+  trashedAt?: number;
   [key: string]: unknown;
 };
 
@@ -26,6 +28,69 @@ const STORAGE_KEY = "carabasaiSessionHistory";
 export const ACTIVE_PROJECT_KEY = "carabasaiActiveProjectId";
 const CHANGE_EVENT = "carabasai-projects-change";
 const PENDING_SYNC_KEY = "carabasaiPendingProjectSync";
+let remoteWriteQueue: Promise<void> = Promise.resolve();
+
+// Signed URLs are delivery credentials, not project data. Keeping them inside
+// project_document made every refresh look like a project edit and duplicated
+// large data URLs in Postgres. Durable storagePath values are the only media
+// references persisted to the project snapshot.
+const TRANSIENT_MEDIA_KEYS = new Set(["signedUrl", "imageUrl", "downloadUrl", "previewUrl"]);
+
+function prepareProjectForRemote(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (value == null || typeof value !== "object") return value;
+  if (seen.has(value)) return undefined;
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => prepareProjectForRemote(item, seen));
+
+  const source = value as Record<string, unknown>;
+  const durableMedia = typeof source.storagePath === "string" && source.storagePath.length > 0;
+  return Object.fromEntries(Object.entries(source).flatMap(([key, item]) => {
+    if (TRANSIENT_MEDIA_KEYS.has(key)) return [];
+    if (durableMedia && ["image", "url", "dataUrl"].includes(key) && typeof item === "string") return [];
+    const prepared = prepareProjectForRemote(item, seen);
+    return prepared === undefined ? [] : [[key, prepared]];
+  }));
+}
+
+function countProjectContent(value: unknown, seen = new WeakSet<object>()): number {
+  if (value == null) return 0;
+  if (typeof value === "string") return value.length > 0 ? 1 : 0;
+  if (typeof value !== "object") return 0;
+  if (seen.has(value)) return 0;
+  seen.add(value);
+  if (Array.isArray(value)) return value.reduce((total, item) => total + 2 + countProjectContent(item, seen), 0);
+  return Object.entries(value as Record<string, unknown>).reduce((total, [key, item]) => {
+    if (["image", "signedUrl"].includes(key) && typeof item === "string") return total + 1;
+    return total + countProjectContent(item, seen);
+  }, 0);
+}
+
+function projectRichness(project: StoredProject) {
+  return countProjectContent({
+    messages: project.messages,
+    notebook: project.notebook,
+    projectDocument: project.projectDocument,
+    characterCasting: project.characterCasting,
+    generationMessages: project.generationMessages,
+    costumeDepartment: project.costumeDepartment,
+    locations: project.locations,
+    cinematography: project.cinematography,
+    storyboard: project.storyboard,
+    references: project.references,
+    coverPath: project.coverPath,
+  });
+}
+
+function localProjectWins(local: StoredProject, cloud?: StoredProject, pending?: Set<string>) {
+  if (!cloud) return Boolean(local.id && pending?.has(local.id));
+  if (local.id && pending?.has(local.id)) return true;
+  const localRevision = Number(local.updatedAt ?? 0);
+  const cloudRevision = Number(cloud.updatedAt ?? 0);
+  if (localRevision && localRevision > cloudRevision) return true;
+  // Backward compatibility for projects created before revision timestamps:
+  // a cloud snapshot must never erase cast, costumes or other generated assets.
+  return projectRichness(local) > projectRichness(cloud);
+}
 
 function isUuid(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -38,8 +103,10 @@ function projectId(project: StoredProject) {
   return next;
 }
 
-function stageOf(project: StoredProject) {
-  if (project.stage === "casting" || project.characterCasting) return "casting";
+function stageOf(project: StoredProject): "crew" | "dialogue" | "summary" | "production" {
+  // The database keeps a deliberately broad production stage for every step
+  // after the screenplay. The precise step remains in the serialized session.
+  if (["casting", "costume", "locations", "cinematography", "storyboard"].includes(project.stage ?? "") || project.characterCasting) return "production";
   if (project.projectDocument) return "summary";
   if (project.messages?.length) return "dialogue";
   return "crew";
@@ -120,7 +187,11 @@ function writePendingIds(ids: Set<string>) {
 }
 
 export function getCachedProjects<T extends StoredProject = StoredProject>() {
-  return readLocal().filter((project) => !project.libraryArchive) as T[];
+  return readLocal().filter((project) => !project.libraryArchive && !project.trashedAt) as T[];
+}
+
+export function getTrashedProjects<T extends StoredProject = StoredProject>() {
+  return readLocal().filter((project) => !project.libraryArchive && Boolean(project.trashedAt)) as T[];
 }
 
 export function getCachedProjectsIncludingLibrary<T extends StoredProject = StoredProject>() {
@@ -136,7 +207,9 @@ async function upsertRemote(projects: StoredProject[]) {
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user || projects.length === 0) return;
-  const rows = projects.map((project) => ({
+  const rows = projects.map((project) => {
+    const durableSnapshot = prepareProjectForRemote(project) as StoredProject;
+    return ({
     id: projectId(project),
     user_id: userData.user.id,
     title: String(project.title || project.notes || "Untitled project").slice(0, 240),
@@ -145,30 +218,36 @@ async function upsertRemote(projects: StoredProject[]) {
     screenwriter: project.screenwriter ?? null,
     ai_provider: localStorage.getItem("carabasaiAIProvider") === "openai" ? "openai" : "anthropic",
     stage: stageOf(project),
-    project_document: { carabasai_session: project },
+    project_document: { carabasai_session: durableSnapshot },
     favorite: Boolean(project.favorite),
     created_at: project.startedAt ? new Date(project.startedAt).toISOString() : new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }));
+    updated_at: new Date(project.updatedAt ?? Date.now()).toISOString(),
+    });
+  });
   const { error } = await supabase.from("projects").upsert(rows, { onConflict: "id" });
   if (error) throw error;
 }
 
 export function saveProjects(projects: StoredProject[]) {
-  const preservedArchives = readLocal().filter(
-    (project) => project.libraryArchive && !projects.some((item) => item.id === project.id),
+  const preservedHiddenProjects = readLocal().filter(
+    (project) => (project.libraryArchive || project.trashedAt) && !projects.some((item) => item.id === project.id),
   );
-  const projectsWithArchives = [...projects, ...preservedArchives];
+  const projectsWithArchives = [...projects, ...preservedHiddenProjects];
   const previous = new Map(readLocal().map((project) => [project.id, JSON.stringify(project)]));
   const changed = projectsWithArchives.filter((project) => {
     const id = projectId(project);
     return previous.get(id) !== JSON.stringify(project);
   });
+  const revision = Date.now();
+  changed.forEach((project) => { project.updatedAt = Math.max(Number(project.updatedAt ?? 0), revision); });
   const pending = readPendingIds();
   changed.forEach((project) => pending.add(projectId(project)));
   writePendingIds(pending);
   cacheProjects(projectsWithArchives);
-  void upsertRemote(changed)
+  remoteWriteQueue = remoteWriteQueue
+    .catch(() => undefined)
+    .then(() => upsertRemote(changed));
+  void remoteWriteQueue
     .then(() => {
       const remaining = readPendingIds();
       changed.forEach((project) => remaining.delete(projectId(project)));
@@ -206,8 +285,24 @@ export async function setProjectFavorite(id: string, favorite: boolean) {
 
 export function saveProject(project: StoredProject) {
   const id = projectId(project);
+  project.updatedAt = Date.now();
   const next = [project, ...readLocal().filter((item) => item.id !== id)].slice(0, 100);
   saveProjects(next);
+  try {
+    const activeRaw = sessionStorage.getItem("carabasaiCreativeSession");
+    const active = activeRaw ? JSON.parse(activeRaw) as StoredProject : null;
+    if (!active || active.id === id) {
+      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(project));
+    }
+  } catch {
+    sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(project));
+  }
+  return project;
+}
+
+export async function saveProjectToServer(project: StoredProject) {
+  saveProject(project);
+  await remoteWriteQueue;
   return project;
 }
 
@@ -242,70 +337,67 @@ export function renameProject(id: string, title: string) {
 }
 
 export async function deleteProject(id: string) {
+  const project = readLocal().find((item) => item.id === id);
+  if (!project) return;
+  const trashed = { ...project, trashedAt: Date.now(), favorite: false };
+  const next = readLocal().map((item) => item.id === id ? trashed : item);
+  const pending = readPendingIds();
+  pending.add(id);
+  writePendingIds(pending);
+  cacheProjects(next);
+  await upsertRemote([trashed]);
+  const remaining = readPendingIds();
+  remaining.delete(id);
+  writePendingIds(remaining);
+}
+
+export async function restoreProject(id: string) {
+  const project = readLocal().find((item) => item.id === id);
+  if (!project) return;
+  const { trashedAt: _trashedAt, ...restored } = project;
+  void _trashedAt;
+  const next = readLocal().map((item) => item.id === id ? restored : item);
+  const pending = readPendingIds();
+  pending.add(id);
+  writePendingIds(pending);
+  cacheProjects(next);
+  await upsertRemote([restored]);
+  const remaining = readPendingIds();
+  remaining.delete(id);
+  writePendingIds(remaining);
+}
+
+export async function permanentlyDeleteProject(id: string) {
   const allProjects = readLocal();
   const deletedProject = allProjects.find((project) => project.id === id);
-  const casting = deletedProject?.characterCasting as {
-    myCast?: Array<Record<string, unknown>>;
-    generationMessages?: Array<Record<string, unknown>>;
-  } | undefined;
-  const archivedCast = casting?.myCast ?? [];
-  const archivedGenerations = (casting?.generationMessages ?? []).map((message) => ({
-    ...message,
-    projectTitle: message.projectTitle ?? deletedProject?.title ?? deletedProject?.notes ?? "DELETED PROJECT",
-  }));
-  let archive = allProjects.find((project) => project.libraryArchive);
-  if (archivedCast.length || archivedGenerations.length) {
-    const archiveCasting = (archive?.characterCasting ?? {}) as {
-      myCast?: Array<Record<string, unknown>>;
-      generationMessages?: Array<Record<string, unknown>>;
-    };
-    const unique = (items: Array<Record<string, unknown>>) => {
-      const seen = new Set<string>();
-      return items.filter((item) => {
-        const candidate = item.candidate as Record<string, unknown> | undefined;
-        const key = String(item.storagePath ?? candidate?.storagePath ?? item.image ?? candidate?.image ?? item.id ?? JSON.stringify(item));
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    };
-    archive = {
-      ...(archive ?? {}),
-      id: archive?.id && isUuid(archive.id) ? archive.id : crypto.randomUUID(),
-      title: "CARABASAI ACCOUNT CAST LIBRARY",
-      notes: "",
-      startedAt: archive?.startedAt ?? Date.now(),
-      stage: "casting",
-      libraryArchive: true,
-      characterCasting: {
-        ...archiveCasting,
-        myCast: unique([...(archiveCasting.myCast ?? []), ...archivedCast]),
-        generationMessages: unique([...(archiveCasting.generationMessages ?? []), ...archivedGenerations]),
-      },
-    };
-  }
-  const nextLocal = allProjects.filter((project) => project.id !== id && !project.libraryArchive);
-  if (archive) nextLocal.push(archive);
-  cacheProjects(nextLocal);
-  const pending = readPendingIds();
-  pending.delete(id);
-  writePendingIds(pending);
-  if (archive) await upsertRemote([archive]);
-  if (!isUuid(id)) return;
+  if (!deletedProject) return;
+  const nextLocal = allProjects.filter((project) => project.id !== id);
+  if (!isUuid(id)) { cacheProjects(nextLocal); return; }
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return;
+  if (!userData.user) throw new Error("SIGN IN TO DELETE THIS PROJECT FOREVER.");
+  const storagePaths = new Set<string>();
+  collectStoragePaths(deletedProject, storagePaths);
+  if (typeof deletedProject.coverPath === "string" && deletedProject.coverPath) storagePaths.add(deletedProject.coverPath);
+  if (storagePaths.size) {
+    const { error: storageError } = await supabase.storage.from("carabasai-media").remove([...storagePaths]);
+    if (storageError) throw storageError;
+  }
   const { error } = await supabase
     .from("projects")
     .delete()
     .eq("id", id)
     .eq("user_id", userData.user.id);
   if (error) throw error;
+  cacheProjects(nextLocal);
+  const pending = readPendingIds();
+  pending.delete(id);
+  writePendingIds(pending);
 }
 
 export async function syncProjects<T extends StoredProject = StoredProject>(options?: { includeLibrary?: boolean }): Promise<T[]> {
   const local = readLocal();
-  const localResult = () => (options?.includeLibrary ? local : local.filter((project) => !project.libraryArchive)) as T[];
+  const localResult = () => (options?.includeLibrary ? local : local.filter((project) => !project.libraryArchive && !project.trashedAt)) as T[];
   let supabase;
   try { supabase = createClient(); } catch { return localResult(); }
   const { data: userData } = await supabase.auth.getUser();
@@ -315,8 +407,10 @@ export async function syncProjects<T extends StoredProject = StoredProject>(opti
   if (error) throw error;
   const remote: StoredProject[] = (data ?? []).map((row) => {
     const snapshot = row.project_document?.carabasai_session as StoredProject | undefined;
-    return snapshot ? { ...snapshot, id: row.id, favorite: row.favorite, stage: row.stage, title: normalizeAutomaticProjectTitle(snapshot.title, snapshot.notes) } : {
+    const updatedAt = new Date(row.updated_at).getTime();
+    return snapshot ? { ...snapshot, id: row.id, updatedAt, favorite: row.favorite, stage: snapshot.stage, title: normalizeAutomaticProjectTitle(snapshot.title, snapshot.notes) } : {
       id: row.id,
+      updatedAt,
       title: normalizeAutomaticProjectTitle(row.title, row.brief),
       notes: row.brief,
       startedAt: new Date(row.created_at).getTime(),
@@ -331,16 +425,24 @@ export async function syncProjects<T extends StoredProject = StoredProject>(opti
   // The database is authoritative. Only projects explicitly changed on this
   // device may be uploaded; stale local copies must never resurrect deletions.
   const pending = readPendingIds();
-  const localPending = local.filter((project) => project.id && pending.has(project.id));
-  if (localPending.length) {
-    await upsertRemote(localPending);
+  const remoteById = new Map(remote.map((project) => [project.id, project]));
+  const locallyRicher = local.filter((project) => {
+    if (!project.id) return false;
+    const cloud = remoteById.get(project.id);
+    if (!cloud) return pending.has(project.id);
+    return localProjectWins(project, cloud, pending);
+  });
+  if (locallyRicher.length) {
+    await upsertRemote(locallyRicher);
     const remaining = readPendingIds();
-    localPending.forEach((project) => project.id && remaining.delete(project.id));
+    locallyRicher.forEach((project) => project.id && remaining.delete(project.id));
     writePendingIds(remaining);
   }
-  const remoteIds = new Set(remote.map((project) => project.id));
-  const pendingNotYetRemote = localPending.filter((project) => !remoteIds.has(project.id));
-  const merged = [...remote, ...pendingNotYetRemote].sort((a, b) => {
+  const richerById = new Map(locallyRicher.map((project) => [project.id, project]));
+  const reconciledRemote = remote.map((project) => richerById.get(project.id) ?? project);
+  const remoteIds = new Set(reconciledRemote.map((project) => project.id));
+  const pendingNotYetRemote = locallyRicher.filter((project) => !remoteIds.has(project.id));
+  const merged = [...reconciledRemote, ...pendingNotYetRemote].sort((a, b) => {
     const favoriteDifference = Number(Boolean(b.favorite)) - Number(Boolean(a.favorite));
     if (favoriteDifference) return favoriteDifference;
     return Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0);
@@ -351,15 +453,19 @@ export async function syncProjects<T extends StoredProject = StoredProject>(opti
     if (activeRaw) {
       const active = JSON.parse(activeRaw) as StoredProject;
       const remoteActive = merged.find((project) => project.id === active.id);
-      if (remoteActive && active.id && !pending.has(active.id)) {
-        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(remoteActive));
+      if (remoteActive && active.id) {
+        const preferredActive = localProjectWins(active, remoteActive, pending) ? active : remoteActive;
+        if (preferredActive === active) {
+          await upsertRemote([active]);
+        }
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(preferredActive));
         window.dispatchEvent(new Event("carabasai-active-project-change"));
       }
     }
   } catch {
     // A malformed tab-only session must not block account cloud sync.
   }
-  return (options?.includeLibrary ? merged : merged.filter((project) => !project.libraryArchive)) as T[];
+  return (options?.includeLibrary ? merged : merged.filter((project) => !project.libraryArchive && !project.trashedAt)) as T[];
 }
 
 export const projectChangeEvent = CHANGE_EVENT;

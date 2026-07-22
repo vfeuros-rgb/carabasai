@@ -912,7 +912,7 @@ export default function StudioPage() {
       const response = await authenticatedFetch("/api/project-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: currentAIProvider(), brief: creativeSession.notes, notes: [], messages: [], team: { secondDirector: secondDirector.name, screenwriter: screenwriter.name }, skipDiscussion: true }),
+        body: JSON.stringify({ projectId: creativeSession.id, provider: currentAIProvider(), brief: creativeSession.notes, notes: [], messages: [], team: { secondDirector: secondDirector.name, screenwriter: screenwriter.name }, skipDiscussion: true }),
       });
       const document = await response.json();
       if (!response.ok) throw new Error(document.error ?? "COULD NOT BUILD PROJECT DOCUMENT.");

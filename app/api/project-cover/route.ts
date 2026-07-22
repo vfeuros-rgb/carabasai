@@ -1,36 +1,32 @@
 import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest } from "../../../lib/ai-access";
 import { deriveProjectTitle } from "../../../lib/project-title";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 const COVER_MODEL = "flux-2-dev-poster-9x16-v1";
 
-async function createProjectTitle(accountId: string, apiToken: string, brief: string) {
+async function createProjectTitle(brief: string) {
   try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: "Create a strong, concise working title for a film or video project. Reply with the title only, in the same language as the brief. Use 2 to 5 words. No quotation marks, punctuation, explanations, labels or line breaks.",
-            },
-            { role: "user", content: brief },
-          ],
-          max_tokens: 32,
-          temperature: 0.55,
-        }),
+    if (!process.env.ANTHROPIC_API_KEY) return "";
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
       },
-    );
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+        max_tokens: 40,
+        temperature: 0.55,
+        system: "Create a memorable film project title in the same language as the brief. Reply with the title only. Use 2-5 words and capture the central dramatic image or conflict. Never return a bare genre, format, character list, explanation, label, quotation marks or punctuation.",
+        messages: [{ role: "user", content: brief }],
+      }),
+    });
     if (!response.ok) return "";
-    const payload = await response.json() as { result?: { response?: string } };
-    return String(payload.result?.response ?? "")
+    const payload = await response.json() as { content?: Array<{ type?: string; text?: string }> };
+    return String(payload.content?.find((item) => item.type === "text")?.text ?? "")
       .replace(/["“”«»]/g, "")
       .replace(/\s+/g, " ")
       .trim()
@@ -81,7 +77,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const generatedTitle = (await createProjectTitle(accountId, apiToken, brief)) || deriveProjectTitle(brief);
+  const generatedTitle = (await createProjectTitle(brief)) || deriveProjectTitle(brief);
   const prompt = [
     "Create premium theatrical key art as an exact vertical 9:16 film poster image with absolutely no text.",
     `The image must clearly and literally depict this exact project concept: ${brief}.`,
@@ -119,10 +115,18 @@ export async function POST(request: Request) {
   const image = payload.result?.image;
   if (!image) return NextResponse.json({ error: "PROJECT COVER WAS EMPTY." }, { status: 502 });
 
+  // Models can return a near-portrait image even when dimensions are requested.
+  // Normalize the stored asset itself so every consumer receives a real 9:16 poster.
+  const poster = await sharp(Buffer.from(image, "base64"))
+    .rotate()
+    .resize(576, 1024, { fit: "cover", position: "centre" })
+    .jpeg({ quality: 92, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+
   const coverPath = `${access.user.id}/${projectId}/project-covers/cover.jpg`;
   const { error: uploadError } = await access.supabase.storage
     .from("carabasai-media")
-    .upload(coverPath, Buffer.from(image, "base64"), {
+    .upload(coverPath, poster, {
       contentType: "image/jpeg",
       cacheControl: "86400",
       upsert: true,
@@ -131,6 +135,17 @@ export async function POST(request: Request) {
     console.error("Project cover upload failed", uploadError.message);
     return NextResponse.json({ error: "PROJECT COVER COULD NOT BE SAVED." }, { status: 502 });
   }
+
+  const { error: registryError } = await access.supabase.from("media_assets").upsert({
+    project_id: projectId,
+    user_id: access.user.id,
+    path: coverPath,
+    kind: "project-cover",
+    original_name: "cover.jpg",
+    mime_type: "image/jpeg",
+    size_bytes: poster.length,
+  }, { onConflict: "path" });
+  if (registryError) console.error("Project cover media registry update failed", registryError.message);
 
   if (projectRow) {
     const { error: projectUpdateError } = await access.supabase

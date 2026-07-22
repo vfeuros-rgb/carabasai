@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { currentAIProvider } from "../AIProviderSwitch";
+import AIProviderSwitch, { currentAIProvider, type AIProvider } from "../AIProviderSwitch";
 import { useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
 import StudioSidebar from "../../components/StudioSidebar";
@@ -30,6 +30,7 @@ type ProjectSession = {
   screenplay?: string;
   screenplayLibraryAt?: number;
   screenplayDirectorNotes?: string;
+  screenplayProvider?: AIProvider;
   dialogueAudit?: string;
   dialogueFeedback?: DialogueFeedback[];
   screenplayGeneration?: { status: "generating" | "complete" | "failed"; startedAt?: number; completedAt?: number; failedAt?: number; error?: string };
@@ -347,6 +348,7 @@ export default function ProjectPage() {
     setIsGeneratingScreenplay(true);
     setError("");
     try {
+      const screenplayProvider = currentAIProvider();
       const source = `${session.notes ?? ""}\n${session.notebook?.map((note) => note.detail).join("\n") ?? ""}`.toLowerCase();
       const genre = source.match(/horror|ужас|страх|ведьм|вампир/) ? "horror"
         : source.match(/comedy|комед|юмор/) ? "comedy"
@@ -358,6 +360,7 @@ export default function ProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId: session.id,
+          provider: screenplayProvider,
           brief: session.notes,
           genre,
           conversation: session.messages ?? [],
@@ -368,8 +371,8 @@ export default function ProjectPage() {
       const data = await response.json() as { status?: string; screenplay?: string; director_notes?: string; dialogue_audit?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "SCREENPLAY COULD NOT BE GENERATED.");
       const updated: ProjectSession = data.screenplay
-        ? { ...session, screenplay: data.screenplay, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, screenplayGeneration: { status: "complete", completedAt: Date.now() } }
-        : { ...session, screenplayGeneration: { status: "generating", startedAt: Date.now() } };
+        ? { ...session, screenplay: data.screenplay, screenplayProvider, screenplayDirectorNotes: data.director_notes, dialogueAudit: data.dialogue_audit, screenplayGeneration: { status: "complete", completedAt: Date.now() } }
+        : { ...session, screenplayProvider, screenplayGeneration: { status: "generating", startedAt: Date.now() } };
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
       const history = getCachedProjects<ProjectSession>().filter((item) => item.id !== session.id);
       saveProjects([updated, ...history].slice(0, 20));
@@ -547,6 +550,7 @@ export default function ProjectPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: activeSession.id,
           provider: currentAIProvider(),
           brief: activeSession.notes,
           notes: activeSession.notebook,
@@ -594,6 +598,7 @@ export default function ProjectPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: activeSession.id,
           provider: currentAIProvider(),
           brief: activeSession.notes,
           notes: activeSession.notebook,
@@ -668,9 +673,10 @@ export default function ProjectPage() {
             )}
           </div>
           {!session.screenplay && <div className="shrink-0 border-t border-white/10 bg-[#0B0B0B] px-4 py-3 sm:px-6 sm:py-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <p className="hidden min-w-0 flex-1 text-[10px] leading-5 text-white/35 sm:block">The screenplay brief is ready for the selected screenwriter and director.</p>
               {error && <p className="min-w-0 flex-1 truncate text-[10px] text-red-300" title={error}>{error}</p>}
+              <div className="shrink-0"><AIProviderSwitch /></div>
               <button type="button" onClick={() => void createScreenplay()} disabled={isGeneratingScreenplay} className="ml-auto h-11 w-full shrink-0 rounded-full bg-[#FFDF00] px-6 text-[10px] font-black tracking-[0.12em] text-black shadow-[0_0_24px_rgba(255,223,0,0.12)] disabled:opacity-35 sm:w-auto sm:min-w-[280px]">{isGeneratingScreenplay ? "SCREENWRITER + DIRECTOR ARE WORKING..." : "CREATE SCREENPLAY"}</button>
             </div>
           </div>}

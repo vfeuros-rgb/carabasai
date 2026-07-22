@@ -75,7 +75,7 @@ Never use the words generate, generated, generation, сгенерировать,
 Never rush, apologize, use bureaucratic language or write long paragraphs.
 Keep characters as a clean casting notebook. Each description must contain only casting facts: approximate age, physical presence, distinctive face/body direction and genre-relevant contrast. Maximum 18 words. If a person has no name, use a clear role label. Do not invent extra roles unless the user adds one or it is strictly necessary. When the user supplies a casting decision, update the relevant role without deleting other roles unless explicitly asked.
 CASTING BRIEF: ${JSON.stringify(body.castingBrief ?? {})}
-SCREENPLAY FOR ONE-TIME CASTING READ: ${(body.screenplay ?? "").slice(0, 40000)}
+SCREENPLAY FOR ONE-TIME CASTING READ: ${(body.screenplay ?? "").slice(0, 4000)}
 CURRENT CAST NOTEBOOK: ${JSON.stringify(body.cast ?? [])}`;
   const history = (body.messages ?? []).slice(-8);
   const input = body.initial && history.length === 0
@@ -117,7 +117,7 @@ CURRENT CAST NOTEBOOK: ${JSON.stringify(body.cast ?? [])}`;
         messages: anthropicInput, max_tokens: 550,
         output_config: { format: { type: "json_schema", schema } },
       }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(25000),
     });
     const data = await response.json() as { error?: { message?: string }; content?: Array<{ type?: string; text?: string }>; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
     if (!response.ok) return NextResponse.json({ error: data.error?.message ?? "CASTING AGENT COULD NOT RESPOND." }, { status: response.status });

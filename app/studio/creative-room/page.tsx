@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { deriveProjectTitle } from "../../../lib/project-title";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import AIProviderSwitch, { currentAIProvider } from "../AIProviderSwitch";
 import { authenticatedFetch } from "../../../lib/authenticated-fetch";
@@ -47,6 +48,7 @@ type CreativeSession = {
   id?: string;
   startedAt?: number;
   title?: string;
+  titleGeneratedByClaude?: boolean;
   notes: string;
   secondDirector: CrewMember;
   screenwriter: CrewMember;
@@ -87,7 +89,10 @@ type NotebookNote = {
   accepted: boolean;
 };
 
-const HERO_NOTE_TITLES = new Set(["ГЕРОЙ", "ПРОТАГОНИСТ", "HERO", "PROTAGONIST"]);
+const HERO_NOTE_TITLES = new Set([
+  "ГЕРОЙ", "ГЛАВНЫЙ ГЕРОЙ", "ПРОТАГОНИСТ", "ГЛАВНЫЙ ПЕРСОНАЖ",
+  "HERO", "MAIN HERO", "PROTAGONIST", "MAIN CHARACTER",
+]);
 const IDEA_NOTE_TITLES = new Set(["ЗАМЫСЕЛ", "ИДЕЯ", "КОНЦЕПТ", "ЛОГЛАЙН", "CORE IDEA", "IDEA", "CONCEPT", "LOGLINE"]);
 
 function normalizedNoteTitle(value: string) {
@@ -213,7 +218,40 @@ export default function CreativeRoomPage() {
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const notebookScrollRef = useRef<HTMLDivElement>(null);
   const coverGenerationStarted = useRef(new Set<string>());
+  const titleGenerationStarted = useRef(new Set<string>());
   const projectDocumentTransitioning = useRef(false);
+
+  useEffect(() => {
+    setDirectorBriefOpen(false);
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!session?.id || !session.notes.trim() || session.titleGeneratedByClaude) return;
+    const automaticTitle = deriveProjectTitle(session.notes);
+    if (session.title?.trim() && session.title.trim() !== automaticTitle) return;
+    if (titleGenerationStarted.current.has(session.id)) return;
+    titleGenerationStarted.current.add(session.id);
+    void authenticatedFetch("/api/project-title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: session.id, brief: session.notes, currentTitle: session.title }),
+    }).then(async (response) => {
+      const payload = await response.json() as { title?: string; error?: string };
+      if (!response.ok || !payload.title) throw new Error(payload.error || "PROJECT TITLE COULD NOT BE GENERATED.");
+      setSession((current) => {
+        if (!current || current.id !== session.id) return current;
+        const updated = { ...current, title: payload.title, titleGeneratedByClaude: true };
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+        const projects = getCachedProjects<CreativeSession>().map((project) => project.id === updated.id ? updated : project);
+        saveProjects(projects);
+        setSessionHistory(projects);
+        return updated;
+      });
+    }).catch((titleError) => {
+      titleGenerationStarted.current.delete(session.id!);
+      console.error("Claude project title generation failed", titleError);
+    });
+  }, [session?.id, session?.notes, session?.title, session?.titleGeneratedByClaude]);
 
   useEffect(() => {
     const notebookScroller = notebookScrollRef.current;
@@ -248,19 +286,18 @@ export default function CreativeRoomPage() {
       }
 
       const coverModel = payload.coverModel ?? CURRENT_COVER_MODEL;
-      const updatedSession: CreativeSession = {
-        ...session,
-        ...(payload.title ? { title: payload.title } : {}),
-        coverPath: payload.coverPath,
-        coverModel,
-      };
-      sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updatedSession));
-      const updatedProjects = getCachedProjects<CreativeSession>().map((project) =>
-        project.id === session.id ? updatedSession : project
-      );
-      saveProjects(updatedProjects);
-      setSession(updatedSession);
-      setSessionHistory(updatedProjects);
+      setSession((current) => {
+        if (!current || current.id !== session.id) return current;
+        const updatedSession: CreativeSession = { ...current, coverPath: payload.coverPath, coverModel };
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updatedSession));
+        const cached = getCachedProjects<CreativeSession>();
+        const updatedProjects = cached.some((project) => project.id === updatedSession.id)
+          ? cached.map((project) => project.id === updatedSession.id ? updatedSession : project)
+          : [updatedSession, ...cached];
+        saveProjects(updatedProjects);
+        setSessionHistory(updatedProjects);
+        return updatedSession;
+      });
     }).catch((coverError) => {
       // The conversation remains fully usable when the image provider is
       // temporarily unavailable. A later account visit can retry the cover.
@@ -294,7 +331,7 @@ export default function CreativeRoomPage() {
       setSessionHistory([
         restoredSession,
         ...storedHistory.filter((item) => item.id !== restoredSession.id),
-      ].slice(0, 20));
+      ].slice(0, 100));
       void syncProjects<CreativeSession>().then(setSessionHistory).catch(console.error);
       const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
       if (savedWidth >= 220 && savedWidth <= 480) setHistoryWidth(savedWidth);
@@ -332,7 +369,7 @@ export default function CreativeRoomPage() {
     );
     const history = getCachedProjects<CreativeSession>()
       .filter((item) => item.id !== session.id);
-    const nextHistory = [savedSession, ...history].slice(0, 20);
+    const nextHistory = [savedSession, ...history].slice(0, 100);
     saveProjects(nextHistory);
   }, [messages, notebook, session]);
 
@@ -572,8 +609,8 @@ export default function CreativeRoomPage() {
     const acceptedNotes = notebook.filter((note) => note.accepted);
     const acceptedTitles = new Set(acceptedNotes.map((note) => normalizedNoteTitle(note.title)));
     const hasHero = [...acceptedTitles].some((title) => HERO_NOTE_TITLES.has(title));
-    const hasIdea = [...acceptedTitles].some((title) => IDEA_NOTE_TITLES.has(title));
     const hasSubstantiveBrief = session.notes.trim().replace(/\s+/g, " ").length >= 20;
+    const hasIdea = hasSubstantiveBrief || [...acceptedTitles].some((title) => IDEA_NOTE_TITLES.has(title));
     if (!hasSubstantiveBrief || acceptedNotes.length < 3 || !hasHero || !hasIdea) {
       setError("NOT ENOUGH STORY INFORMATION. DEFINE THE CORE IDEA, THE HERO AND AT LEAST ONE MORE STORY DECISION.");
       return;
@@ -583,6 +620,7 @@ export default function CreativeRoomPage() {
     setDocumentBuildFailed(false);
     try {
       const data = await requestProjectDocument({
+          projectId: session.id,
           brief: session.notes,
           messages: messages.filter((message) => !message.hidden).map(({ role, content, speaker }) => ({ role, content, speaker })),
           notes: acceptedNotes,
@@ -594,7 +632,7 @@ export default function CreativeRoomPage() {
       setSession(completedSession);
       sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(completedSession));
       const history = getCachedProjects<CreativeSession>().filter((item) => item.id !== session.id);
-      saveProjects([completedSession, ...history].slice(0, 20));
+      saveProjects([completedSession, ...history].slice(0, 100));
       router.push("/studio/project");
     } catch (documentError) {
       projectDocumentTransitioning.current = false;
@@ -639,8 +677,11 @@ export default function CreativeRoomPage() {
   const acceptedNotes = notebook.filter((note) => note.accepted);
   const acceptedNoteTitles = new Set(acceptedNotes.map((note) => normalizedNoteTitle(note.title)));
   const hasHeroDecision = [...acceptedNoteTitles].some((title) => HERO_NOTE_TITLES.has(title));
-  const hasIdeaDecision = [...acceptedNoteTitles].some((title) => IDEA_NOTE_TITLES.has(title));
   const hasSubstantiveInitialBrief = Boolean(session?.notes.trim().replace(/\s+/g, " ").length && session.notes.trim().replace(/\s+/g, " ").length >= 20);
+  // The original brief is the project's basic idea. Do not keep the transition
+  // locked merely because an agent titled the same decision FORMAT or STORY
+  // instead of using one of the exact IDEA labels.
+  const hasIdeaDecision = hasSubstantiveInitialBrief || [...acceptedNoteTitles].some((title) => IDEA_NOTE_TITLES.has(title));
   const canContinueToScreenplay = hasSubstantiveInitialBrief && acceptedNotes.length >= 3 && hasHeroDecision && hasIdeaDecision;
   const screenplayReady = Boolean(session?.screenplay);
 
@@ -680,6 +721,24 @@ export default function CreativeRoomPage() {
     <main className="min-h-screen bg-[#050505] px-4 py-5 pt-20 text-white sm:px-8 md:pl-[calc(var(--studio-sidebar-width,260px)+32px)] md:pt-5 lg:pr-12">
       <StudioSidebar />
       <WorkflowNav />
+      {isBuildingDocument && (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-label="Creating screenplay"
+        >
+          <div className="w-full max-w-sm border border-[#FFDF00]/35 bg-[#0B0B0B] px-7 py-8 text-center shadow-[0_0_80px_rgba(255,223,0,0.12)]">
+            <div className="mx-auto h-11 w-11 animate-spin rounded-full border-2 border-white/10 border-t-[#FFDF00]" />
+            <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#FFDF00]">
+              CREATING SCREENPLAY
+            </p>
+            <p className="mt-3 text-sm leading-6 text-white/50">
+              The team is turning the approved decisions into your screenplay brief. You can leave this page; the project remains saved.
+            </p>
+          </div>
+        </div>
+      )}
       {!mobileHistoryOpen && (
         <button type="button" onClick={() => setMobileMenuOpen(true)} className="hidden" aria-label="Open menu" />
       )}
@@ -878,14 +937,17 @@ export default function CreativeRoomPage() {
           </div>
 
           <section className="director-brief-panel overflow-hidden rounded-[20px] border border-white/10 bg-[#090909]">
-            <button type="button" onClick={() => setDirectorBriefOpen((current) => !current)} aria-expanded={directorBriefOpen} className="flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/45">DIRECTOR&apos;S BRIEF</p>
-                <p className="mt-1 max-w-[220px] truncate text-[9px] text-white/25">{session.notes}</p>
-              </div>
+            <button
+              type="button"
+              onClick={() => setDirectorBriefOpen((current) => !current)}
+              aria-expanded={directorBriefOpen}
+              aria-controls="director-brief-content"
+              className="flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left"
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/45">DIRECTOR&apos;S BRIEF</p>
               <span className={`flex h-7 w-7 items-center justify-center rounded-full border text-sm transition-transform ${directorBriefOpen ? "rotate-180 border-[#FFDF00]/30 text-[#FFDF00]" : "border-white/10 text-white/35"}`}>⌄</span>
             </button>
-            {directorBriefOpen && <div className="max-h-72 overflow-y-auto overscroll-contain border-t border-white/8 px-5 py-4 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
+            {directorBriefOpen && <div id="director-brief-content" className="max-h-72 overflow-y-auto overscroll-contain border-t border-white/8 px-5 py-4 [scrollbar-color:rgba(255,223,0,0.35)_transparent] [scrollbar-width:thin]">
               <p className="whitespace-pre-wrap text-xs uppercase leading-6 text-white/65">{session.notes}</p>
               {session.references.length > 0 && (
                 <div className="mt-5 border-t border-white/10 pt-4">
@@ -1025,7 +1087,12 @@ export default function CreativeRoomPage() {
                 <span>{error}</span>
                 <button
                   type="button"
-                  onClick={() => documentBuildFailed ? void buildProjectDocument() : requestAgentResponse(session, messages, enabledAgents)}
+                  onClick={() => documentBuildFailed
+                    ? void buildProjectDocument()
+                    : requestAgentResponse(session, [
+                        ...messages,
+                        { id: createId(), role: "user", content: "Continue from the approved decisions. Ask only the next essential question.", hidden: true },
+                      ], enabledAgents)}
                   className="shrink-0 rounded-full border border-red-200/30 px-4 py-2 text-[10px] font-black tracking-[0.12em] transition hover:bg-red-200 hover:text-black"
                 >
                   {documentBuildFailed ? "RETRY DOCUMENT" : "RECONNECT"}
@@ -1095,14 +1162,16 @@ export default function CreativeRoomPage() {
                   </svg>
                 </button>
                 <AIProviderSwitch />
-                {!screenplayReady && <button type="button" onClick={() => void confirmProjectDocument()} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a core idea, a hero and at least one more accepted story decision"} className="ml-auto h-8 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{session.projectDocument ? "UPDATE SCREENPLAY" : "GO TO SCREENPLAY"} →</button>}
-              <button
-                type="submit"
-                disabled={(!draft.trim() && attachments.length === 0) || isLoading}
-                className="ml-auto h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
-              >
-                SEND
-              </button>
+                <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                  {!screenplayReady && <button type="button" onClick={() => void confirmProjectDocument()} disabled={!canContinueToScreenplay || isLoading || isBuildingDocument} title={canContinueToScreenplay ? "Build the screenplay brief" : "Add a hero and at least three accepted story decisions"} className="flex h-8 items-center gap-2 rounded-full border border-[#FFDF00]/35 px-3 text-[8px] font-black uppercase text-[#FFDF00] disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/20">{isBuildingDocument && <span className="h-3 w-3 animate-spin rounded-full border border-white/15 border-t-[#FFDF00]" />}{isBuildingDocument ? "CREATING SCREENPLAY" : session.projectDocument ? "UPDATE SCREENPLAY →" : "GO TO SCREENPLAY →"}</button>}
+                  <button
+                    type="submit"
+                    disabled={(!draft.trim() && attachments.length === 0) || isLoading}
+                    className="h-8 shrink-0 rounded-full bg-[#FFDF00] px-4 text-[9px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-25"
+                  >
+                    SEND
+                  </button>
+                </div>
               </div>
             </div>
           </form>

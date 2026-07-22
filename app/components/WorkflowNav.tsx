@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ACTIVE_PROJECT_KEY, deleteProject } from "../../lib/project-store";
 import { platformConfirm } from "../../lib/platform-dialog";
 
-type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown; stage?: string; characterCasting?: unknown };
+type SessionProgress = { id?: string; title?: string; notes?: string; messages?: unknown[]; projectDocument?: unknown; stage?: string; characterCasting?: unknown; costumeDesign?: unknown; locationDesign?: unknown };
 
 export default function WorkflowNav() {
   const pathname = usePathname();
@@ -35,12 +35,14 @@ export default function WorkflowNav() {
     };
   }, [projectMenuOpen]);
 
-  const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("character-casting") ? "casting" : pathname.includes("project") ? "summary" : "";
+  const active = pathname === "/studio" || pathname === "/studio/" ? "setup" : pathname.includes("creative-room") ? "dialogue" : pathname.includes("character-casting") ? "casting" : pathname.includes("costume") ? "costume" : pathname.includes("locations") ? "locations" : pathname.includes("project") ? "summary" : "";
   const steps = [
     { id: "setup", label: "Crew setup", href: "/studio", available: true },
     { id: "dialogue", label: "Dialogue", href: "/studio/creative-room", available: Boolean(progress.messages?.length) || active === "dialogue" || active === "summary" },
     { id: "summary", label: "Screenplay", href: "/studio/project", available: Boolean(progress.projectDocument) || active === "summary" },
     { id: "casting", label: "Casting", href: "/studio/character-casting", available: Boolean(progress.characterCasting) || progress.stage === "casting" || active === "casting" },
+    { id: "costume", label: "Costume", href: "/studio/costume", available: Boolean(progress.costumeDesign) || ["costume", "locations", "cinematography", "storyboard"].includes(progress.stage ?? "") || active === "costume" },
+    { id: "locations", label: "Locations", href: "/studio/locations", available: Boolean(progress.locationDesign) || ["locations", "cinematography", "storyboard"].includes(progress.stage ?? "") || active === "locations" },
   ].filter((step) => step.available);
 
   async function removeCurrentProject() {

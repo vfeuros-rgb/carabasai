@@ -9,6 +9,7 @@ import {
   getCachedProjectsIncludingLibrary,
   projectChangeEvent,
   saveProject,
+  saveProjectToServer,
   saveProjects,
   syncProjects,
   type StoredProject,
@@ -82,6 +83,7 @@ type CastingSession = StoredProject & {
   characterCastingSpecialist?: CharacterCastingSpecialist;
   characterCasting?: CastingState;
   screenplay?: string;
+  costumeDesign?: { characters?: Record<string, unknown> };
 };
 type CastingProjectDocument = {
   logline?: string;
@@ -92,16 +94,18 @@ type ImageModelId =
   | "gemini-3.1-flash-image"
   | "gemini-3-pro-image"
   | "gemini-2.5-flash-image"
+  | "gpt-image-2"
   | "flux-r001-lora";
 
 const imageModels: Array<{
   id: ImageModelId;
   label: string;
-  provider: "flux" | "banana";
+  provider: "flux" | "banana" | "openai";
 }> = [
   { id: "gemini-3.1-flash-image", label: "NANO BANANA 2", provider: "banana" },
   { id: "gemini-3-pro-image", label: "NANO BANANA PRO", provider: "banana" },
   { id: "gemini-2.5-flash-image", label: "NANO BANANA", provider: "banana" },
+  { id: "gpt-image-2", label: "GPT IMAGE 2", provider: "openai" },
   { id: "flux-r001-lora", label: "FLUX R001 LORA", provider: "flux" },
 ];
 
@@ -182,6 +186,7 @@ function normalizeCastNotebook(members: CastMember[]): CastMember[] {
 
 export default function CharacterCastingPage() {
   const [session, setSession] = useState<CastingSession | null>(null);
+  const [serverRestored, setServerRestored] = useState(false);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [myCastOpen, setMyCastOpen] = useState(false);
   const [candidatePreviewOpen, setCandidatePreviewOpen] = useState(false);
@@ -190,7 +195,7 @@ export default function CharacterCastingPage() {
   const [selectedMyCastKey, setSelectedMyCastKey] = useState("");
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
-  const [imageProvider, setImageProvider] = useState<"flux" | "banana">("banana");
+  const [imageProvider, setImageProvider] = useState<"flux" | "banana" | "openai">("banana");
   const [imageModel, setImageModel] = useState<ImageModelId>(
     "gemini-3.1-flash-image",
   );
@@ -284,18 +289,27 @@ export default function CharacterCastingPage() {
 
   const persist = useCallback((next: CastingSession) => {
     const normalized = { ...next, stage: "casting" as const };
+    saveProject(normalized);
     sessionStorage.setItem(
       "carabasaiCreativeSession",
       JSON.stringify(normalized),
     );
-    saveProject(normalized);
     setSession(normalized);
   }, []);
 
-  const loadSession = useCallback(() => {
+  const loadSession = useCallback(async (fromServer = false) => {
     const raw = sessionStorage.getItem("carabasaiCreativeSession");
     if (!raw) return;
-    const restored = JSON.parse(raw) as CastingSession;
+    let restored = JSON.parse(raw) as CastingSession;
+    if (fromServer && restored.id) {
+      try {
+        const projects = await syncProjects<CastingSession>({ includeLibrary: true });
+        restored = projects.find((project) => project.id === restored.id) ?? restored;
+        sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(restored));
+      } catch (syncError) {
+        console.error("Casting server restore failed", syncError);
+      }
+    }
     const restoredCharacters = restored.characterCasting?.characters ?? [];
     const cleanedCharacters = normalizeCastNotebook(restoredCharacters);
     const cleaned = restored.characterCasting
@@ -329,17 +343,19 @@ export default function CharacterCastingPage() {
       imageModels.find((item) => item.id === storedImageModel) ?? imageModels[0];
     setImageModel(selectedImageModel.id);
     setImageProvider(selectedImageModel.provider);
+    setServerRestored(true);
   }, []);
 
   useEffect(() => {
-    loadSession();
-    window.addEventListener("carabasai-active-project-change", loadSession);
-    return () =>
-      window.removeEventListener(
-        "carabasai-active-project-change",
-        loadSession,
-      );
+    void loadSession(true);
   }, [loadSession]);
+
+  useEffect(() => {
+    if (!serverRestored) return;
+    const handleActiveProjectChange = () => { void loadSession(false); };
+    window.addEventListener("carabasai-active-project-change", handleActiveProjectChange);
+    return () => window.removeEventListener("carabasai-active-project-change", handleActiveProjectChange);
+  }, [loadSession, serverRestored]);
 
   const savedSpecialist = session?.characterCastingSpecialist;
   const savedSpecialistId =
@@ -357,6 +373,8 @@ export default function CharacterCastingPage() {
   );
   const activeConversation = interactionMode === "specialist" ? messages : generationMessages;
   const characters = normalizeCastNotebook(casting.characters ?? []);
+  const visualRoles = characters.filter((member) => member.isVisual !== false);
+  const castingComplete = visualRoles.length > 0 && visualRoles.every((member) => Boolean(member.image));
   const availableCastingRoles = characters.filter(
     (member) => !member.image && !member.storagePath,
   );
@@ -665,11 +683,14 @@ export default function CharacterCastingPage() {
       const response = await authenticatedFetch("/api/casting-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(65000),
+        signal: AbortSignal.timeout(35000),
         body: JSON.stringify({
           provider,
           castingBrief: buildCastingBrief(current.projectDocument),
-          screenplay: initial ? current.screenplay : undefined,
+          // Elias receives the compact casting brief, not the entire screenplay.
+          // This keeps the first read fast and avoids spending credits on scenes
+          // that have no bearing on character appearance.
+          screenplay: undefined,
           specialist,
           messages: nextMessages.map(({ role, content }) => ({
             role,
@@ -734,7 +755,7 @@ export default function CharacterCastingPage() {
   }, [session, specialist, persist]);
 
   useEffect(() => {
-    if (!session || casting.initialized) return;
+    if (!serverRestored || !session || casting.initialized) return;
     const requestKey = `${session.id}:${specialist.id}`;
     if (initialRequestRef.current === requestKey) return;
     initialRequestRef.current = requestKey;
@@ -744,7 +765,7 @@ export default function CharacterCastingPage() {
       .then(({ reply, characters: found }) => {
         setBusyMode("reply");
         return new Promise<void>((resolve) => window.setTimeout(resolve, 900)).then(() => {
-        persist({
+        const initializedSession: CastingSession = {
           ...session,
           characterCastingSpecialist: specialist,
           characterCasting: {
@@ -754,7 +775,9 @@ export default function CharacterCastingPage() {
             messages: [reply],
             characters: found,
           },
-        });
+        };
+        persist(initializedSession);
+        void saveProjectToServer(initializedSession);
         });
       })
       .catch((e: Error) => {
@@ -774,7 +797,7 @@ export default function CharacterCastingPage() {
         });
       })
       .finally(() => setBusyMode(null));
-  }, [session, casting, specialist.id, askAgent, persist]);
+  }, [serverRestored, session, casting, specialist.id, askAgent, persist]);
 
   function setProviderChoice(value: "anthropic" | "openai") {
     setProvider(value);
@@ -816,6 +839,19 @@ export default function CharacterCastingPage() {
     });
     setPreview("");
     setPortfolioOpen(false);
+  }
+
+  function retryInitialCastingRead() {
+    if (!session) return;
+    initialRequestRef.current = "";
+    setError("");
+    persist({
+      ...session,
+      characterCasting: {
+        ...casting,
+        initialized: false,
+      },
+    });
   }
 
   function attachCharacter(member: CastMember) {
@@ -941,7 +977,7 @@ export default function CharacterCastingPage() {
       role: "assistant",
       content: `Cast ${candidate.actorName ?? "this candidate"} as “${member.role || member.name}”. Who is next?`,
     };
-    persist({
+    const assignedSession: CastingSession = {
       ...session,
       characterCasting: {
         ...casting,
@@ -956,7 +992,13 @@ export default function CharacterCastingPage() {
           (item) => candidateKey(item) !== candidateKey(candidate),
         ),
       },
-    });
+    };
+    persist(assignedSession);
+    try {
+      await saveProjectToServer(assignedSession);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "THE CAST COULD NOT BE SAVED TO THE SERVER.");
+    }
   }
 
   function unassignActorFromRole(member: CastMember) {
@@ -1509,8 +1551,7 @@ export default function CharacterCastingPage() {
   if (!session)
     return (
       <main
-        className="min-h-screen bg-cover bg-center text-white"
-        style={{ backgroundImage: "linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.72)), url('/background001.png')" }}
+        className="min-h-screen bg-black text-white"
       >
         <StudioSidebar />
         <div className="flex min-h-screen items-center justify-center text-xs font-black text-[#FFDF00]">
@@ -1722,6 +1763,33 @@ export default function CharacterCastingPage() {
               </p>
             )}
           </section>
+          <button
+            type="button"
+            disabled={!castingComplete}
+            onClick={async () => {
+              if (!session || !castingComplete) return;
+              const updated: CastingSession = {
+                ...session,
+                stage: "costume",
+                costumeDesign: session.costumeDesign ?? { characters: {} },
+              };
+              setBusyMode("summary");
+              setError("");
+              try {
+                await saveProjectToServer(updated);
+                sessionStorage.setItem("carabasaiCreativeSession", JSON.stringify(updated));
+                setSession(updated);
+                window.location.assign("/studio/costume");
+              } catch (saveError) {
+                setError(saveError instanceof Error ? saveError.message : "THE CAST COULD NOT BE SAVED TO THE SERVER.");
+                setBusyMode(null);
+              }
+            }}
+            className="w-full rounded-full bg-[#FFDF00] px-5 py-3 text-[9px] font-black text-black transition disabled:cursor-not-allowed disabled:opacity-20"
+          >
+            COSTUME DEPARTMENT →
+          </button>
+          {!castingComplete && <p className="px-2 text-center text-[8px] leading-4 text-white/30">Assign an actor to every visual role to continue.</p>}
         </aside>
         <section className="flex h-[calc(100dvh-5.25rem)] min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/20 bg-white/[.065] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_28px_90px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:h-[calc(100dvh-105px)] lg:min-h-[620px] lg:rounded-[28px]">
           <header className="shrink-0 border-b border-white/10 p-3 sm:p-5">
@@ -1860,13 +1928,22 @@ export default function CharacterCastingPage() {
                         the specialist&apos;s portfolio.
                       </p>
                     </div>
-                  ) : (
+                  ) : busyMode === "summary" || busyMode === "reply" ? (
                     <div className="max-w-lg text-center">
                       <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1">
                         <Image src={specialist.portrait} alt={specialist.name} width={80} height={80} className="h-full w-full rounded-full object-cover object-top" />
                       </div>
                       <h2 className="mt-5 text-lg font-black">{busyMode === "reply" ? `${specialist.name.toUpperCase()} IS TYPING...` : `${specialist.name.toUpperCase()} IS READING YOUR SCREENPLAY.`}</h2>
                       <p className="mt-3 text-[11px] leading-6 text-white/35">{busyMode === "reply" ? "" : "He is identifying only the roles that need a face on screen."}</p>
+                    </div>
+                  ) : (
+                    <div className="max-w-lg text-center">
+                      <div className="mx-auto h-20 w-20 overflow-hidden rounded-full border border-[#FFDF00]/35 bg-[#111] p-1">
+                        <Image src={specialist.portrait} alt={specialist.name} width={80} height={80} className="h-full w-full rounded-full object-cover object-top" />
+                      </div>
+                      <h2 className="mt-5 text-lg font-black">THE ROLE LIST IS NOT READY.</h2>
+                      <p className="mt-3 text-[11px] leading-6 text-white/35">Reconnect the specialist, or add a role manually in the Character Notebook.</p>
+                      <button type="button" onClick={retryInitialCastingRead} className="mt-5 rounded-full border border-[#FFDF00]/45 px-5 py-3 text-[9px] font-black text-[#FFDF00]">RECONNECT ELIAS</button>
                     </div>
                   )}
                   {interactionMode === "specialist" && activeConversation.length > 0 && busyMode === "reply" && <div className="flex items-center gap-3 text-[9px] text-white/35"><span className="h-2 w-2 animate-pulse rounded-full bg-[#FFDF00]" />{specialist.name.toUpperCase()} IS TYPING...</div>}
@@ -2017,7 +2094,7 @@ export default function CharacterCastingPage() {
                   return (
                     <button
                       key={character.image}
-                      onClick={() => setPreview(character.image)}
+                      onClick={() => choosePortfolioCharacter(character)}
                       className={`group relative aspect-[9/16] min-h-0 overflow-hidden border-0 bg-black transition hover:z-10 hover:shadow-[0_0_34px_8px_rgba(255,223,0,.38)] hover:ring-2 hover:ring-inset hover:ring-[#FFDF00] ${selected ? "z-10 shadow-[0_0_34px_8px_rgba(255,223,0,.5)] ring-2 ring-inset ring-[#FFDF00]" : ""}`}
                     >
                       <Image
@@ -2030,13 +2107,7 @@ export default function CharacterCastingPage() {
                       <span className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/90 via-black/55 to-transparent px-2 pb-5 pt-2 text-left text-[8px] font-black uppercase tracking-[.08em] text-white">
                         {character.name}
                       </span>
-                      <span
-                        className={`absolute inset-x-0 bottom-0 z-10 bg-[#FFDF00] py-3 text-[9px] font-black text-black transition-transform duration-200 ${selected ? "translate-y-0" : "translate-y-full"}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          choosePortfolioCharacter(character);
-                        }}
-                      >
+                      <span className="absolute inset-x-0 bottom-0 z-10 translate-y-full bg-[#FFDF00] py-3 text-[9px] font-black text-black transition-transform duration-200 group-hover:translate-y-0 group-focus-visible:translate-y-0">
                         SELECT
                       </span>
                     </button>

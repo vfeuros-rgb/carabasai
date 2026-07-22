@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { PointerEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ACTIVE_PROJECT_KEY,
   deleteProject,
@@ -29,7 +29,7 @@ type SavedSession = {
 export default function StudioSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [width, setWidth] = useState(260);
+  const [collapsed, setCollapsed] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<SavedSession[]>([]);
@@ -51,8 +51,7 @@ export default function StudioSidebar() {
 
   useEffect(() => {
     const restore = () => {
-      const savedWidth = Number(localStorage.getItem("carabasaiHistoryWidth"));
-      setWidth(savedWidth >= 220 && savedWidth <= 480 ? savedWidth : 260);
+      setCollapsed(localStorage.getItem("carabasaiSidebarCollapsed") === "true");
       setHistoryOpen(
         localStorage.getItem("carabasaiSharedHistoryOpen") !== "false",
       );
@@ -96,33 +95,18 @@ export default function StudioSidebar() {
     };
   }, []);
 
-  function resize(event: PointerEvent<HTMLButtonElement>) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const startX = event.clientX;
-    const startWidth = width;
-    const move = (moveEvent: globalThis.PointerEvent) => {
-      const next = Math.min(
-        480,
-        Math.max(220, startWidth + moveEvent.clientX - startX),
-      );
-      setWidth(next);
-      localStorage.setItem("carabasaiHistoryWidth", String(next));
-    };
-    const stop = () => {
-      window.dispatchEvent(new Event("carabasai-sidebar-change"));
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop);
-  }
-
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--studio-sidebar-width",
-      `${width}px`,
+      collapsed ? "0px" : "260px",
     );
-  }, [width]);
+    window.dispatchEvent(new Event("carabasai-sidebar-layout"));
+  }, [collapsed]);
+
+  function setSidebarCollapsed(next: boolean) {
+    setCollapsed(next);
+    localStorage.setItem("carabasaiSidebarCollapsed", String(next));
+  }
 
   useEffect(() => {
     lastScrollY.current = window.scrollY;
@@ -264,9 +248,9 @@ export default function StudioSidebar() {
     const projectName = session.title || session.notes || "UNTITLED PROJECT";
     const confirmed = await platformConfirm({
       eyebrow: "PROJECT ACTION",
-      title: "DELETE PROJECT?",
-      message: `“${projectName}” will be permanently removed from your studio and every synced device.`,
-      confirmLabel: "DELETE PROJECT",
+      title: "MOVE PROJECT TO TRASH?",
+      message: `“${projectName}” will leave your workspace but can be restored from Trash with all its generations.`,
+      confirmLabel: "MOVE TO TRASH",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -291,6 +275,8 @@ export default function StudioSidebar() {
   }
 
   const workspaceActive = pathname === "/account" || pathname.startsWith("/studio/cast");
+  const imageActive = pathname === "/studio/image" || pathname.startsWith("/studio/image/");
+  const videoActive = pathname === "/studio/video" || pathname.startsWith("/studio/video/");
   const accountActive = pathname.startsWith("/account/");
   const homeActive = pathname === "/studio" || pathname === "/studio/";
   const item =
@@ -328,9 +314,9 @@ export default function StudioSidebar() {
         />
       )}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-[80] flex max-w-[88vw] flex-col border-r border-white/10 bg-[#080808] p-5 text-white transition-transform duration-200 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ width }}
+        className={`fixed bottom-0 left-0 top-0 z-[80] flex w-[260px] max-w-[88vw] flex-col border-r border-white/10 bg-[#080808] p-5 text-white transition-transform duration-200 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:-translate-x-full" : "md:translate-x-0"}`}
       >
+        <button type="button" onClick={() => setSidebarCollapsed(true)} aria-label="Hide navigation" title="Hide navigation" className="absolute right-3 top-3 hidden h-7 w-7 items-center justify-center rounded-full border border-white/10 text-sm text-white/35 hover:border-[#FFDF00]/40 hover:text-[#FFDF00] md:flex">‹</button>
         <p className="text-[11px] font-black tracking-[0.2em] text-[#FFDF00]">
           CARABASAI STUDIO
         </p>
@@ -347,6 +333,20 @@ export default function StudioSidebar() {
             className={`${item} ${workspaceActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
           >
             Workspace <span>▦</span>
+          </Link>
+          <Link
+            href="/studio/image"
+            onClick={() => setMobileOpen(false)}
+            className={`${item} ${imageActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
+          >
+            Image <span>▣</span>
+          </Link>
+          <Link
+            href="/studio/video"
+            onClick={() => setMobileOpen(false)}
+            className={`${item} ${videoActive ? "border-[#FFDF00] bg-[#FFDF00] text-black" : "border-white/10 bg-white/[0.025] text-white/65"}`}
+          >
+            Video <span>▶</span>
           </Link>
           <button
             type="button"
@@ -593,13 +593,8 @@ export default function StudioSidebar() {
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onPointerDown={resize}
-          className="absolute bottom-0 right-0 top-0 hidden w-2 cursor-col-resize touch-none hover:bg-[#FFDF00]/20 md:block"
-          aria-label="Resize navigation"
-        />
       </aside>
+      {collapsed && <button type="button" onClick={() => setSidebarCollapsed(false)} aria-label="Show navigation" title="Show navigation" className="fixed left-3 top-4 z-[90] hidden h-9 w-9 items-center justify-center rounded-full border border-[#FFDF00]/40 bg-[#080808] text-lg text-[#FFDF00] shadow-xl hover:bg-[#FFDF00] hover:text-black md:flex">›</button>}
       {deletedCurrentTitle && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-5 text-white backdrop-blur-md">
           <section
@@ -621,7 +616,7 @@ export default function StudioSidebar() {
               PROJECT DELETED.
             </h2>
             <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-white/45">
-              “{deletedCurrentTitle}” is no longer in your studio. Return to
+              “{deletedCurrentTitle}” was moved to Trash. Return to
               Studio Home and begin a new project.
             </p>
             <button

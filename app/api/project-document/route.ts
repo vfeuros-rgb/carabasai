@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiAccessError, authenticateAiRequest, consumeAiQuota } from "../../../lib/ai-access";
+import { PUBLIC_AI_ERROR, reportAdminIncident } from "../../../lib/admin-incidents";
 
 type NotebookNote = {
   author: "secondDirector" | "screenwriter";
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
     existingDocument?: unknown;
     teamDecisionQuestion?: string;
     skipDiscussion?: boolean;
+    projectId?: string;
   };
   const provider = body.provider === "openai" ? "openai" : "anthropic";
   const apiKey = provider === "openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
@@ -99,13 +101,33 @@ Ratings are internal readiness signals only. The reason must name one concrete m
       signal: AbortSignal.timeout(90000),
     });
     const data = await response.json();
-    if (!response.ok) return NextResponse.json({ error: data?.error?.message ?? "COULD NOT BUILD PROJECT DOCUMENT." }, { status: response.status });
+    if (!response.ok) {
+      await reportAdminIncident({
+        supabase: access.supabase,
+        projectId: body.projectId,
+        userEmail: access.user.email,
+        service: provider === "openai" ? "OpenAI" : "Anthropic",
+        action: "project-document",
+        status: response.status,
+        message: data?.error?.message ?? "COULD NOT BUILD PROJECT DOCUMENT.",
+      });
+      return NextResponse.json({ error: PUBLIC_AI_ERROR }, { status: 503 });
+    }
     const text = provider === "openai" ? data.output?.flatMap((item: { content?: Array<{ type?: string; text?: string }> }) => item.content ?? []).find((item: { type?: string }) => item.type === "output_text")?.text : data.content?.find((item: { type?: string }) => item.type === "text")?.text;
     if (!text) throw new Error("EMPTY_DOCUMENT");
     return NextResponse.json(JSON.parse(text));
   } catch (error) {
+    await reportAdminIncident({
+      supabase: access.supabase,
+      projectId: body.projectId,
+      userEmail: access.user.email,
+      service: provider === "openai" ? "OpenAI" : "Anthropic",
+      action: "project-document",
+      status: 502,
+      message: error instanceof Error ? error.message : "COULD NOT BUILD PROJECT DOCUMENT.",
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? `COULD NOT BUILD PROJECT DOCUMENT: ${error.message}` : "COULD NOT BUILD PROJECT DOCUMENT." },
+      { error: PUBLIC_AI_ERROR },
       { status: 502 }
     );
   }

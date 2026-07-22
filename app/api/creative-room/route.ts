@@ -257,7 +257,17 @@ PROJECT NOTEBOOK:
 - Do not create a note for a question, greeting, vague idea or unresolved list of alternatives.
 `.trim();
 
-  const input = body.messages.slice(-20).map((message) => ({
+  const recentMessages = body.messages.slice(-20);
+  // Claude does not accept an assistant message as the final turn (assistant
+  // prefill). A reconnect can happen immediately after an agent response, so
+  // add a neutral user continuation instead of replaying an invalid history.
+  if (recentMessages.at(-1)?.role === "assistant") {
+    recentMessages.push({
+      role: "user",
+      content: "Continue from the approved decisions. Ask only the next essential question.",
+    });
+  }
+  const input = recentMessages.map((message) => ({
     role: message.role,
     content:
       message.role === "user" && message.attachments?.length
@@ -340,7 +350,7 @@ PROJECT NOTEBOOK:
     const requestBody = JSON.stringify(provider === "openai" ? {
       model: process.env.OPENAI_MODEL ?? "gpt-5.6-terra",
       instructions,
-      input: body.messages.slice(-20).map((message) => ({ role: message.role, content: message.content })),
+      input: recentMessages.map((message) => ({ role: message.role, content: message.content })),
       reasoning: { effort: "low" },
       max_output_tokens: 1400,
       text: { format: { type: "json_schema", name: "creative_room_messages", strict: true, schema: anthropicRequest.output_config.format.schema } },

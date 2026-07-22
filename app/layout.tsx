@@ -22,11 +22,8 @@ export const metadata: Metadata = {
   applicationName: "Studio CARABASAI",
   description: "Carabasai AI film production studio.",
   icons: {
-    icon: [
-      { url: "/favicon-carabasai-v2.png", type: "image/png", sizes: "32x32" },
-      { url: "/carabasai-official-logo-v2.svg", type: "image/svg+xml", sizes: "any" },
-    ],
-    shortcut: [{ url: "/favicon-carabasai-v2.png", type: "image/png", sizes: "32x32" }],
+    icon: [{ url: "/logo-carabasai.svg?v=3", type: "image/svg+xml", sizes: "any" }],
+    shortcut: [{ url: "/logo-carabasai.svg?v=3", type: "image/svg+xml", sizes: "any" }],
     apple: [{ url: "/apple-touch-icon-carabasai-v2.png", type: "image/png", sizes: "180x180" }],
   },
   appleWebApp: {
@@ -41,7 +38,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const buildVersion = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || "development";
+  // CLI deployments do not necessarily have a Git SHA. VERCEL_URL is unique
+  // for every deployment, so it keeps update detection working for both Git
+  // and direct production releases.
+  const buildVersion = process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_URL || "development";
   return (
     <html
       lang="en"

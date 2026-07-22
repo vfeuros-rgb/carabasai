@@ -91,19 +91,38 @@ button:disabled,
 
 .site-shell__background {
   z-index: 0;
-  background: url("/background001.png") center / cover no-repeat;
-  transform: scale(1.02);
+  background: #000;
 }
 
 .site-shell__veil {
   z-index: 0;
-  background: rgba(0, 0, 0, 0.18);
+  background: transparent;
 }
 
 .site-shell__content {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+}
+
+/* Borderless visual system: hierarchy is carried by spacing, surfaces and
+   the yellow active state instead of thin outlines and divider rules. */
+.site-shell *,
+.site-shell *::before,
+.site-shell *::after {
+  border-color: transparent !important;
+  outline: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.site-shell [class*="divide-x"] > :not(:last-child),
+.site-shell [class*="divide-y"] > :not(:last-child) {
+  border-color: transparent !important;
+}
+
+.site-shell [class*="shadow-[inset"] {
+  box-shadow: none !important;
 }
 
 .site-shell main[class*="bg-[#050505]"] {
@@ -116,9 +135,19 @@ button:disabled,
   background-color: transparent !important;
 }
 
-/* Fluid studio canvas: uses the screen without becoming uncomfortably wide. */
+/* Fluid studio canvas: always consumes the space left by the resizable sidebar. */
 .site-shell .max-w-7xl {
-  max-width: min(var(--studio-content-max), 100%) !important;
+  max-width: 100% !important;
+}
+
+.site-shell main [class*="max-w-[1500px]"] {
+  max-width: 100% !important;
+}
+
+@media (min-width: 768px) {
+  .site-shell main {
+    transition: padding-left 160ms ease, width 160ms ease;
+  }
 }
 
 /* Studio surface hierarchy: black rooms, graphite headers and compact cards. */

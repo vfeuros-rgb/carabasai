@@ -83,13 +83,18 @@ export async function retrieveSceneReferences(
   limit = 2,
   signal?: AbortSignal,
 ) {
-  const strict = await query(queryText, {
+  const [strict, crossGenre] = await Promise.all([query(queryText, {
     kind: "scene",
     genre: genre.toLowerCase(),
     function_tag: functionTag,
-  }, limit, signal);
-  if (strict.length) return strict;
-  return query(queryText, { kind: "scene", function_tag: functionTag }, limit, signal);
+  }, 1, signal), query(queryText, { kind: "scene", function_tag: functionTag }, Math.max(limit + 2, 4), signal)]);
+  const seen = new Set<string>();
+  return [...strict, ...crossGenre].filter((item) => {
+    const key = `${item.metadata.source_file ?? ""}:${item.metadata.scene_number ?? ""}:${item.text.slice(0, 100)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
 }
 
 export async function retrieveDialogueReferences(
@@ -98,7 +103,29 @@ export async function retrieveDialogueReferences(
   limit = 6,
   signal?: AbortSignal,
 ) {
-  const strict = await query(queryText, { kind: "dialogue", genre: genre.toLowerCase() }, limit, signal);
-  if (strict.length) return strict;
-  return query(queryText, { kind: "dialogue" }, limit, signal);
+  const normalizedGenre = genre.toLowerCase();
+  const [sameGenre, allGenres] = await Promise.all([
+    query(queryText, { kind: "dialogue", genre: normalizedGenre }, Math.min(3, limit), signal),
+    query(queryText, { kind: "dialogue" }, Math.max(8, limit * 2), signal),
+  ]);
+  const substantial = (item: ScreenplayReference) => {
+    const turns = Number(item.metadata.turn_count ?? 0);
+    return !turns || turns >= 3;
+  };
+  const crossGenre = allGenres.filter((item) => String(item.metadata.genre ?? "").toLowerCase() !== normalizedGenre);
+  const ordered = [
+    ...crossGenre.filter(substantial),
+    ...sameGenre.filter(substantial),
+    ...allGenres.filter(substantial),
+    ...crossGenre,
+    ...sameGenre,
+    ...allGenres,
+  ];
+  const seen = new Set<string>();
+  return ordered.filter((item) => {
+    const key = `${item.metadata.source_file ?? ""}:${item.metadata.scene_number ?? ""}:${item.text.slice(0, 100)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
 }

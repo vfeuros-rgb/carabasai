@@ -7,6 +7,7 @@ import {
   characterCastingSpecialists,
   generateCastingActorName,
 } from "../../../lib/character-casting";
+import { generateWithOpenAiImage, type OpenAiImageReference } from "../../../lib/openai-image-generation";
 
 export const runtime = "nodejs";
 
@@ -330,6 +331,57 @@ async function generateWithNanoBanana(
   };
 }
 
+function parseOpenAiDynamicReferences(references: DynamicImageReference[] = []) {
+  return references.slice(0, NANO_BANANA_DYNAMIC_REFERENCE_LIMIT).flatMap((reference) => {
+    const mimeType = reference.mimeType?.toLowerCase();
+    const rawData = reference.data?.trim();
+    if (!rawData || !mimeType || !["image/jpeg", "image/png", "image/webp"].includes(mimeType)) return [];
+    const data = rawData.replace(/^data:image\/(?:jpeg|png|webp);base64,/i, "");
+    if (!/^[a-z0-9+/=\s]+$/i.test(data)) return [];
+    const buffer = Buffer.from(data, "base64");
+    if (!buffer.length || buffer.length > 8 * 1024 * 1024) return [];
+    return [{ data: buffer, mimeType } satisfies OpenAiImageReference];
+  });
+}
+
+async function generateWithGptImage(
+  specialist: (typeof characterCastingSpecialists)[number],
+  prompt: string,
+  aspectRatio: "9:16" | "1:1" | "16:9",
+  dynamicReferences: DynamicImageReference[] = [],
+) {
+  const selectedStyleReferences = selectStyleReferences(
+    specialist.characterExamples,
+    NANO_BANANA_STYLE_REFERENCE_COUNT,
+  );
+  const styleReferences = await Promise.all(selectedStyleReferences.map(async (example) => {
+    const filePath = path.join(process.cwd(), "public", example.image.replace(/^\//, ""));
+    const data = await readFile(filePath);
+    const extension = path.extname(filePath).toLowerCase();
+    return {
+      data,
+      mimeType: extension === ".png" ? "image/png" : extension === ".webp" ? "image/webp" : "image/jpeg",
+    } satisfies OpenAiImageReference;
+  }));
+  const dynamic = parseOpenAiDynamicReferences(dynamicReferences);
+  const generated = await generateWithOpenAiImage({
+    prompt: `${prompt}\n\nThe first ${styleReferences.length} attached images are STYLE REFERENCES ONLY. Do not copy their identities. Match their visual family, character anatomy, material treatment, studio composition and background language. Images after those are identity or project references; preserve only relevant identity and anatomy. Return one original full-body casting portrait with the whole head, hair, hands and feet visible. No text, labels, collage, border or watermark.`,
+    aspectRatio,
+    references: [...styleReferences, ...dynamic],
+  });
+  return {
+    image: generated.image,
+    generationId: crypto.randomUUID(),
+    model: generated.model,
+    referenceUsage: {
+      style: styleReferences.length,
+      dynamic: dynamic.length,
+      dynamicAvailable: NANO_BANANA_DYNAMIC_REFERENCE_LIMIT - dynamic.length,
+      total: styleReferences.length + dynamic.length,
+    },
+  };
+}
+
 export async function POST(request: Request) {
   let access;
   try {
@@ -350,7 +402,7 @@ export async function POST(request: Request) {
     specialistId?: string;
     characterBrief?: string;
     aspectRatio?: "9:16" | "1:1" | "16:9";
-    imageProvider?: "flux" | "banana";
+    imageProvider?: "flux" | "banana" | "openai";
     imageModel?: string;
     dynamicReferences?: DynamicImageReference[];
   };
@@ -383,7 +435,7 @@ export async function POST(request: Request) {
   const aspectRatio =
     body.aspectRatio ?? specialist.generation.defaultAspectRatio;
   const prompt = buildCharacterCastingPrompt(specialist, normalizedBrief);
-  const imageProvider = body.imageProvider === "flux" ? "flux" : "banana";
+  const imageProvider = body.imageProvider === "flux" ? "flux" : body.imageProvider === "openai" ? "openai" : "banana";
   let image: Buffer;
   let generationId: string;
   let model: string;
@@ -397,7 +449,26 @@ export async function POST(request: Request) {
       }
     | undefined;
 
-  if (imageProvider === "banana") {
+  if (imageProvider === "openai") {
+    try {
+      const generated = await generateWithGptImage(
+        specialist,
+        prompt,
+        aspectRatio,
+        body.dynamicReferences,
+      );
+      image = generated.image;
+      generationId = generated.generationId;
+      model = generated.model;
+      referenceUsage = generated.referenceUsage;
+    } catch (error) {
+      console.error("GPT Image character generation failed", error);
+      return NextResponse.json(
+        { error: error instanceof Error && error.message === "OPENAI_IMAGE_NOT_CONFIGURED" ? "GPT IMAGE IS NOT CONNECTED." : "CHARACTER COULD NOT BE GENERATED WITH GPT IMAGE." },
+        { status: error instanceof Error && error.message === "OPENAI_IMAGE_NOT_CONFIGURED" ? 503 : 502 },
+      );
+    }
+  } else if (imageProvider === "banana") {
     try {
       const generated = await generateWithNanoBanana(
         specialist,
@@ -572,6 +643,17 @@ STRICT FLUX BACKGROUND RULES, NEVER OVERRIDE:
       { status: 502 },
     );
   }
+
+  const { error: registryError } = await access.supabase.from("media_assets").upsert({
+    project_id: projectId,
+    user_id: access.user.id,
+    path: storagePath,
+    kind: "character",
+    original_name: `${generationId}.${imageType.extension}`,
+    mime_type: imageType.contentType,
+    size_bytes: image.length,
+  }, { onConflict: "path" });
+  if (registryError) console.error("Character media registry update failed", registryError.message);
 
   const { data: signed } = await access.supabase.storage
     .from("carabasai-media")

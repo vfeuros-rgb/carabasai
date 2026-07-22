@@ -2,6 +2,7 @@ import * as tus from "tus-js-client";
 import { createClient } from "./client";
 
 export type MediaKind = "references" | "chat-attachments" | "generated-images" | "generated-videos" | "project-covers" | "exports";
+export type MediaTransform = { width?: number; height?: number; resize?: "cover" | "contain" | "fill"; quality?: number };
 const BUCKET = "carabasai-media";
 
 function safeName(name: string) {
@@ -15,7 +16,7 @@ export async function uploadProjectMedia(file: File, projectId: string, kind: Me
   const objectPath = `${session.user.id}/${projectId}/${kind}/${crypto.randomUUID()}-${safeName(file.name)}`;
 
   if (file.size <= 6 * 1024 * 1024) {
-    const { error } = await supabase.storage.from(BUCKET).upload(objectPath, file, { contentType: file.type, upsert: false });
+    const { error } = await supabase.storage.from(BUCKET).upload(objectPath, file, { contentType: file.type, cacheControl: "31536000", upsert: false });
     if (error) throw error;
     onProgress?.(100);
   } else {
@@ -28,7 +29,7 @@ export async function uploadProjectMedia(file: File, projectId: string, kind: Me
         uploadDataDuringCreation: true,
         removeFingerprintOnSuccess: true,
         chunkSize: 6 * 1024 * 1024,
-        metadata: { bucketName: BUCKET, objectName: objectPath, contentType: file.type, cacheControl: "3600" },
+        metadata: { bucketName: BUCKET, objectName: objectPath, contentType: file.type, cacheControl: "31536000" },
         onProgress: (uploaded, total) => onProgress?.(Math.round((uploaded / total) * 100)),
         onError: reject,
         onSuccess: () => resolve(),
@@ -43,8 +44,24 @@ export async function uploadProjectMedia(file: File, projectId: string, kind: Me
   return { bucket: BUCKET, path: objectPath, name: file.name, type: file.type, size: file.size };
 }
 
-export async function createMediaUrl(path: string, expiresIn = 3600) {
-  const { data, error } = await createClient().storage.from(BUCKET).createSignedUrl(path, expiresIn);
+export async function createMediaUrl(path: string, expiresIn = 3600, transform?: MediaTransform) {
+  const { data, error } = await createClient().storage.from(BUCKET).createSignedUrl(path, expiresIn, transform ? { transform } : undefined);
   if (error) throw error;
   return data.signedUrl;
+}
+
+export async function createMediaUrls(paths: string[], expiresIn = 3600, transform?: MediaTransform) {
+  if (!paths.length) return {} as Record<string, string>;
+  if (transform) {
+    const entries: Array<[string, string]> = [];
+    for (let index = 0; index < paths.length; index += 8) {
+      const chunk = paths.slice(index, index + 8);
+      const urls = await Promise.all(chunk.map(async (path) => [path, await createMediaUrl(path, expiresIn, transform)] as [string, string]));
+      entries.push(...urls);
+    }
+    return Object.fromEntries(entries);
+  }
+  const { data, error } = await createClient().storage.from(BUCKET).createSignedUrls(paths, expiresIn);
+  if (error) throw error;
+  return Object.fromEntries(data.flatMap((item, index) => item.signedUrl ? [[paths[index], item.signedUrl]] : []));
 }
