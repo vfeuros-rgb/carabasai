@@ -20,6 +20,13 @@ type BillingItem = {
   monthlyUsd: number; annualUsd: number; allowance: string; consumed: string; remaining: string;
   source: "live" | "estimated" | "manual"; href: string; connected?: boolean; nextCharge?: string;
 };
+type AdminUser = {
+  user_id: string; email: string; full_name: string; created_at: string; email_confirmed_at: string | null;
+  last_sign_in_at: string | null; project_count: number; media_bytes: number;
+};
+type AuditLog = {
+  id: string; admin_user_id: string; action: string; target_user_id: string | null; details: Record<string, unknown>; created_at: string;
+};
 
 function envText(name: string, fallback: string) {
   const value = process.env[name]?.trim();
@@ -76,12 +83,14 @@ export default async function AdminControlRoom() {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  const [projectsResult, messagesResult, notebookResult, mediaResult, usageResult, openAiOnline, anthropicOnline, cloudflareOnline] = await Promise.all([
+  const [projectsResult, messagesResult, notebookResult, mediaResult, usageResult, usersResult, auditResult, openAiOnline, anthropicOnline, cloudflareOnline] = await Promise.all([
     supabase.from("projects").select("id,stage,ai_provider,created_at,project_document", { count: "exact" }),
     supabase.from("messages").select("id", { count: "exact", head: true }),
     supabase.from("notebook_items").select("id", { count: "exact", head: true }),
     supabase.from("media_assets").select("size_bytes,kind"),
     supabase.from("ai_usage_buckets").select("request_count").eq("bucket_kind", "day").gte("bucket_start", today.toISOString()),
+    supabase.rpc("admin_user_directory"),
+    supabase.from("admin_audit_logs").select("id,admin_user_id,action,target_user_id,details,created_at").order("created_at", { ascending: false }).limit(100),
     process.env.OPENAI_API_KEY
       ? checkEndpoint("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } })
       : Promise.resolve(false),
@@ -92,6 +101,12 @@ export default async function AdminControlRoom() {
       ? checkEndpoint("https://api.cloudflare.com/client/v4/user/tokens/verify", { headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` } })
       : Promise.resolve(false),
   ]);
+
+  const registeredUsers = (usersResult.data ?? []) as AdminUser[];
+  const auditLogs = (auditResult.data ?? []) as AuditLog[];
+  if (!usersResult.error) {
+    await supabase.rpc("record_admin_audit", { p_action: "view_user_directory", p_details: { row_count: registeredUsers.length } });
+  }
 
   const projects = projectsResult.data ?? [];
   const incidents = projects
@@ -250,6 +265,7 @@ export default async function AdminControlRoom() {
   const onlineServices = services.filter((service) => service.state === "online").length;
   const projectMaximum = Math.max(1, ...Object.values(stages));
   const stats: [string, string | number][] = [
+    ["USERS", registeredUsers.length],
     ["PROJECTS", projects.length], ["MESSAGES", messagesResult.count ?? 0], ["NOTEBOOK ITEMS", notebookResult.count ?? 0],
     ["MEDIA", bytes(totalMediaBytes)], ["AI REQUESTS TODAY", `${aiRequestsToday}/40`],
   ];
@@ -269,13 +285,40 @@ export default async function AdminControlRoom() {
           </div>
         </header>
 
-        <section className="grid gap-3 py-8 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-3 py-8 sm:grid-cols-2 xl:grid-cols-6">
           {stats.map(([label, value]) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-[#0B0B0B] p-5">
               <p className="text-[9px] font-black tracking-[0.18em] text-white/35">{label}</p>
               <p className="mt-3 text-3xl font-black tracking-[-0.04em]">{value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="mb-10 overflow-hidden rounded-3xl bg-[#0A0A0A]">
+          <div className="flex flex-col gap-3 bg-[#141414] px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+            <div><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">PRIVACY · MINIMIZED ACCESS</p><h2 className="mt-2 text-2xl font-black">Registered users</h2></div>
+            <p className="max-w-xl text-[10px] leading-4 text-white/30">Passwords, payment-card data, prompts and project content are not shown here. Directory access is recorded below.</p>
+          </div>
+          {usersResult.error ? <div className="px-6 py-8"><p className="text-sm font-bold text-orange-300">Privacy database migration is waiting to be installed.</p><p className="mt-2 text-[10px] text-white/35">The admin directory remains closed until the protected database functions are active.</p></div> : registeredUsers.length ? <div className="overflow-x-auto">
+            <div className="min-w-[1000px] divide-y divide-white/10">{registeredUsers.map((entry) => <article key={entry.user_id} className="grid grid-cols-[1.3fr_1fr_.8fr_.75fr_.65fr_.65fr] gap-5 px-6 py-4 text-[10px]">
+              <div><p className="font-black text-white/80">{entry.email}</p><p className="mt-1 text-white/25">{entry.full_name || "Name not provided"}</p></div>
+              <div><p className="text-white/25">REGISTERED</p><p className="mt-1 font-bold">{new Date(entry.created_at).toLocaleString("en-GB", { timeZone: "Europe/Berlin" })}</p></div>
+              <div><p className="text-white/25">EMAIL</p><p className={`mt-1 font-black ${entry.email_confirmed_at ? "text-emerald-300" : "text-orange-300"}`}>{entry.email_confirmed_at ? "CONFIRMED" : "PENDING"}</p></div>
+              <div><p className="text-white/25">LAST SIGN-IN</p><p className="mt-1 font-bold">{entry.last_sign_in_at ? new Date(entry.last_sign_in_at).toLocaleDateString("en-GB", { timeZone: "Europe/Berlin" }) : "Never"}</p></div>
+              <div><p className="text-white/25">PROJECTS</p><p className="mt-1 text-lg font-black">{entry.project_count}</p></div>
+              <div><p className="text-white/25">MEDIA</p><p className="mt-1 text-lg font-black">{bytes(entry.media_bytes)}</p></div>
+            </article>)}</div>
+          </div> : <p className="px-6 py-8 text-xs text-white/35">No registered users.</p>}
+        </section>
+
+        <section className="mb-10 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+          <div className="overflow-hidden rounded-3xl bg-[#0A0A0A]">
+            <div className="bg-[#141414] px-6 py-5"><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">ACCOUNTABILITY</p><h2 className="mt-2 text-2xl font-black">Administrator audit log</h2></div>
+            <div className="max-h-[420px] divide-y divide-white/10 overflow-y-auto">{auditLogs.length ? auditLogs.map((log) => <article key={log.id} className="grid gap-2 px-6 py-4 sm:grid-cols-[170px_1fr]">
+              <p className="text-[9px] text-white/30">{new Date(log.created_at).toLocaleString("en-GB", { timeZone: "Europe/Berlin" })}</p><div><p className="text-[10px] font-black text-white/75">{log.action.replaceAll("_", " ").toUpperCase()}</p><p className="mt-1 break-all text-[9px] text-white/25">ADMIN {log.admin_user_id}{log.target_user_id ? ` · TARGET ${log.target_user_id}` : ""}</p></div>
+            </article>) : <p className="px-6 py-8 text-xs text-white/35">No administrator actions recorded yet.</p>}</div>
+          </div>
+          <div className="rounded-3xl bg-[#0A0A0A] p-6"><p className="text-[9px] font-black tracking-[0.18em] text-[#FFDF00]">RETENTION</p><h2 className="mt-2 text-xl font-black">Data lifecycle</h2><div className="mt-6 space-y-4 text-[10px] leading-5 text-white/40"><p><b className="text-white/70">ACTIVE ACCOUNTS</b><br/>Kept while the service is used.</p><p><b className="text-white/70">ACCOUNT DELETION</b><br/>Database rows and owned media are removed on request.</p><p><b className="text-white/70">ADMIN AUDIT</b><br/>180 days, then eligible for pruning.</p><p><b className="text-white/70">BILLING RECORDS</b><br/>Retained as required by tax and accounting law.</p></div></div>
         </section>
 
         <section className="mb-10 overflow-hidden rounded-3xl border border-red-400/20 bg-[#0A0808]">
@@ -408,6 +451,12 @@ export default async function AdminControlRoom() {
                   return <div key={stage}><div className="mb-2 flex justify-between text-[10px] font-black tracking-[0.12em]"><span className="text-white/45">{stage.toUpperCase()}</span><span>{count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#FFDF00]" style={{ width: `${(count / projectMaximum) * 100}%` }} /></div></div>;
                 })}
               </div>
+            </section>
+            <section className="rounded-3xl bg-[#0A0A0A] p-6">
+              <p className="text-[9px] font-black tracking-[0.17em] text-[#FFDF00]">DATA PROCESSING AGREEMENTS</p>
+              <h2 className="mt-2 text-xl font-black">DPA register</h2>
+              <p className="mt-3 text-xs leading-5 text-white/40">Technical safeguards are active. Provider contracts and transfer terms must be accepted by the account owner in each provider console.</p>
+              <div className="mt-5 divide-y divide-white/10">{["Supabase", "Vercel", "Cloudflare", "Anthropic", "OpenAI", "Google", "BytePlus"].map((provider) => <div key={provider} className="flex items-center justify-between gap-4 py-3 text-[10px]"><span className="font-bold text-white/65">{provider}</span><span className="font-black text-orange-300">OWNER REVIEW</span></div>)}</div>
             </section>
             <section className="rounded-3xl border border-[#FFDF00]/20 bg-[#FFDF00]/[0.035] p-6">
               <p className="text-[9px] font-black tracking-[0.17em] text-[#FFDF00]">FINANCIAL VISIBILITY</p>
