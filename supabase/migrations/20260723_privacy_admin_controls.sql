@@ -96,8 +96,8 @@ begin
   return query
   select
     u.id,
-    coalesce(u.email, ''),
-    coalesce(l.full_name, ''),
+    coalesce(u.email, '')::text,
+    coalesce(l.full_name, '')::text,
     u.created_at,
     u.email_confirmed_at,
     u.last_sign_in_at,
